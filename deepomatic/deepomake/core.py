@@ -411,7 +411,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         return
 
     if dmake_command == "deploy" and common.is_local:
-        r = input("Carefull ! Are you sure you want to do that ? [Y/n] ")
+        r = common.read_input("Carefull ! Are you sure you want to do that ? [Y/n] ")
         if r.lower() != 'y' and r != "":
             print('Aborting')
             sys.exit(0)
@@ -500,7 +500,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         for i in to_delete:
             del deps[i]
 
-    is_app_only = auto_completed_app.find('/') < 0
+    is_app_only = auto_completed_app is None or auto_completed_app.find('/') < 0
     if dmake_command == "run" and is_app_only:
         common.options.dependencies = True
 

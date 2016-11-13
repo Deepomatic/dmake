@@ -46,9 +46,9 @@ def join_without_slash(*args):
 ###############################################################################
 
 if sys.version_info >= (3,0):
-    from deepomatic.deepomake.python_3x import is_string
+    from deepomatic.deepomake.python_3x import is_string, read_input
 else:
-    from deepomatic.deepomake.python_2x import is_string
+    from deepomatic.deepomake.python_2x import is_string, read_input
 
 ###############################################################################
 

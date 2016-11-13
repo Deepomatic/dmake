@@ -18,3 +18,6 @@ class BaseYAML2PipelineSerializer(object, metaclass = MetaYAML2PipelineSerialize
 
 def is_string(x):
     return isinstance(x, str)
+
+def read_input(msg):
+    return input(msg + ' ')

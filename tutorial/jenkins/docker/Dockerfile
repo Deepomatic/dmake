@@ -4,7 +4,7 @@ MAINTAINER Vincent Delaitre <vincent@deepomatic.com>
 USER root
 
 # Install libs
-RUN apt-get update && apt-get --no-install-recommends -y install python3 python3-pip
+RUN apt-get update && apt-get --no-install-recommends -y install python-pip
 
 # Install docker client
 RUN cd /tmp && wget -O docker.tgz https://get.docker.com/builds/Linux/x86_64/docker-1.12.2.tgz && tar -zxvf docker.tgz && cp docker/docker /usr/local/bin/ && rm -rf /tmp/*
@@ -19,7 +19,7 @@ ENV DMAKE_ON_BUILD_SERVER 1
 ENV DMAKE_SSH_KEY         ""
 
 # Clone DMake
-RUN git clone -b doc https://github.com/Deepomatic/deepomake.git $DMAKE_PATH && pip3 install -r $DMAKE_PATH/requirements.txt
+RUN git clone https://github.com/Deepomatic/deepomake.git $DMAKE_PATH && pip install -r $DMAKE_PATH/requirements.txt
 
 # Add DMake to path
 ENV PATH                  $PATH:$DMAKE_PATH/deepomatic/deepomake:$DMAKE_PATH/deepomatic/deepomake/utils
