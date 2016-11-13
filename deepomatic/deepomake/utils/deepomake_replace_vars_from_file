@@ -1,0 +1,28 @@
+#!/usr/bin/python
+#
+# Usage:
+# deepomake_replace_vars_from_file VAR_NAME var_file input_file [output_file]
+#
+# Result:
+# Replace all ${VAR_NAME} schemes by their value in the environment.
+# If output_file is not defined then it prints to stdout
+
+import os
+import sys
+
+if len(sys.argv) < 4:
+    print "Usage: deepomake_replace_vars_from_file VAR_NAME var_file input_file [output_file]"
+    sys.exit(1)
+
+var_name   = sys.argv[1]
+var_file   = sys.argv[2]
+input_file = sys.argv[3]
+
+with open(var_file, 'r') as f:
+    os.environ[var_name] = f.read()
+
+if len(sys.argv) == 4:
+    os.system("deepomake_replace_vars %s" % input_file)
+else:
+    output_file = sys.argv[4]
+    os.system("deepomake_replace_vars %s %s" % (input_file, output_file))

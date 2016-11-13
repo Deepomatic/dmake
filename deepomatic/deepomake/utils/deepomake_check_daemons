@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# Usage:
+# deepomake_check_daemons FILTER_TYPE [ARGS...]
+#
+# Result:
+# Run a docker daemon and save its ID in the list of containers to remove and return the container ID
+
+if [ $# -lt 1 ]; then
+    deepomake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+set -e
+
+FILTER_TYPE=$1
+shift 1
+
+for FILTER in "$@"; do
+    if [ `docker ps --filter ${FILTER_TYPE}=${FILTER} | sed '1d' | wc -l` = 0 ]; then
+        echo "Daemon ${FILTER} quit unexpectedly. Here are the logs:"
+        docker logs ${FILTER}
+        exit 1
+    fi
+done
+

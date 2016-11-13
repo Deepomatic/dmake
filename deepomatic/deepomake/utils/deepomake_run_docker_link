@@ -1,0 +1,66 @@
+#!/bin/bash
+#
+# Usage:
+# deepomake_run_docker_link APP_NAME IMAGE_NAME LINK_NAME OPTIONS
+#
+# Result:
+# Run a docker link and cache the result (call deepomake_return_docker_links to export the docker options)
+
+if [ $# -ne 4 ]; then
+    deepomake_fail "$0: Missing arguments"
+    exit 1
+fi
+
+if [ -z "${DMAKE_TMP_DIR}" ]; then
+    deepomake_fail "Missing environment variable DMAKE_TMP_DIR"
+    exit 1
+fi
+
+set -e
+
+APP_NAME=$1
+IMAGE_NAME=$2
+LINK_NAME=$3
+OPTIONS=$4
+
+CACHE_DIR="${DMAKE_TMP_DIR}/links/${APP_NAME}"
+LINK_FILE="${CACHE_DIR}/${LINK_NAME}.link"
+NAME_FILE="${CACHE_DIR}/${LINK_NAME}.name"
+OPT_FILE="${CACHE_DIR}/${LINK_NAME}.conf"
+OPT_STR="${IMAGE_NAME} ${OPTIONS}"
+
+mkdir -p ${CACHE_DIR}
+
+BASE_NAME=${REPO}.${BRANCH}.${BUILD}.${APP_NAME}.${LINK_NAME}
+
+COUNT=0
+while [ 1 = 1 ]; do
+    CONTAINER_NAME=$BASE_NAME.$COUNT
+    if [ `docker ps -a -f name=$CONTAINER_NAME | wc -l | sed "s/ *//"` = "1" ]; then # There is a header line
+        break
+    fi
+    COUNT=$(($COUNT+1))
+done
+
+if [ -z "${CONTAINER_ID}" ]; then
+    docker pull ${IMAGE_NAME} 2> /dev/null || :
+    CONTAINER_ID=$(deepomake_run_docker_daemon "" "${CONTAINER_NAME}" ${OPTIONS} ${VOLUMES} -i ${IMAGE_NAME})
+    while [ 1 = 1 ]; do
+        if [ `docker ps -f id=$CONTAINER_ID -f status=running | wc -l` -gt "0" ]; then
+            break
+        fi
+        if [ `docker ps -a -f id=$CONTAINER_ID -f status=exited | wc -l` -gt "0" ]; then
+            echo "Link ${LINK_NAME} exited"
+            exit 1
+        fi
+        if [ `docker ps -a -f id=$CONTAINER_ID -f status=restarting | wc -l` -gt "0" ]; then
+            echo "Link ${LINK_NAME} is restarting"
+            exit 1
+        fi
+        sleep 1
+    done
+fi
+
+echo ${OPT_STR} > ${OPT_FILE}
+echo "--link ${CONTAINER_ID}:${LINK_NAME}" > ${LINK_FILE}
+echo "${CONTAINER_NAME}" > ${NAME_FILE}

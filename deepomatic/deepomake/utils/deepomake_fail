@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+# Usage:
+# deepomake_fail "Some error message"
+#
+# Result:
+# Will display the error message and fail
+
+set -e
+(>&2 echo -e "$1")
+exit 1

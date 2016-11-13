@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+# Usage:
+# MD5=$(deepomake_copy_file source/file target/file)
+#
+# Result:
+# Copy a file to the given destination and creates the directories if necessary.
+# Returns the file's MD5.
+
+if [ $# -lt 2 ]; then
+    deepomake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+if [ ! -f "$1" ]; then
+    deepomake_fail "$0: File $1 does not exist."
+    echo "exit 1"
+    exit 1
+fi
+
+set -e
+
+SOURCE_FILE=$1
+TARGET_FILE=$2
+mkdir -p $(dirname ${TARGET_FILE})
+cp ${SOURCE_FILE} ${TARGET_FILE}
+
+deepomake_md5 ${TARGET_FILE}

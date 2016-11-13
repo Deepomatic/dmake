@@ -1,0 +1,83 @@
+#!/usr/bin/env python
+
+import sys, os
+import argparse
+import deepomatic.deepomake.core as core
+import deepomatic.deepomake.common as common
+from   deepomatic.deepomake.common import DMakeException
+
+def print_help():
+    print("Syntax:")
+    print("dmake command [options]\n")
+    print("Use \"dmake help\" to see this help and \"dmake 'command' -h\" to see help about a specific command.\n")
+    print("Available commands are:")
+    print("- test:   Launch tests for the whole repo or, if specified, an app or one of its services.")
+    print("- run:    Launch the application or only one of its services.")
+    print("- stop:   Stop the containers lauched with 'dmake run'.")
+    print("- shell:  Run a shell session withing a docker container with the environment set up for a given service.")
+    print("- deploy: Deploy specified apps and services.")
+    sys.exit(1)
+
+def check_is_git_repo():
+    try:
+        common.run_shell_command('git rev-parse --abbrev-ref HEAD')
+        return True
+    except common.ShellError as e:
+        common.logger.error("Current directory is not a Git repository:\n%s" % str(e))
+        return False
+
+# Check args
+if len(sys.argv) >= 2:
+    command = sys.argv[1]
+else:
+    print_help()
+
+if command == "help":
+    print_help()
+elif command not in ["test", "run", "stop", "shell", "deploy"]:
+    print_help()
+
+# Make sure we are in a repo
+if not check_is_git_repo():
+    sys.exit(1)
+
+# Find root
+root_dir = os.getenv('PWD')
+sub_dir = ''
+while True:
+    if os.path.isdir('.git'):
+        break
+    else:
+        sub_dir = os.path.join(os.path.basename(root_dir), sub_dir)
+        root_dir = os.path.normpath(os.path.join(root_dir, '..'))
+        if root_dir.startswith('..'):
+            common.logger.error("Could no find '.git' directory.")
+            sys.exit(1)
+        os.chdir('..')
+sub_dir = os.path.normpath(sub_dir)
+assert(os.path.isdir(sub_dir))
+if sub_dir == '.':
+    sub_dir = '' # Need to get rid of the leading '.' to unify behaviour
+
+# Parse command args
+try:
+    sys.argv.pop(0)
+    parser = argparse.ArgumentParser(prog='dmake %s' % command)
+    if command in ["test", "deploy"]:
+        parser.add_argument("app", nargs='?', help="Apply command to the full repository or, if specified, to the app/service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
+        app_args = 'app'
+    elif command in ["run", "stop"]:
+        parser.add_argument("app", help="Run an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
+        app_args = 'app'
+    elif command in ["shell"]:
+        parser.add_argument("service", help="Run a shell session withing the docker base image for the given service. You may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
+        app_args = 'service'
+    if command in ["shell", "run"]:
+        parser.add_argument("-d", "--dependencies", required = False, default=False, action="store_true", help="By default, the service is launched as a standalone. If this flag is specified, the dependancies of the service and links specified in the test config as run as well.")
+    options = parser.parse_args()
+    if command in ["test", "deploy"]:
+        options.dependencies = True
+    app = getattr(options, app_args)
+    core.make(root_dir, sub_dir, command, app, options)
+except DMakeException as e:
+    print('ERROR: ' + str(e))

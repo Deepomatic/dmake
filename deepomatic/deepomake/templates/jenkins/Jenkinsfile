@@ -1,0 +1,7 @@
+node {
+    checkout scm
+    sshagent (credentials: ['dmake-ssh']) {
+        sh 'dmake deploy'
+    }
+    load 'DMakefile'
+}()

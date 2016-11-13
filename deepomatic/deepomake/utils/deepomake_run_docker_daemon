@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+# Usage:
+# ID=$(deepomake_run_docker_daemon SERVICE_NAME NAME ARGS...)
+#
+# Result:
+# Run a docker daemon and save its ID in the list of containers to remove and return the container ID
+
+if [ $# -lt 2 ]; then
+    deepomake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+if [ -z "${DMAKE_TMP_DIR}" ]; then
+    deepomake_fail "Missing environment variable DMAKE_TMP_DIR"
+    exit 1
+fi
+
+set -e
+
+SERVICE_NAME=$1
+NAME=$2
+shift 2
+
+CONTAINER_ID=`deepomake_run_docker "" "${NAME}" -d $*`
+while [ 1 = 1 ]; do
+    if [ `docker ps -f id=$CONTAINER_ID -f status=running | wc -l` -gt "0" ]; then
+        break
+    fi
+    if [ `docker ps -a -f id=$CONTAINER_ID -f status=exited | wc -l` -gt "0" ]; then
+        echo "Link ${LINK_NAME} exited"
+        exit 1
+    fi
+    if [ `docker ps -a -f id=$CONTAINER_ID -f status=restarting | wc -l` -gt "0" ]; then
+        echo "Link ${LINK_NAME} is restarting"
+        exit 1
+    fi
+    sleep 1
+done
+
+if [ ! -z "${SERVICE_NAME}" ]; then
+    echo "${CONTAINER_ID} ${SERVICE_NAME}" >> ${DMAKE_TMP_DIR}/daemon_ids.txt
+fi
+
+echo $CONTAINER_ID

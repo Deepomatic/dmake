@@ -1,0 +1,12 @@
+/var/log/deepomatic/*.log {
+  errors dev@deepomatic.com
+  daily
+  rotate 21
+  size 2G
+  compress
+  delaycompress
+  missingok
+  notifempty
+  create 644 root root
+  copytruncate
+}

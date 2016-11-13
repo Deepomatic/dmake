@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# Usage:
+# deepomake_deploy_ssh TMP_DIR USER HOST SSH_PORT
+
+# Result:
+# Will deploy on a server via SSH
+
+if [ $# -ne 4 ]; then
+    deepomake_fail "$0: Wrong arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+set -e
+
+TMP_DIR=$1
+USER=$2
+HOST=$3
+SSH_PORT=$4
+
+cd ${TMP_DIR}
+
+# Start script
+chmod +x start_app.sh
+
+# Zip and upload script
+rm -f ${TMP_DIR}/deploy.zip
+zip -q -r ${TMP_DIR}/deploy.zip . -x .git\* \*CMakeFiles\* \*node_modules\* \*bower_components\*
+
+# Copy to server
+echo "Running: scp -P ${SSH_PORT} -o StrictHostKeyChecking=no ${TMP_DIR}/deploy.zip ${USER}@${HOST}:/tmp/deploy.zip"
+scp -P ${SSH_PORT} -o StrictHostKeyChecking=no ${TMP_DIR}/deploy.zip ${USER}@${HOST}:/tmp/deploy.zip
+
+CMD=`cat ${TMP_DIR}/start_cmd.sh`
+echo "Running: ssh -p ${SSH_PORT} -tt -o StrictHostKeyChecking=no ${USER}@${HOST} \"$CMD\""
+ssh -p ${SSH_PORT} -tt -o StrictHostKeyChecking=no ${USER}@${HOST} "$CMD"
+

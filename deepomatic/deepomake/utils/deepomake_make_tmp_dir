@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# Usage:
+# TMP=$(deepomake_make_tmp_dir)
+#
+# Result:
+# Create a fresh temporary directory and returns its path
+
+set -e
+
+while [ 1 ]; do
+    # Trailing slash allows to have correct local path when DMAKE_TMP_DIR is not defined
+    TMP=dmake_tmp_`date +%s%N`_$RANDOM/
+    if [ -z "${DMAKE_TMP_DIR}" ]; then
+        TMP=/tmp/$TMP
+    else
+        TMP=${DMAKE_TMP_DIR}$TMP
+    fi
+    if [ ! -d $TMP ]; then
+        mkdir -p $TMP
+        echo $TMP
+        if [ ! -z "${DMAKE_TMP_DIR}" ]; then
+            echo $TMP >> ${DMAKE_TMP_DIR}/files_to_remove.txt
+        fi
+        exit 0
+    fi
+done

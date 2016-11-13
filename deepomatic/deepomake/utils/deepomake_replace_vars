@@ -1,0 +1,51 @@
+#!/usr/bin/python
+#
+# Usage:
+# deepomake_replace_vars [--no-fail] input_file [output_file]
+#
+# Result:
+# Replace all ${ENV} schemes by their value in the environment.
+# If '--no-fail' is set, unknown environnement variables are replaced by nothing.
+# If output_file is not defined then it prints to stdout
+
+import re
+import os
+import sys
+
+if len(sys.argv) < 2 or (sys.argv[1] == '--no-fail' and len(sys.argv) < 3):
+    print "Usage: deepomake_replace_vars [--no-fail] input_file [output_file]"
+    sys.exit(1)
+
+if sys.argv[1] == '--no-fail':
+    no_fail = True
+    input_file = sys.argv[2]
+    if len(sys.argv) == 3:
+        output_file = None
+    else:
+        output_file = sys.argv[3]
+else:
+    no_fail = False
+    input_file = sys.argv[1]
+    if len(sys.argv) == 2:
+        output_file = None
+    else:
+        output_file = sys.argv[2]
+
+data=open(input_file).read()
+
+lvars = re.findall('\${([A-Za-z\-_]+)}', data)
+for var in lvars:
+    if var in os.environ:
+        value = os.environ[var]
+    else:
+        if no_fail:
+            value = ""
+        else:
+            raise Exception("When replacing variables in file '%s', I could not find the following variable: %s" % (input_file, var))
+    data = data.replace("${%s}" % var, value)
+
+if output_file is None or output_file == '-':
+    print data
+else:
+    with open(output_file, 'w') as f:
+        f.write(data)

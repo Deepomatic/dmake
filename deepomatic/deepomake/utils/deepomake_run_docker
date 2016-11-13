@@ -1,0 +1,51 @@
+#!/bin/bash
+#
+# Usage:
+# deepomake_run_docker TMP_DIR NAME ARGS...
+#
+# Result:
+# Run a docker and save its name in the list of containers. If name is empty, it will generate one
+# If NAME is non empty, it will be named this way.
+# If TMP_DIR is specified, the container entry will be recorded in this directory for further suppression
+
+if [ $# -lt 2 ]; then
+    deepomake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+if [ -z "${DMAKE_TMP_DIR}" ]; then
+    deepomake_fail "Missing environment variable DMAKE_TMP_DIR"
+    echo "exit 1"
+    exit 1
+fi
+
+set -e
+
+TMP_DIR=$1
+NAME=$2
+shift 2
+
+if [ -z "${NAME}" ]; then
+    if [ ! -z "${BUILD}" ]; then
+        PREFIXED_BUILD=".${BUILD}"
+    fi
+
+    BASE_NAME="${REPO}.${BRANCH}${PREFIXED_BUILD}.tmp"
+
+    while [ 1 = 1 ]; do
+        NAME=$BASE_NAME.$RANDOM
+        if [ `docker ps -a -f name=$NAME | wc -l` = "1" ]; then # There is a header line
+            break
+        fi
+    done
+fi
+
+echo ${NAME} >> ${DMAKE_TMP_DIR}/containers_to_remove.txt
+if [ ! -z "${TMP_DIR}" ]; then
+    echo ${NAME} >> ${TMP_DIR}/containers_to_remove.txt
+fi
+
+docker run --name ${NAME} $*
+
+

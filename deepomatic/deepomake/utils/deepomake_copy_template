@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+# Usage:
+# MD5=$(deepomake_copy_template path/relative/to/ressources/templates/file target/file)
+#
+# Result:
+# Will copy the template to the target while replacing the variable by
+# their environment value. It creates the directories if necessary.
+# Returns the file's MD5.
+# TODO: a dependency system to include needed utils and libs
+
+if [ $# -lt 2 ]; then
+    deepomake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+TEMPLATE_PATH="$(dirname $0)/../templates/$1"
+if [ ! -f "${TEMPLATE_PATH}" ]; then
+    deepomake_fail "$0: Unknown template $1"
+    echo "exit 1"
+    exit 1
+fi
+
+set -e
+
+deepomake_replace_vars --no-fail ${TEMPLATE_PATH} $2
+deepomake_md5 $2

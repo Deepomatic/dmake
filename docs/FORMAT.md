@@ -1,0 +1,99 @@
+- **dmake_version** *(string)*: The deepomake version..
+- **app_name** *(string)*: The application name..
+- **blacklist** *(array<file path>, default = [])*: List of deepomake files to blacklist..
+- **env** *(object)*: Environment variables to embed in built docker images. It must be an object with the following fields:
+    - **default** *(mixed, default = {})*: List of environment variables that will be set by default. It can be one of the followings:
+        - a file path to another deepomake file that declares a default environment.
+        - a dictionnary of strings
+    - **branches** *(free style object, default = {})*: If the branch matches one of the following fields, those variables will be defined as well, eventually replacing the default..
+- **docker** *(mixed)*: The environment in which to build and deploy. It can be one of the followings:
+    - a file path to another deepomake file (which will be added to deependencies) that declares a docker field, in which case it replaces this file's docker field.
+    - an object with the following fields:
+        - **root_image** *(mixed)*: The source image name to build on. It can be one of the followings:
+            - a file path to another deepomake file, in which base the root_image will be this file's base_image.
+            - an object with the following fields:
+                - **name** *(string)*: Root image name..
+                - **tag** *(string)*: Root image tag (you can use environment variables)..
+        - **base_image** *(object, optional)*: Base (intermediate) image to speed-up builds. It must be an object with the following fields:
+            - **name** *(string)*: Base image name. If no docker user is indicated, the image will be kept locally..
+            - **version** *(string, default = latest
+...)*: Base image version. The branch name will be prefixed to form the docker image tag..
+            - **install_scripts** *(array<file path>, default = [])*: .
+            - **python_requirements** *(file path, default = '')*: Path to python requirements.txt..
+            - **python3_requirements** *(file path, default = '')*: Path to python requirements.txt..
+            - **copy_files** *(array<file path>, default = [])*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'..
+        - **command** *(string, default = bash
+...)*: Only used when running 'dmake shell': set the command of the container..
+- **docker_links** *(array<object>, default = [])*: List of link to create, they are shared across the whole application, so potentially across multiple deepomake files.
+    - **image_name** *(string)*: Name and tag of the image to launch..
+    - **link_name** *(string)*: Link name..
+    - **deployed_options** *(string, default = '')*: Additional Docker options when deployed..
+    - **testing_options** *(string, default = '')*: Additional Docker options when testing on Jenkins..
+- **build_tests_commands** *(array<object>, default = [])*: Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.
+    - a string
+    - an array of strings
+- **build_services_commands** *(array<object>, default = [])*: Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.
+    - a string
+    - an array of strings
+- **services** *(array<object>, default = [])*: Service list.
+    - **service_name** *(string, default = '')*: The name of the application part..
+    - **needed_services** *(array<string>, default = [])*: List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run..
+    - **sources** *(array<object>)*: If specified, this service will be considered as updated only when the content of those directories or files have changed.
+        - a file path
+        - a directory
+    - **config** *(object, optional)*: Deployment configuration. It must be an object with the following fields:
+        - **docker_image** *(object)*: Docker to build for running and deploying. It must be an object with the following fields:
+            - **workdir** *(string, default = /
+...)*: Working directory of the produced docker file..
+            - **install_targets** *(array<object>, default = [])*: Target files or directories to install.
+                - an object with the following fields:
+                    - **exe** *(file path)*: Path to the executable to copy (will be copied in /usr/local/bin)..
+                - an object with the following fields:
+                    - **lib** *(file path)*: Path to the executable to copy (will be copied in /usr/local/lib)..
+                - an object with the following fields:
+                    - **dir_src** *(directory path)*: Path to the source directory (relative to this deepomake file) to copy..
+                    - **dir_dst** *(string)*: Path to the install directory (in the docker)..
+            - **install_script** *(file path)*: The install script (will be run in the docker). It has to be executable..
+            - **entrypoint** *(file path)*: Set the entrypoint of the docker image generated to run the app..
+            - **start_script** *(file path)*: The start script (will be run in the docker). It has to be executable..
+        - **docker_links_names** *(array<string>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some deepomake file of the app..
+        - **docker_opts** *(string, default = '')*: Docker options to add..
+        - **ports** *(array<object>, default = [])*: Ports to open.
+            - **container_port** *(int)*: Port on the container..
+            - **host_port** *(int)*: Port on the host..
+        - **volumes** *(array<object>, default = [])*: Volumes to open.
+            - **container_volume** *(string)*: Volume on the container..
+            - **host_volume** *(string)*: Volume on the host..
+        - **pre_deploy_script** *(string, default = '')*: Scripts to run before launching new version..
+        - **mid_deploy_script** *(string, default = '')*: Scripts to run after launching new version and before stopping the old one..
+        - **post_deploy_script** *(string, default = '')*: Scripts to run after stopping old version..
+    - **tests** *(object, optional)*: Unit tests list. It must be an object with the following fields:
+        - **docker_links_names** *(array<string>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some deepomake file of the app..
+        - **docker_opts** *(string, default = '')*: Docker options to add when testing or launching..
+        - **commands** *(array<string>)*: The commands to run for integration tests..
+        - **junit_report** *(string)*: Uses JUnit plugin to generate unit test report..
+        - **cobertura_report** *(string)*: Publish a Cobertura report (not working for now)..
+        - **html_report** *(object, optional)*: Publish an HTML report. It must be an object with the following fields:
+            - **directory** *(string)*: Directory of the html pages..
+            - **index** *(string, default = index.html
+...)*: Main page..
+            - **title** *(string, default = HTML Report
+...)*: Main page title..
+    - **deploy** *(object, optional)*: Deploy stage. It must be an object with the following fields:
+        - **deploy_name** *(string)*: The name used for deployment. Will default to "db-app_name-service_name" if not specified..
+        - **stages** *(array<object>)*: Deployment possibilities.
+            - **description** *(string)*: Deploy stage description..
+            - **branches** *(mixed, default = [stag])*: Branch list for which this stag is active, '*' can be used to match any branch. Can also be a simple string. It can be one of the followings:
+                - a string
+                - an array of strings
+            - **env** *(free style object, default = {})*: Additionnal environment variables for deployment..
+            - **aws_beanstalk** *(object, optional)*: Deploy via Elastic Beanstalk. It must be an object with the following fields:
+                - **region** *(string, default = eu-west-1
+...)*: The AWS region where to deploy..
+                - **stack** *(string, default = 64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2
+...)*: .
+                - **options** *(file path)*: AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html..
+            - **ssh** *(object, optional)*: Deploy via SSH. It must be an object with the following fields:
+                - **user** *(string)*: User name..
+                - **host** *(string)*: Host address..
+                - **port** *(int, default = '22')*: SSH port..

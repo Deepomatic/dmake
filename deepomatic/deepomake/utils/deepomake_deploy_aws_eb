@@ -1,0 +1,133 @@
+#!/bin/bash
+#
+# Usage:
+# deepomake_deploy_on_aws_eb TMP_DIR APP_NAME AWS_REGION STACK
+#
+# Result:
+# Will deploy on AWS
+
+if [ $# -ne 4 ]; then
+    deepomake_fail "$0: Wrong arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+set -e
+
+export TMP_DIR=$1
+APP_NAME=$2
+AWS_REGION=$3
+STACK=$4
+
+#------------------------------------------------------------------------------
+
+function aws_upload() {
+    APP_FILE=$1
+    FILE=$2
+
+    rm -f ${TMP_DIR}/${APP_FILE}
+    zip -q -r ${TMP_DIR}/${APP_FILE} . -x .git\* .cache \*node_modules\* \*bower_components\*
+
+    aws s3 cp ${TMP_DIR}/${APP_FILE} ${FILE}
+}
+
+function aws_wait_env_in_state() {
+    SAME_STATE=$1
+    WANTED=$2
+    AWS_REGION=$3
+    AWS_ENV=$4
+    COUNTER=0
+    while :; do
+        STATE=`aws elasticbeanstalk describe-environments --region ${AWS_REGION} --environment-names ${AWS_ENV} --no-include-deleted | grep "Status" | sed "s/.*\"Status\": \"\([^\"]*\)\".*/\1/"`
+        if [ -z "$STATE" ]; then
+            break
+        fi
+        if [ "${SAME_STATE}" = "1" ]; then
+            if [ "${STATE}" = "${WANTED}" ]; then
+                break
+            else
+                echo "Environment in state: ${STATE}, waiting for ${WANTED}..."
+                sleep 10
+            fi
+        else
+            if [ "${STATE}" = "${WANTED}" ]; then
+                echo "Environment in state: ${STATE}, waiting until it changes..."
+                sleep 10
+            else
+                break
+            fi
+        fi
+        COUNTER=$((COUNTER+1))
+        if [ $COUNTER -ge 600 ]; then
+            exit 1
+        fi
+    done
+}
+
+function aws_wait_env_ready() {
+    aws_wait_env_in_state 1 "Ready" $1 $2
+}
+
+function aws_wait_env_not_ready () {
+    aws_wait_env_in_state 0 "Ready" $1 $2
+}
+
+#------------------------------------------------------------------------------
+
+cd ${TMP_DIR}
+
+APP_LABEL="${BRANCH}-${BUILD}"
+AWS_ENV="${APP_NAME}-${BRANCH}"
+
+# Upload files
+APP_S3_BUCKET="dp-deploy"
+APP_S3_KEY="${REPO}/${APP_NAME}/${APP_LABEL}.zip"
+aws_upload "deploy.zip" "s3://${APP_S3_BUCKET}/${APP_S3_KEY}"
+
+# Check if environment exists
+echo "Checking if environment exists"
+aws_wait_env_ready $AWS_REGION $AWS_ENV
+CREATE_ENV=`aws elasticbeanstalk describe-environments --region ${AWS_REGION} --environment-names ${AWS_ENV} --no-include-deleted | grep "\"Environments\": \[\]" | wc -l`
+
+# Create new app version
+echo "Checking new app version"
+OUTPUT=`aws elasticbeanstalk create-application-version --region ${AWS_REGION} --application-name ${APP_NAME} --version-label ${APP_LABEL} --auto-create-application --source-bundle S3Bucket=${APP_S3_BUCKET},S3Key=${APP_S3_KEY}`
+RESULT="$?"
+if [ "$RESULT" != "0" ] || ([ `echo $OUTPUT | grep error | wc -l` != "0" ] && [ `echo $OUTPUT | grep \"already exists\" | wc -l` != "0" ]); then
+    echo $OUTPUT
+    exit 1
+fi
+
+# Update environment
+echo "Update environment"
+if [ ${CREATE_ENV} = "0" ]; then
+    aws_wait_env_ready $AWS_REGION $AWS_ENV
+    OUTPUT=`aws elasticbeanstalk update-environment --region ${AWS_REGION} --environment-name ${AWS_ENV} --version-label ${APP_LABEL} --option-settings file://options.txt`
+else
+    OUTPUT=`aws elasticbeanstalk create-environment --region ${AWS_REGION} --application-name ${APP_NAME} --version-label ${APP_LABEL} --environment-name ${AWS_ENV} --cname-prefix ${AWS_ENV} --option-settings file://options.txt --solution-stack-name "${STACK}"`
+fi
+RESULT="$?"
+if [ "$RESULT" != "0" ] || [ `echo $OUTPUT | grep error | wc -l` != "0" ]; then
+    echo $OUTPUT
+    exit 1
+fi
+
+echo "Deployment pushed to AWS, waiting for environment to be ready !"
+aws_wait_env_not_ready $AWS_REGION $AWS_ENV # There may be a lag before deployment starts, we wait until it is in deployment
+aws_wait_env_ready $AWS_REGION $AWS_ENV
+
+# Check that env has deployed the correct version
+DEPLOYED_APP_LABEL=`aws elasticbeanstalk describe-environments --region ${AWS_REGION} --environment-names ${AWS_ENV} --no-include-deleted | grep "\"VersionLabel\"" | cut -d: -f2 | sed "s/.*\"\(.*\)\".*/\1/"`
+if [ "${APP_LABEL}" =  "${DEPLOYED_APP_LABEL}" ]; then
+    echo "Deployment done on AWS"
+else
+    echo "Deployed version is ${DEPLOYED_APP_LABEL} but I was expecting ${APP_LABEL}."
+    echo "Something bad happened :("
+    exit 1
+fi
+
+# Clean version
+for LABEL in `aws elasticbeanstalk describe-application-versions --region ${AWS_REGION} --application-name ${APP_NAME} | grep "VersionLabel" | grep "${ENV_TYPE}-" | sed "s/.*\"VersionLabel\": \"\([^\"]*\)\".*/\1/" | sed "1,10d"`; do
+    echo "removing image ${LABEL}"
+    aws elasticbeanstalk delete-application-version --region ${AWS_REGION} --application-name ${APP_NAME} --version-label ${LABEL} --delete-source-bundle
+done
