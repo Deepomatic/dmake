@@ -3,6 +3,6 @@
 .venv
 
 
-/tutorial/jenkins/jenkins_home
-/tutorial/jenkins/jenkins_home.zip
+/jenkins/jenkins_home
+/jenkins/jenkins_home.zip
 /config.sh
