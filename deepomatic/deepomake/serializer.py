@@ -291,7 +291,7 @@ class FieldSerializer(object):
             help_text = ('%s of ' % ('dictionnaries' if is_plural else 'a dictionnary')) + help_text
         elif obj == "array":
             type_str, help_text, doc_string = self.get_type_name(self.child, padding, True)
-            type_str = 'array<%s>' % type_str
+            type_str = 'array\\<%s\\>' % type_str
             help_text = ('%s of ' % ('arrays' if is_plural else 'an array')) + help_text
         elif obj == "int":
             type_str = 'int'
@@ -479,7 +479,7 @@ class YAML2PipelineSerializer(BaseYAML2PipelineSerializer):
             if infos:
                 infos = ' *(%s)*' % infos
 
-            lines.append('%s- **%s**%s: %s' % (' ' * padding, key, infos, help_text + ('.' if doc_string is None else '')))
+            lines.append('%s- **%s**%s: %s' % (' ' * padding, key, infos, help_text))
             if doc_string is not None:
                 lines.append(doc_string)
 
