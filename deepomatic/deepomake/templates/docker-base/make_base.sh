@@ -55,6 +55,8 @@ bash run_cmd.sh
 
 ## Do some cleaning
 if [ -f "/base/key" ]; then rm -f /base/key; fi # HACK: Waiting for Issue #483
-head -n 4 /etc/ssh/ssh_config > /tmp/ssh_config
-mv /tmp/ssh_config /etc/ssh/ssh_config
-rm -rf /var/lib/apt/lists/* && rm -rf /tmp/*
+if [ -f /etc/ssh/ssh_config ]; then
+    head -n 4 /etc/ssh/ssh_config > /tmp/ssh_config
+    mv /tmp/ssh_config /etc/ssh/ssh_config
+    rm -rf /var/lib/apt/lists/* && rm -rf /tmp/*
+fi

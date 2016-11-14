@@ -580,26 +580,31 @@ def make(root_dir, sub_dir, dmake_command, app, options):
             links = docker_links[app_name]
             app_services = services[app_name]
 
-            if command == "base":
-                deepomake.generate_base(all_commands)
-            elif command == "shell":
-                deepomake.generate_shell(all_commands, service, app_services, links)
-            elif command == "test":
-                deepomake.generate_test(all_commands, service, app_services, links)
-            elif command == "run":
-                deepomake.generate_run(all_commands, service, links)
-            elif command == "run_link":
-                deepomake.generate_run_link(all_commands, service, links)
-            elif command == "build_tests":
-                deepomake.generate_build_tests(all_commands)
-            elif command == "build_service":
-                deepomake.generate_build_services(all_commands)
-            elif command == "build_docker":
-                deepomake.generate_build(all_commands, service)
-            elif command == "deploy":
-                deepomake.generate_deploy(all_commands, service, links)
-            else:
-                raise Exception("Unkown command '%s'" % command)
+            #try:
+            if True: # HACK
+                if command == "base":
+                    deepomake.generate_base(all_commands)
+                elif command == "shell":
+                    deepomake.generate_shell(all_commands, service, app_services, links)
+                elif command == "test":
+                    deepomake.generate_test(all_commands, service, app_services, links)
+                elif command == "run":
+                    deepomake.generate_run(all_commands, service, links)
+                elif command == "run_link":
+                    deepomake.generate_run_link(all_commands, service, links)
+                elif command == "build_tests":
+                    deepomake.generate_build_tests(all_commands)
+                elif command == "build_service":
+                    deepomake.generate_build_services(all_commands)
+                elif command == "build_docker":
+                    deepomake.generate_build(all_commands, service)
+                elif command == "deploy":
+                    deepomake.generate_deploy(all_commands, service, links)
+                else:
+                    raise Exception("Unkown command '%s'" % command)
+            # except DMakeException as e:
+            #     print(('ERROR in file %s:\n' % file) + str(e))
+            #     sys.exit(1)
 
     # Check stages do not appear twice (otherwise it may block Jenkins)
     stage_names = set()

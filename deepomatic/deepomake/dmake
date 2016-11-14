@@ -60,7 +60,8 @@ if sub_dir == '.':
     sub_dir = '' # Need to get rid of the leading '.' to unify behaviour
 
 # Parse command args
-try:
+#try:
+if True: # HACK
     sys.argv.pop(0)
     parser = argparse.ArgumentParser(prog='dmake %s' % command)
     if command in ["test", "deploy"]:
@@ -79,5 +80,5 @@ try:
         options.dependencies = True
     app = getattr(options, app_args)
     core.make(root_dir, sub_dir, command, app, options)
-except DMakeException as e:
-    print('ERROR: ' + str(e))
+# except DMakeException as e:
+#     print('ERROR: ' + str(e))

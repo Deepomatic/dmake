@@ -416,7 +416,8 @@ class DeploySerializer(YAML2PipelineSerializer):
         if self._tmp_dir_ is not None:
             raise DMakeException('Build already generated')
 
-        self._tmp_dir_ = config.docker_image.generate_build(commands, path_dir, app_name, service_name, docker_base, env, config)
+        if config.docker_image.has_value():
+            self._tmp_dir_ = config.docker_image.generate_build(commands, path_dir, app_name, service_name, docker_base, env, config)
 
     def generate_deploy(self, commands, app_name, service_name, docker_links, env, config):
         if self._tmp_dir_ is None:
@@ -487,7 +488,7 @@ class DeepoMakeFileSerializer(YAML2PipelineSerializer):
     app_name                 = FieldSerializer("string", help_text = "The application name.", example = "my_app", no_slash_no_space = True)
     blacklist                = FieldSerializer("array", child = "path", default = [], help_text = "List of deepomake files to blacklist.", child_path_only = True, example = ['some/sub/deepomake.yml'])
     env                      = EnvSerializer(help_text = "Environment variables to embed in built docker images.")
-    docker                   = FieldSerializer([FieldSerializer("path", help_text = "to another deepomake file (which will be added to deependencies) that declares a docker field, in which case it replaces this file's docker field."), DockerSerializer()], help_text = "The environment in which to build and deploy.")
+    docker                   = FieldSerializer([FieldSerializer("path", help_text = "to another deepomake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field."), DockerSerializer()], help_text = "The environment in which to build and deploy.")
     docker_links             = FieldSerializer("array", child = DockerLinkSerializer(), default = [], help_text = "List of link to create, they are shared across the whole application, so potentially across multiple deepomake files.")
     build_tests_commands     = FieldSerializer("array", default = [], child = FieldSerializer(["string", "array"], child = "string", post_validation = lambda x: [x] if common.is_string(x) else x), help_text ="Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.", example = ["cmake .", "make"])
     build_services_commands  = FieldSerializer("array", default = [], child = FieldSerializer(["string", "array"], child = "string", post_validation = lambda x: [x] if common.is_string(x) else x), help_text ="Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.", example = ["cmake .", "make"])

@@ -48,6 +48,7 @@ ID_ROOT=$(docker_get_image_id ${FULL_ROOT_IMAGE})
 
 # Retrieve the base image
 export BASE_IMAGE="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+BASE_IMAGE_GENERAL="${DOCKER_IMAGE_NAME}:base-${DOCKER_IMAGE_VERSION}"
 echo "Retrieving ID for ${BASE_IMAGE}"
 ID_BASE=$(docker_get_image_id $BASE_IMAGE)
 #If not found, pull only if image has a user
@@ -57,12 +58,11 @@ if [ -z "${ID_BASE}" ] && [[ "${BASE_IMAGE}" =~ .+/.+ ]]; then
     ID_BASE=$(docker_get_image_id ${BASE_IMAGE})
     #If still not found, if may be because it is a newly created branch. We pull the general base image
     if [ -z "${ID_BASE}" ]; then
-        IMG="${DOCKER_IMAGE_NAME}:base-${DOCKER_IMAGE_VERSION}"
-        echo "${BASE_IMAGE} not found on docker-hub, try pulling ${IMG}"
-        docker pull ${IMG} || :
-        ID_BASE=$(docker_get_image_id ${IMG})
+        echo "${BASE_IMAGE} not found on docker-hub, try pulling ${BASE_IMAGE_GENERAL}"
+        docker pull ${BASE_IMAGE_GENERAL} || :
+        ID_BASE=$(docker_get_image_id ${BASE_IMAGE_GENERAL})
         if [ ! -z "${ID_BASE}" ]; then
-            docker tag ${IMG} ${BASE_IMAGE}
+            docker tag ${BASE_IMAGE_GENERAL} ${BASE_IMAGE}
         fi
     fi
 fi
@@ -119,7 +119,12 @@ if [ ${BUILD_BASE_DOCKER} = "1" ]; then
 
     echo "Building docker image ${BASE_IMAGE}"
     # We first run in a container to be able to use the SSH_AUTH_SOCK to access private libs
-    docker run --cidfile ${TMP_DIR}/cid.txt -v ${TMP_DIR}:/base_volume -t ${ROOT_IMAGE} bash /base_volume/make_base.sh
+    if [ "${DMAKE_ON_BUILD_SERVER}" = "1" ]; then
+        OPTIONS=""
+    else
+        OPTIONS=""
+    fi
+    docker run --cidfile ${TMP_DIR}/cid.txt -v ${TMP_DIR}:/base_volume ${OPTIONS} ${ROOT_IMAGE} bash /base_volume/make_base.sh
     CID=`cat ${TMP_DIR}/cid.txt`
     if [ ! -z "${DMAKE_TMP_DIR}" ]; then
         echo ${CID} >> ${DMAKE_TMP_DIR}/containers_to_remove.txt
@@ -127,8 +132,9 @@ if [ ${BUILD_BASE_DOCKER} = "1" ]; then
     # We commit the container into the base image
     docker commit ${CID} ${BASE_IMAGE}
 
-    if [ "${DMAKE_ON_BUILD_SERVER}" = "1" ] && [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ ]]; then
-        docker push ${BASE_IMAGE}
+    if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ ]]; then
+        docker tag ${BASE_IMAGE} ${BASE_IMAGE_GENERAL}
+        docker push ${BASE_IMAGE_GENERAL}
     fi
 else
     echo "No changes found."

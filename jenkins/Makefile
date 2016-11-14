@@ -1,4 +1,4 @@
-all: build start
+all: build download start
 
 build:
 	docker build -t dmake-jenkins-demo docker
