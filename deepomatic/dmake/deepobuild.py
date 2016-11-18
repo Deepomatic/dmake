@@ -153,7 +153,7 @@ class DockerSerializer(YAML2PipelineSerializer):
                 f.write(run_cmd)
             md5s[file] = common.run_shell_command('dmake_md5 %s' % os.path.join(tmp_dir, file))
 
-            # HACK: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
+            # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
             if common.key_file is not None:
                 common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
 
