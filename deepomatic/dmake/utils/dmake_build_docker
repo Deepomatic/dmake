@@ -1,18 +1,18 @@
 #!/bin/bash
 #
 # Usage:
-# deepomake_build_docker TMP_DIR NAME
+# dmake_build_docker TMP_DIR NAME
 #
 # Result:
 # Build a docker given a ${TMP_DIR}/Dockerfile
 
 if [ $# -ne 2 ]; then
-    deepomake_fail "$0: Missing arguments"
+    dmake_fail "$0: Missing arguments"
     exit 1
 fi
 
 if [ -z "${DMAKE_TMP_DIR}" ]; then
-    deepomake_fail "Missing environment variable DMAKE_TMP_DIR"
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
     exit 1
 fi
 

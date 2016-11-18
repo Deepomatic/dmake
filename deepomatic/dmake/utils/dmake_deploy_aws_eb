@@ -1,13 +1,13 @@
 #!/bin/bash
 #
 # Usage:
-# deepomake_deploy_on_aws_eb TMP_DIR APP_NAME AWS_REGION STACK
+# dmake_deploy_on_aws_eb TMP_DIR APP_NAME AWS_REGION STACK
 #
 # Result:
 # Will deploy on AWS
 
 if [ $# -ne 4 ]; then
-    deepomake_fail "$0: Wrong arguments"
+    dmake_fail "$0: Wrong arguments"
     echo "exit 1"
     exit 1
 fi

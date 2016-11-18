@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+# Usage:
+# dmake_run_docker_command ARGS...
+#
+# Result:
+# Run a docker command.
+
+if [ "${DMAKE_ON_BUILD_SERVER}" = "1" ]; then
+    dmake_run_docker "" "" --rm $*
+else
+    dmake_run_docker "" "" --rm -t $*
+fi

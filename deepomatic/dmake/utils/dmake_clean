@@ -1,13 +1,13 @@
 #!/bin/bash
 #
 # Usage:
-# deepomake_clean TMP_DIR
+# dmake_clean TMP_DIR
 #
 # Result:
-# Clean directory created with deepomake_make_tmp_dir and linked dockers
+# Clean directory created with dmake_make_tmp_dir and linked dockers
 
 if [ $# -ne 1 ]; then
-    deepomake_fail "$0: Missing arguments"
+    dmake_fail "$0: Missing arguments"
     echo "exit 1"
     exit 1
 fi
@@ -20,7 +20,7 @@ if [ -f ${TMP_DIR}/files_to_remove.txt ]; then
     cat ${TMP_DIR}/files_to_remove.txt | xargs -n 1 rm -rf
 fi
 
-deepomake_remove_docker_containers_and_images ${TMP_DIR}
+dmake_remove_docker_containers_and_images ${TMP_DIR}
 
 rm -rf ${TMP_DIR}
 

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 # Usage:
-# deepomake_replace_vars [--no-fail] input_file [output_file]
+# dmake_replace_vars [--no-fail] input_file [output_file]
 #
 # Result:
 # Replace all ${ENV} schemes by their value in the environment.
@@ -13,7 +13,7 @@ import os
 import sys
 
 if len(sys.argv) < 2 or (sys.argv[1] == '--no-fail' and len(sys.argv) < 3):
-    print "Usage: deepomake_replace_vars [--no-fail] input_file [output_file]"
+    print "Usage: dmake_replace_vars [--no-fail] input_file [output_file]"
     sys.exit(1)
 
 if sys.argv[1] == '--no-fail':

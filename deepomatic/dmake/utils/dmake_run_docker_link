@@ -1,18 +1,18 @@
 #!/bin/bash
 #
 # Usage:
-# deepomake_run_docker_link APP_NAME IMAGE_NAME LINK_NAME OPTIONS
+# dmake_run_docker_link APP_NAME IMAGE_NAME LINK_NAME OPTIONS
 #
 # Result:
-# Run a docker link and cache the result (call deepomake_return_docker_links to export the docker options)
+# Run a docker link and cache the result (call dmake_return_docker_links to export the docker options)
 
 if [ $# -ne 4 ]; then
-    deepomake_fail "$0: Missing arguments"
+    dmake_fail "$0: Missing arguments"
     exit 1
 fi
 
 if [ -z "${DMAKE_TMP_DIR}" ]; then
-    deepomake_fail "Missing environment variable DMAKE_TMP_DIR"
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
     exit 1
 fi
 
@@ -44,7 +44,7 @@ done
 
 if [ -z "${CONTAINER_ID}" ]; then
     docker pull ${IMAGE_NAME} 2> /dev/null || :
-    CONTAINER_ID=$(deepomake_run_docker_daemon "" "${CONTAINER_NAME}" ${OPTIONS} ${VOLUMES} -i ${IMAGE_NAME})
+    CONTAINER_ID=$(dmake_run_docker_daemon "" "${CONTAINER_NAME}" ${OPTIONS} ${VOLUMES} -i ${IMAGE_NAME})
     while [ 1 = 1 ]; do
         if [ `docker ps -f id=$CONTAINER_ID -f status=running | wc -l` -gt "0" ]; then
             break

@@ -1,13 +1,13 @@
 #!/bin/bash
 #
 # Usage:
-# deepomake_check_services [ARGS...]
+# dmake_check_services [ARGS...]
 #
 # Result:
 # Check the service passed as arguments are still running
 
 if [ -z "${DMAKE_TMP_DIR}" ]; then
-    deepomake_fail "Missing environment variable DMAKE_TMP_DIR"
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
     exit 1
 fi
 
@@ -17,11 +17,11 @@ IDS=""
 for SERVICE in "$@"; do
     LINE=`cat ${DMAKE_TMP_DIR}/daemon_ids.txt | grep " ${SERVICE}\$"`
     if [ -z "${LINE}" ]; then
-        deepomake_fail "Unexpected error: unknown service ${SERVICE}"
+        dmake_fail "Unexpected error: unknown service ${SERVICE}"
         exit 1
     fi
     ID=`echo ${LINE} | cut -d\  -f 1`
     IDS="${IDS} ${ID}"
 done
 
-deepomake_check_daemons id $IDS
+dmake_check_daemons id $IDS

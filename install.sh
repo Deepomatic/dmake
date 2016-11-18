@@ -14,7 +14,7 @@ echo "export DMAKE_PATH=${DMAKE_PATH}" >> ${DMAKE_PATH}/config.sh
 echo "export DMAKE_SSH_KEY=${DMAKE_SSH_KEY}" >> ${DMAKE_PATH}/config.sh
 echo "export DMAKE_CONFIG_DIR=${DMAKE_CONFIG_DIR}" >> ${DMAKE_PATH}/config.sh
 echo "export PYTHONPATH=\$PYTHONPATH:${DMAKE_PATH}" >> ${DMAKE_PATH}/config.sh
-echo "export PATH=\$PATH:${DMAKE_PATH}/deepomatic/deepomake/:${DMAKE_PATH}/deepomatic/deepomake/utils" >> ${DMAKE_PATH}/config.sh
+echo "export PATH=\$PATH:${DMAKE_PATH}/deepomatic/dmake/:${DMAKE_PATH}/deepomatic/dmake/utils" >> ${DMAKE_PATH}/config.sh
 
 LINE="source ${DMAKE_PATH}/config.sh"
 if [ -z "`which dmake`" ]; then

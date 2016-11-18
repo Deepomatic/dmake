@@ -1,19 +1,19 @@
 #!/bin/bash
 #
 # Usage:
-# LINKS=$(deepomake_return_docker_links APP_NAME [ARGS...])
+# LINKS=$(dmake_return_docker_links APP_NAME [ARGS...])
 #
 # Result:
-# Return the links for container previously launched with deepomake_run_docker_link, e.g. "--link <container_id>:LINK_NAME"
+# Return the links for container previously launched with dmake_run_docker_link, e.g. "--link <container_id>:LINK_NAME"
 
 if [ $# -lt 1 ]; then
-    deepomake_fail "$0: Missing arguments"
+    dmake_fail "$0: Missing arguments"
     echo "exit 1"
     exit 1
 fi
 
 if [ -z "${DMAKE_TMP_DIR}" ]; then
-    deepomake_fail "Missing environment variable DMAKE_TMP_DIR"
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
     exit 1
 fi
 
@@ -28,11 +28,11 @@ LINK_OPTS=""
 for LINK in "$@"; do
     LINK_FILE="${CACHE_DIR}/${LINK}.link"
     if [ -f "${LINK_FILE}" ]; then
-        deepomake_check_daemons name "`cat ${CACHE_DIR}/$LINK.name`"
+        dmake_check_daemons name "`cat ${CACHE_DIR}/$LINK.name`"
         OPTS=`cat ${LINK_FILE}`
         LINK_OPTS="${LINK_OPTS} ${OPTS}"
     else
-        deepomake_fail "Unexpected error: missing link $LINK"
+        dmake_fail "Unexpected error: missing link $LINK"
         exit 1
     fi
 done
