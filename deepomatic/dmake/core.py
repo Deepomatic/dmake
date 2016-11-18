@@ -637,8 +637,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         if result != 0 or dmake_command != 'run':
-            # HACK
-            pass
-            #os.system('dmake_clean %s' % common.tmp_dir)
+            os.system('dmake_clean %s' % common.tmp_dir)
 
 
