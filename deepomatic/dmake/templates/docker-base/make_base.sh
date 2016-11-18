@@ -24,15 +24,19 @@ dpkg --configure -a
 apt-get update --fix-missing
 
 # Make sure SSH Agent socket is here if needed
-if [ ! -z "$SSH_AUTH_SOCK" ] || [ -f "key" ]; then # HACK: Waiting for Issue #483 to be solved (cf deepobuild.py)
+if [ ! -z "$SSH_AUTH_SOCK" ] || [ -f "/key" ]; then # HACK for mac: Waiting for Issue docker/for-mac#483 to be solved (cf deepobuild.py)
     # Disable SSH strict checking
     apt-get -y install openssh-client
     mkdir -p /etc/ssh
     echo -e "\nHost *\n    ForwardAgent yes\n    StrictHostKeyChecking no\n" >> /etc/ssh/ssh_config
-    # HACK: Waiting for Issue #483
-    if [ -f "key" ]; then
-        chmod 400 key
-        echo -e "    IdentityFile /base/key\n" >> /etc/ssh/ssh_config
+    # HACK: Waiting for Issue docker/for-mac#483
+    if [ -f "/key" ]; then
+        chmod 400 /key
+        echo -e "    IdentityFile /key\n" >> /etc/ssh/ssh_config
+    else
+        if [ ! -z "$DMAKE_SSH_KEY" ]; then
+            ssh-add $DMAKE_SSH_KEY
+        fi
     fi
 fi
 
@@ -51,10 +55,11 @@ apt-get -y install apt-transport-https ca-certificates
 # ntpdate ntp.ubuntu.com
 
 # Run installation
-bash run_cmd.sh
+if [ -d user ]; then
+    bash run_cmd.sh
+fi
 
 ## Do some cleaning
-if [ -f "/base/key" ]; then rm -f /base/key; fi # HACK: Waiting for Issue #483
 if [ -f /etc/ssh/ssh_config ]; then
     head -n 4 /etc/ssh/ssh_config > /tmp/ssh_config
     mv /tmp/ssh_config /etc/ssh/ssh_config

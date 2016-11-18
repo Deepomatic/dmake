@@ -18,8 +18,8 @@ In order to run **DMake**, you will need:
 In order to install **DMake**, use the following:
 
 ```
-$ git clone https://github.com/Deepomatic/deepomake.git
-$ cd deepomake
+$ git clone https://github.com/Deepomatic/dmake.git
+$ cd dmake
 $ ./install.sh
 ```
 
@@ -58,9 +58,9 @@ Alright ! To simulate an application made of several micro-services, this projec
 - a Django app that shows a form where you enter a number '*n*', in the ```web/``` directory.
 - a worker that computes factorial '*n*', in the ```worker/``` directory.
 
-**DMake** allows you to specify how your whole app should be tested and run by relying on ```deepomake.yml``` files. **DMake** searches for the whole repository and parses all those files. In this project, there is two of them in each of the ```web/``` and ```worker/``` directories.
+**DMake** allows you to specify how your whole app should be tested and run by relying on ```dmake.yml``` files. **DMake** searches for the whole repository and parses all those files. In this project, there is two of them in each of the ```web/``` and ```worker/``` directories.
 
-Let's start with the **DMake** configuration of the worker that computes the factorial by having a look at ```worker/deepomake.yml```.
+Let's start with the **DMake** configuration of the worker that computes the factorial by having a look at ```worker/dmake.yml```.
 
 The two first lines indicate the version of **DMake** that will parse the YAML file and the name of your app:
 
@@ -100,7 +100,7 @@ env:
 
 You can have default environment variables (usually  for development purposes) and variables specific to a branch (used when deploying our app), in which case the default value of the variable is overriden.
 
-The next thing to declare are the "standard" services that you will need. They are shared across the whole application (so no need to re-declare them in another ```deepomake.yml``` file with the same ```app_name```):
+The next thing to declare are the "standard" services that you will need. They are shared across the whole application (so no need to re-declare them in another ```dmake.yml``` file with the same ```app_name```):
 
 ```yaml
 docker_links:
@@ -141,7 +141,7 @@ services:
                 - ./bin/worker_test
 ```
 
-**DMake** builds a Docker image for each specified service. The field ```docker_image``` allows to configure this Docker image. Here, the ```install_targets``` specifies that all the content of the current directory (relatively to the location of the ```deepomake.yml``` file) will be copied in the ```/app``` directory of the built Docker image. The ```workdir``` and ```start_script``` fields specify that when launching your app, the working directory will be set to ```/app``` and you will then run ```deploy/start.sh```. The ```test``` field that **DMake** need to launch the compiled file ```./bin/worker_test``` and link with the RabbitMQ service defined previously by ```docker_links```. Speaking about linking, we use the entry point script ```deploy/entrypoint.sh``` (as defined by the field ```entrypoint```) to override the environment variable ```AMQP_URL``` with the URL of the linked RabbitMQ container. Check out [this page](https://docs.docker.com/engine/userguide/networking/default_network/container-communication/) to know more about linking Docker containers.
+**DMake** builds a Docker image for each specified service. The field ```docker_image``` allows to configure this Docker image. Here, the ```install_targets``` specifies that all the content of the current directory (relatively to the location of the ```dmake.yml``` file) will be copied in the ```/app``` directory of the built Docker image. The ```workdir``` and ```start_script``` fields specify that when launching your app, the working directory will be set to ```/app``` and you will then run ```deploy/start.sh```. The ```test``` field that **DMake** need to launch the compiled file ```./bin/worker_test``` and link with the RabbitMQ service defined previously by ```docker_links```. Speaking about linking, we use the entry point script ```deploy/entrypoint.sh``` (as defined by the field ```entrypoint```) to override the environment variable ```AMQP_URL``` with the URL of the linked RabbitMQ container. Check out [this page](https://docs.docker.com/engine/userguide/networking/default_network/container-communication/) to know more about linking Docker containers.
 
 Now that we went through the configuration file, you can try to test the worker with:
 
@@ -157,7 +157,7 @@ $ dmake shell -d worker
 
 The ```-d``` option tells **DMake** to run all the dependencies of the service as well. In this case, it runs RabbitMQ and the specified entry point sets the ```AMQP_URL``` environment variable to point to this local RabbitMQ server. If you do not specify the ```-d```, it will run the container as a stand-alone and it will try to connect to the RabbitMQ server specified in the ```env``` field (i.e. with the URL ```amqp://1.2.3.4/prod```)
 
-Let's now look at the other configuration file ```web/deepomake.yml```. It pretty much looks the same. The only few things which differs are:
+Let's now look at the other configuration file ```web/dmake.yml```. It pretty much looks the same. The only few things which differs are:
 - The ```python_requirements``` field to specify the python libraries to install. They are installed with ```pip``` (which is installed automatically) after the ```install_scripts```.
 - The ```needed_services``` field which say that the Django API needs its worker to be fully functional.
 - The ```ports``` field which stats which ports of the Docker container needs to be exposed.
@@ -195,19 +195,19 @@ In order to setup DMake in your own Jenkins server, you can adjust the Dockerfil
 
 This Documentation was generated automatically.
 
-- **dmake_version** *(string)*: The deepomake version.
+- **dmake_version** *(string)*: The dmake version.
 - **app_name** *(string)*: The application name.
-- **blacklist** *(array\<file path\>, default = [])*: List of deepomake files to blacklist.
+- **blacklist** *(array\<file path\>, default = [])*: List of dmake files to blacklist.
 - **env** *(object)*: Environment variables to embed in built docker images. It must be an object with the following fields:
     - **default** *(mixed, default = {})*: List of environment variables that will be set by default. It can be one of the followings:
-        - a file path to another deepomake file that declares a default environment.
+        - a file path to another dmake file that declares a default environment.
         - a dictionnary of strings
     - **branches** *(free style object, default = {})*: If the branch matches one of the following fields, those variables will be defined as well, eventually replacing the default.
 - **docker** *(mixed)*: The environment in which to build and deploy. It can be one of the followings:
-    - a file path to another deepomake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field.
+    - a file path to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field.
     - an object with the following fields:
         - **root_image** *(mixed)*: The source image name to build on. It can be one of the followings:
-            - a file path to another deepomake file, in which base the root_image will be this file's base_image.
+            - a file path to another dmake file, in which base the root_image will be this file's base_image.
             - an object with the following fields:
                 - **name** *(string)*: Root image name.
                 - **tag** *(string)*: Root image tag (you can use environment variables).
@@ -221,7 +221,7 @@ This Documentation was generated automatically.
             - **copy_files** *(array\<file path\>, default = [])*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
         - **command** *(string, default = bash
 ..)*: Only used when running 'dmake shell': set the command of the container.
-- **docker_links** *(array\<object\>, default = [])*: List of link to create, they are shared across the whole application, so potentially across multiple deepomake files.
+- **docker_links** *(array\<object\>, default = [])*: List of link to create, they are shared across the whole application, so potentially across multiple dmake files.
     - **image_name** *(string)*: Name and tag of the image to launch.
     - **link_name** *(string)*: Link name.
     - **deployed_options** *(string, default = '')*: Additional Docker options when deployed.
@@ -248,12 +248,12 @@ This Documentation was generated automatically.
                 - an object with the following fields:
                     - **lib** *(file path)*: Path to the executable to copy (will be copied in /usr/local/lib).
                 - an object with the following fields:
-                    - **dir_src** *(directory path)*: Path to the source directory (relative to this deepomake file) to copy.
+                    - **dir_src** *(directory path)*: Path to the source directory (relative to this dmake file) to copy.
                     - **dir_dst** *(string)*: Path to the install directory (in the docker).
             - **install_script** *(file path)*: The install script (will be run in the docker). It has to be executable.
             - **entrypoint** *(file path)*: Set the entrypoint of the docker image generated to run the app.
             - **start_script** *(file path)*: The start script (will be run in the docker). It has to be executable.
-        - **docker_links_names** *(array\<string\>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some deepomake file of the app.
+        - **docker_links_names** *(array\<string\>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
         - **docker_opts** *(string, default = '')*: Docker options to add.
         - **ports** *(array\<object\>, default = [])*: Ports to open.
             - **container_port** *(int)*: Port on the container.
@@ -265,7 +265,7 @@ This Documentation was generated automatically.
         - **mid_deploy_script** *(string, default = '')*: Scripts to run after launching new version and before stopping the old one.
         - **post_deploy_script** *(string, default = '')*: Scripts to run after stopping old version.
     - **tests** *(object, optional)*: Unit tests list. It must be an object with the following fields:
-        - **docker_links_names** *(array\<string\>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some deepomake file of the app.
+        - **docker_links_names** *(array\<string\>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
         - **docker_opts** *(string, default = '')*: Docker options to add when testing or launching.
         - **commands** *(array\<string\>)*: The commands to run for integration tests.
         - **junit_report** *(string)*: Uses JUnit plugin to generate unit test report.
@@ -298,13 +298,13 @@ This Documentation was generated automatically.
 
 ## Example
 
-You will find below an example of deepomake.yml file:
+You will find below an example of dmake.yml file:
 
 ```yaml
 dmake_version: '0.1'
 app_name: my_app
 blacklist:
-- some/sub/deepomake.yml
+- some/sub/dmake.yml
 env:
     default:
         ENV_TYPE: dev

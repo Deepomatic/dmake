@@ -1,6 +1,6 @@
 import yaml
 from collections import OrderedDict
-from deepomatic.deepomake.deepobuild import DeepoMakeFileSerializer
+from deepomatic.dmake.deepobuild import DeepoMakeFileSerializer
 
 def generate():
     doc_root = DeepoMakeFileSerializer()

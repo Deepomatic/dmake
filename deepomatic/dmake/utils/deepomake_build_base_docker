@@ -118,13 +118,11 @@ if [ ${BUILD_BASE_DOCKER} = "1" ]; then
     docker rmi ${BASE_IMAGE} 2> /dev/null || :
 
     echo "Building docker image ${BASE_IMAGE}"
-    # We first run in a container to be able to use the SSH_AUTH_SOCK to access private libs
-    if [ "${DMAKE_ON_BUILD_SERVER}" = "1" ]; then
-        OPTIONS=""
-    else
-        OPTIONS=""
+
+    if [ `uname` = "Darwin" ] && [ ! -z "${DMAKE_SSH_KEY}" ]; then
+        OTHER_OPTS="-v ${DMAKE_SSH_KEY}:/key"
     fi
-    docker run --cidfile ${TMP_DIR}/cid.txt -v ${TMP_DIR}:/base_volume ${OPTIONS} ${ROOT_IMAGE} bash /base_volume/make_base.sh
+    docker run --cidfile ${TMP_DIR}/cid.txt -e DMAKE_SSH_KEY=${DMAKE_SSH_KEY} -v ${TMP_DIR}:/base_volume ${OTHER_OPTS} ${ROOT_IMAGE} bash /base_volume/make_base.sh
     CID=`cat ${TMP_DIR}/cid.txt`
     if [ ! -z "${DMAKE_TMP_DIR}" ]; then
         echo ${CID} >> ${DMAKE_TMP_DIR}/containers_to_remove.txt
@@ -133,7 +131,9 @@ if [ ${BUILD_BASE_DOCKER} = "1" ]; then
     docker commit ${CID} ${BASE_IMAGE}
 
     if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ ]]; then
+        echo "Tagging ${BASE_IMAGE} as ${BASE_IMAGE_GENERAL}"
         docker tag ${BASE_IMAGE} ${BASE_IMAGE_GENERAL}
+        docker push ${BASE_IMAGE}
         docker push ${BASE_IMAGE_GENERAL}
     fi
 else

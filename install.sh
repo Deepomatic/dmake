@@ -12,6 +12,7 @@ popd > /dev/null
 echo "export DMAKE_VERSION=0.1" > ${DMAKE_PATH}/config.sh
 echo "export DMAKE_PATH=${DMAKE_PATH}" >> ${DMAKE_PATH}/config.sh
 echo "export DMAKE_SSH_KEY=${DMAKE_SSH_KEY}" >> ${DMAKE_PATH}/config.sh
+echo "export DMAKE_CONFIG_DIR=${DMAKE_CONFIG_DIR}" >> ${DMAKE_PATH}/config.sh
 echo "export PYTHONPATH=\$PYTHONPATH:${DMAKE_PATH}" >> ${DMAKE_PATH}/config.sh
 echo "export PATH=\$PATH:${DMAKE_PATH}/deepomatic/deepomake/:${DMAKE_PATH}/deepomatic/deepomake/utils" >> ${DMAKE_PATH}/config.sh
 

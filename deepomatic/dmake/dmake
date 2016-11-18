@@ -2,9 +2,9 @@
 
 import sys, os
 import argparse
-import deepomatic.deepomake.core as core
-import deepomatic.deepomake.common as common
-from   deepomatic.deepomake.common import DMakeException
+import deepomatic.dmake.core as core
+import deepomatic.dmake.common as common
+from   deepomatic.dmake.common import DMakeException
 
 def print_help():
     print("Syntax:")
@@ -60,8 +60,7 @@ if sub_dir == '.':
     sub_dir = '' # Need to get rid of the leading '.' to unify behaviour
 
 # Parse command args
-#try:
-if True: # HACK
+try:
     sys.argv.pop(0)
     parser = argparse.ArgumentParser(prog='dmake %s' % command)
     if command in ["test", "deploy"]:
@@ -80,5 +79,5 @@ if True: # HACK
         options.dependencies = True
     app = getattr(options, app_args)
     core.make(root_dir, sub_dir, command, app, options)
-# except DMakeException as e:
-#     print('ERROR: ' + str(e))
+except DMakeException as e:
+    print('ERROR: ' + str(e))

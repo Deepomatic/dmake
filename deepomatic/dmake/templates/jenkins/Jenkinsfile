@@ -1,0 +1,10 @@
+properties([[$class: 'ParametersDefinitionProperty', parameterDefinitions: [
+    [$class: 'StringParameterDefinition', defaultValue: '', description: '(option) Application to deploy', name : 'DMAKE_APP']
+]]])
+node {
+    checkout scm
+    sshagent (credentials: ['dmake-ssh']) {
+        sh 'dmake deploy ${DMAKE_APP}'
+    }
+    load 'DMakefile'
+}()

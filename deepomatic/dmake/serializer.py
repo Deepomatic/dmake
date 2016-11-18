@@ -2,16 +2,16 @@ import os, sys
 import copy
 import yaml
 from collections import OrderedDict
-from deepomatic.deepomake.common import DMakeException
-import deepomatic.deepomake.common as common
+from deepomatic.dmake.common import DMakeException
+import deepomatic.dmake.common as common
 
 # Define the base class for YAML2PipelineSerializer
 # If using Python3, we can keep track of the order of the field
 # in order to generate a proper doc.
 if sys.version_info >= (3,0):
-    from deepomatic.deepomake.python_3x import BaseYAML2PipelineSerializer
+    from deepomatic.dmake.python_3x import BaseYAML2PipelineSerializer
 else:
-    from deepomatic.deepomake.python_2x import BaseYAML2PipelineSerializer
+    from deepomatic.dmake.python_2x import BaseYAML2PipelineSerializer
 
 # Custom Exceptions
 class ValidationError(Exception):
@@ -142,7 +142,7 @@ class FieldSerializer(object):
                         if len(data) > 0 and data[0] == '/':
                             data = data[1:]
                     else:
-                        raise WrongType("Path must be sub-paths to deepomake file for this field.")
+                        raise WrongType("Path must be sub-paths to dmake file for this field.")
             else:
                 full_path = os.path.join(path, data)
                 if not self.child_path_only:

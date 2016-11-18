@@ -33,7 +33,8 @@ def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
 
 def eval_str_in_env(cmd):
-    return run_shell_command('echo "%s"' % cmd.replace('"', '\\"')).strip()
+    cmd = 'echo "%s"' % cmd.replace('"', '\\"')
+    return run_shell_command(cmd).strip()
 
 # Docker has some trouble mounting volumes with trailing '/'.
 # See http://stackoverflow.com/questions/38338612/mounting-file-system-in-docker-fails-sometimes
@@ -46,9 +47,9 @@ def join_without_slash(*args):
 ###############################################################################
 
 if sys.version_info >= (3,0):
-    from deepomatic.deepomake.python_3x import is_string, read_input
+    from deepomatic.dmake.python_3x import is_string, read_input
 else:
-    from deepomatic.deepomake.python_2x import is_string, read_input
+    from deepomatic.dmake.python_2x import is_string, read_input
 
 ###############################################################################
 
@@ -57,7 +58,7 @@ def init(_command, _root_dir, _options):
     global branch, target, is_pr, pr_id, build_id, commit_id
     global repo_url, repo, env_type, use_pipeline, is_local
     global build_description
-    global command, options
+    global command, options, uname
     root_dir = os.path.join(_root_dir, '')
     command = _command
     options = _options
@@ -68,8 +69,11 @@ def init(_command, _root_dir, _options):
     except OSError:
         pass
 
-    tmp_dir = run_shell_command("deepomake_make_tmp_dir")
+    tmp_dir = run_shell_command("dmake_make_tmp_dir")
     os.environ['DMAKE_TMP_DIR'] = tmp_dir
+
+    # Get uname
+    uname = run_shell_command("uname")
 
     # Make sure DMAKE_ON_BUILD_SERVER is correctly configured
     is_local = os.getenv('DMAKE_ON_BUILD_SERVER', 0) != "1"
@@ -139,29 +143,6 @@ def init(_command, _root_dir, _options):
                     "https://github.com/%s/%s/tree/%s" % (repo_github_owner, repo, branch),
                     branch)
 
-    # Load configuration from env repository
-    pull_config_dir = True
-    config_dir = os.getenv('CONFIG_DIR')
-    if config_dir is None:
-        config_dir = os.getenv('DEEPOMATIC_CONFIG_DIR')
-        pull_config_dir = False
-    if config_dir is None:
-        logger.warning("[DEEPOMATIC_]CONFIG_DIR not defined, not sourcing environment variables")
-    else:
-        if pull_config_dir:
-            logger.info("Pulling config from: %s" % config_dir)
-            os.system("cd %s && git pull origin master" % config_dir)
-
-        # Source environment variables
-        output = run_shell_command('source %s/%s.sh && env' % (config_dir, env_type))
-        output = output.split('\n')
-        for line in output:
-            line = line.strip()
-            if len(line) == 0:
-                continue
-            (key, _, value) = line.partition("=")
-            os.environ[key] = value
-
     os.environ["REPO"]        = repo
     os.environ["BUILD"]       = build_id
     os.environ["BRANCH"]      = str(branch)
@@ -180,6 +161,24 @@ def init(_command, _root_dir, _options):
     logger.info("ENV_TYPE : %s" % env_type)
     logger.info("===============")
 
+    # Load configuration from env repository
+    config_dir = os.getenv('DMAKE_CONFIG_DIR', None)
+    if config_dir is None:
+        logger.warning("WARNING: DMAKE_CONFIG_DIR not defined, not sourcing environment variables")
+    else:
+        logger.info("Pulling config from: %s" % config_dir)
+        os.system("cd %s && git pull origin master" % config_dir)
+
+        # Source environment variables
+        output = run_shell_command('source %s/%s.sh && env' % (config_dir, env_type))
+        output = output.split('\n')
+        for line in output:
+            line = line.strip()
+            if len(line) == 0:
+                continue
+            (key, _, value) = line.partition("=")
+            os.environ[key] = value
+
     # Check the SSH Key for cloning private repositories is correctly set up
     key_file = os.getenv('DMAKE_SSH_KEY', None)
     if key_file == '':
@@ -191,4 +190,5 @@ def init(_command, _root_dir, _options):
                     logger.info("Adding SSH key %s to SSH Agent" % key_file)
                     run_shell_command("ssh-add %s" % key_file, ignore_error = True)
         else:
-            raise DMakeException('DMAKE_SSH_KEY does not point to a valid file.')
+            logger.warning('WARNING: DMAKE_SSH_KEY does not point to a valid file.')
+            key_file = None

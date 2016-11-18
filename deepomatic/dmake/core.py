@@ -1,9 +1,9 @@
 import os, sys
 import yaml
 
-import deepomatic.deepomake.common as common
-from   deepomatic.deepomake.common import DMakeException
-from   deepomatic.deepomake.deepobuild import DeepoMakeFile, append_command
+import deepomatic.dmake.common as common
+from   deepomatic.dmake.common import DMakeException
+from   deepomatic.dmake.deepobuild import DMakeFile, append_command
 
 tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that you have declared a SSH credentials named 'dmake'"
 
@@ -46,8 +46,10 @@ def look_for_changed_directories():
 
 ###############################################################################
 
-def load_deepomake_files_list():
-    build_files = filter(lambda f: len(f.strip()) > 0, common.run_shell_command("find . -name deepomake.yml").split("\n"))
+def load_dmake_files_list():
+    build_files  = common.run_shell_command("find . -name dmake.yml").split("\n")
+    build_files += common.run_shell_command("find . -name deepomake.yml").split("\n")
+    build_files = filter(lambda f: len(f.strip()) > 0, build_files)
     build_files = [file[2:] for file in build_files]
     return build_files
 
@@ -68,10 +70,14 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
         'build_service': 'base'
     }
 
-    deepomake = loaded_files[file]
+    dmake = loaded_files[file]
     if command == 'base':
-        base_image  = deepomake.docker.get_docker_base_image_name_tag()
-        return [('base', base_image)]
+        root_image = dmake.docker.root_image
+        base_image = dmake.docker.get_docker_base_image_name_tag()
+        if root_image != base_image:
+            return [('base', base_image)]
+        else:
+            return []
     elif command in file_deps:
         node = (command, file)
         if node not in service_dependencies:
@@ -79,8 +85,8 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
         return [node]
     elif command in ['test', 'run', 'deploy']:
         nodes = []
-        for service in deepomake.get_services():
-            full_service_name = "%s/%s" % (deepomake.app_name, service.service_name)
+        for service in dmake.get_services():
+            full_service_name = "%s/%s" % (dmake.app_name, service.service_name)
             nodes += activate_service(loaded_files, service_providers, service_dependencies, command, full_service_name)
         return nodes
     else:
@@ -90,13 +96,13 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
 
 def activate_link(loaded_files, service_providers, service_dependencies, service):
     file, _ = service_providers[service]
-    deepomake = loaded_files[file]
-    s = deepomake._get_service_(service)
+    dmake = loaded_files[file]
+    s = dmake._get_service_(service)
 
     children = []
     if s.tests.has_value():
         for link in s.tests.docker_links_names:
-            children += activate_service(loaded_files, service_providers, service_dependencies, 'run_link', 'links/%s/%s' % (deepomake.get_app_name(), link))
+            children += activate_service(loaded_files, service_providers, service_dependencies, 'run_link', 'links/%s/%s' % (dmake.get_app_name(), link))
 
     return children
 
@@ -151,7 +157,7 @@ def find_active_files(loaded_files, service_providers, service_dependencies, sub
     if changed_dirs is None:
         common.logger.info("Forcing full rebuild")
 
-    for file_name, deepomake in loaded_files.items():
+    for file_name, dmake in loaded_files.items():
         if not file_name.startswith(sub_dir):
             continue
         root = os.path.dirname(file_name)
@@ -168,7 +174,7 @@ def find_active_files(loaded_files, service_providers, service_dependencies, sub
 
 ###############################################################################
 
-def load_deepomake_file(loaded_files, blacklist, service_providers, service_dependencies, file):
+def load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, file):
     if file in loaded_files:
         return
 
@@ -189,32 +195,32 @@ def load_deepomake_file(loaded_files, blacklist, service_providers, service_depe
 
     # Load appropriate version (TODO: versionning)
     if version == '0.1':
-        deepomake = DeepoMakeFile(file, data)
-    loaded_files[file] = deepomake
+        dmake = DMakeFile(file, data)
+    loaded_files[file] = dmake
 
     # Blacklist should be on child file because they are loaded this way
-    for bl in deepomake.blacklist:
+    for bl in dmake.blacklist:
         blacklist.append(bl)
 
-    for link in deepomake.docker_links:
-        add_service_provider(service_providers, 'links/%s/%s' % (deepomake.get_app_name(), link.link_name), file)
+    for link in dmake.docker_links:
+        add_service_provider(service_providers, 'links/%s/%s' % (dmake.get_app_name(), link.link_name), file)
 
     # Unroll docker image references
-    if common.is_string(deepomake.docker):
-        ref = deepomake.docker
-        load_deepomake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
-        deepomake.__fields__['docker'] = loaded_files[ref].docker
+    if common.is_string(dmake.docker):
+        ref = dmake.docker
+        load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
+        dmake.__fields__['docker'] = loaded_files[ref].docker
     else:
-        if common.is_string(deepomake.docker.root_image):
-            ref = deepomake.docker.root_image
-            load_deepomake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
-            deepomake.docker.__fields__['root_image'] = loaded_files[ref].docker.get_docker_base_image_name_tag()
+        if common.is_string(dmake.docker.root_image):
+            ref = dmake.docker.root_image
+            load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
+            dmake.docker.__fields__['root_image'] = loaded_files[ref].docker.get_docker_base_image_name_tag()
         else:
-            deepomake.docker.__fields__['root_image'] = deepomake.docker.root_image.full_name()
+            dmake.docker.__fields__['root_image'] = dmake.docker.root_image.full_name()
 
         # If a base image is declared
-        root_image = deepomake.docker.root_image
-        base_image = deepomake.docker.get_docker_base_image_name_tag()
+        root_image = dmake.docker.root_image
+        base_image = dmake.docker.get_docker_base_image_name_tag()
         if root_image != base_image:
             add_service_provider(service_providers, base_image, file)
             service_dependencies[('base', base_image)] = [('base', root_image)]
@@ -353,7 +359,7 @@ def generate_command_pipeline(file, cmds):
 
     file.write('}\n')
     file.write('finally {\n')
-    file.write('sh("deepomake_clean %s")\n' % common.tmp_dir)
+    file.write('sh("dmake_clean %s")\n' % common.tmp_dir)
     file.write('sh("sudo chown jenkins:jenkins * -R")\n')
     file.write('}\n}}\n')
 
@@ -411,7 +417,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         return
 
     if dmake_command == "deploy" and common.is_local:
-        r = common.read_input("Carefull ! Are you sure you want to do that ? [Y/n] ")
+        r = common.read_input("Carefull ! Are you sure you want to deploy ? [Y/n] ")
         if r.lower() != 'y' and r != "":
             print('Aborting')
             sys.exit(0)
@@ -431,20 +437,20 @@ def make(root_dir, sub_dir, dmake_command, app, options):
             auto_completed_app = app
 
     # Load build files
-    build_files = load_deepomake_files_list()
+    build_files = load_dmake_files_list()
     if len(build_files) == 0:
-        raise DMakeException('No deepomake.yml file found !')
+        raise DMakeException('No dmake.yml file found !')
 
     # Sort by increasing length to make sure we load parent files first
     sorted(build_files, key = lambda file: len(file))
 
-    # Load all deepomake.yml files (except those blacklisted)
+    # Load all dmake.yml files (except those blacklisted)
     blacklist = []
     loaded_files = {}
     service_providers = {}
     service_dependencies = {}
     for file in build_files:
-        load_deepomake_file(loaded_files, blacklist, service_providers, service_dependencies, file)
+        load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, file)
 
     # Remove black listed files
     for f in blacklist:
@@ -454,8 +460,8 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     # Register all apps and services in the repo
     docker_links = {}
     services = {}
-    for file, deepomake in loaded_files.items():
-        app_name = deepomake.get_app_name()
+    for file, dmake in loaded_files.items():
+        app_name = dmake.get_app_name()
         if app_name not in docker_links:
             docker_links[app_name] = {}
         if app_name not in services:
@@ -466,7 +472,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                 auto_completed_app = app
 
         app_services = services[app_name]
-        for service in deepomake.get_services():
+        for service in dmake.get_services():
             needs = ["%s/%s" % (app_name, sa) for sa in service.needed_services]
             full_service_name = "%s/%s" % (app_name, service.service_name)
             if service.service_name in app_services:
@@ -482,7 +488,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                     raise DMakeException("Ambigous app name '%s' is matching sub-app '%s' and %sapp '%s'" % (app, full_service_name, "" if auto_complete_is_app else "sub-", auto_completed_app))
 
         app_links = docker_links[app_name]
-        for link in deepomake.get_docker_links():
+        for link in dmake.get_docker_links():
             if link.link_name in app_links:
                 raise DMakeException("Duplicate link name '%s' for application '%s'. Link names must be unique inside each app." % (link.link_name, app_name))
             app_links[link.link_name] = link
@@ -542,11 +548,12 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     ordered_build_files = [('Building Docker', base),
                            ('Building App', build),
                            ('Running and Testing App', test)]
+
     if not common.is_pr:
         ordered_build_files.append(('Deploying', list(deploy))) # build_service needs to be before others otherwise it may mess-up with tests
 
     # Display commands
-    common.logger.info("Okay, here is the plan:")
+    common.logger.info("Here is the plan:")
     for stage, commands in ordered_build_files:
         if len(commands) > 0:
             common.logger.info("## %s ##" % (stage))
@@ -572,39 +579,38 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         for (command, service), order in commands:
             append_command(all_commands, 'sh', shell = 'echo "Running %s @ %s"' % (command, service))
             if command in ['build_tests', 'build_service']:
-                deepomake = loaded_files[service]
+                dmake = loaded_files[service]
             else:
                 file, _ = service_providers[service]
-                deepomake = loaded_files[file]
-            app_name = deepomake.get_app_name()
+                dmake = loaded_files[file]
+            app_name = dmake.get_app_name()
             links = docker_links[app_name]
             app_services = services[app_name]
 
-            #try:
-            if True: # HACK
+            try:
                 if command == "base":
-                    deepomake.generate_base(all_commands)
+                    dmake.generate_base(all_commands)
                 elif command == "shell":
-                    deepomake.generate_shell(all_commands, service, app_services, links)
+                    dmake.generate_shell(all_commands, service, app_services, links)
                 elif command == "test":
-                    deepomake.generate_test(all_commands, service, app_services, links)
+                    dmake.generate_test(all_commands, service, app_services, links)
                 elif command == "run":
-                    deepomake.generate_run(all_commands, service, links)
+                    dmake.generate_run(all_commands, service, links)
                 elif command == "run_link":
-                    deepomake.generate_run_link(all_commands, service, links)
+                    dmake.generate_run_link(all_commands, service, links)
                 elif command == "build_tests":
-                    deepomake.generate_build_tests(all_commands)
+                    dmake.generate_build_tests(all_commands)
                 elif command == "build_service":
-                    deepomake.generate_build_services(all_commands)
+                    dmake.generate_build_services(all_commands)
                 elif command == "build_docker":
-                    deepomake.generate_build(all_commands, service)
+                    dmake.generate_build(all_commands, service)
                 elif command == "deploy":
-                    deepomake.generate_deploy(all_commands, service, links)
+                    dmake.generate_deploy(all_commands, service, links)
                 else:
                     raise Exception("Unkown command '%s'" % command)
-            # except DMakeException as e:
-            #     print(('ERROR in file %s:\n' % file) + str(e))
-            #     sys.exit(1)
+            except DMakeException as e:
+                print(('ERROR in file %s:\n' % file) + str(e))
+                sys.exit(1)
 
     # Check stages do not appear twice (otherwise it may block Jenkins)
     stage_names = set()
@@ -632,6 +638,8 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         if result != 0 or dmake_command != 'run':
-            os.system('deepomake_clean %s' % common.tmp_dir)
+            # HACK
+            pass
+            #os.system('dmake_clean %s' % common.tmp_dir)
 
 
