@@ -2,7 +2,7 @@
 dmake_version: '0.1'
 app_name: my_app
 blacklist:
-- some/sub/deepomake.yml
+- some/sub/dmake.yml
 env:
     default:
         ENV_TYPE: dev

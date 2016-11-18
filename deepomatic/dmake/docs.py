@@ -1,14 +1,14 @@
 import yaml
 from collections import OrderedDict
-from deepomatic.dmake.deepobuild import DeepoMakeFileSerializer
+from deepomatic.dmake.deepobuild import DMakeFileSerializer
 
 def generate():
-    doc_root = DeepoMakeFileSerializer()
+    doc_root = DMakeFileSerializer()
     _, _, doc = doc_root.generate_doc()
     print(doc)
 
 def example():
-    doc_root = DeepoMakeFileSerializer()
+    doc_root = DMakeFileSerializer()
     example = doc_root.generate_example()
     print("```yaml")
     print(yaml.dump(example, default_flow_style = False, indent = 4))

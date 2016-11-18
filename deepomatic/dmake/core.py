@@ -47,8 +47,7 @@ def look_for_changed_directories():
 ###############################################################################
 
 def load_dmake_files_list():
-    build_files  = common.run_shell_command("find . -name dmake.yml").split("\n")
-    build_files += common.run_shell_command("find . -name deepomake.yml").split("\n")
+    build_files = common.run_shell_command("find . -name dmake.yml").split("\n")
     build_files = filter(lambda f: len(f.strip()) > 0, build_files)
     build_files = [file[2:] for file in build_files]
     return build_files

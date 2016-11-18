@@ -491,7 +491,7 @@ class ServicesSerializer(YAML2PipelineSerializer):
     tests           = TestsSerializer(optional = True, help_text = "Unit tests list.")
     deploy          = DeploySerializer(optional = True, help_text = "Deploy stage")
 
-class DeepoMakeFileSerializer(YAML2PipelineSerializer):
+class DMakeFileSerializer(YAML2PipelineSerializer):
     dmake_version            = FieldSerializer("string", help_text = "The dmake version.", example = "0.1")
     app_name                 = FieldSerializer("string", help_text = "The application name.", example = "my_app", no_slash_no_space = True)
     blacklist                = FieldSerializer("array", child = "path", default = [], help_text = "List of dmake files to blacklist.", child_path_only = True, example = ['some/sub/dmake.yml'])
@@ -502,9 +502,9 @@ class DeepoMakeFileSerializer(YAML2PipelineSerializer):
     build_services_commands  = FieldSerializer("array", default = [], child = FieldSerializer(["string", "array"], child = "string", post_validation = lambda x: [x] if common.is_string(x) else x), help_text ="Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.", example = ["cmake .", "make"])
     services                 = FieldSerializer("array", child = ServicesSerializer(), default = [], help_text = "Service list.")
 
-class DeepoMakeFile(DeepoMakeFileSerializer):
+class DMakeFile(DMakeFileSerializer):
     def __init__(self, file, data):
-        super(DeepoMakeFile, self).__init__()
+        super(DMakeFile, self).__init__()
 
         self.__path__ = os.path.join(os.path.dirname(file), '')
 
