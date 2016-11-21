@@ -597,9 +597,9 @@ class DMakeFile(DMakeFileSerializer):
             workdir = service.config.docker_image.workdir
             entrypoint = service.config.docker_image.entrypoint
 
-        docker_opts='-v %s:%s -w %s' % (common.join_without_slash(common.root_dir, self.__path__), workdir, workdir)
+        docker_opts='-v %s:%s -w %s' % (common.join_without_slash(common.root_dir), workdir, workdir)
         if entrypoint is not None:
-            full_path_container = os.path.join(workdir, entrypoint)
+            full_path_container = os.path.join(workdir, self.__path__, entrypoint)
             docker_opts += ' --entrypoint %s' % full_path_container
 
         self._get_check_needed_services_(commands, service)

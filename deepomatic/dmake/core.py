@@ -11,13 +11,20 @@ tag_push_error_msg = "Unauthorized to push the current state of deployment to gi
 
 def look_for_changed_directories():
     if common.target is None:
-        return None
-    common.logger.info("Looking for changes between HEAD and %s" % common.target)
-    try:
-        output = common.run_shell_command("git diff --name-only origin/%s...HEAD" % common.target)
-    except common.ShellError as e:
-        common.logger.error("Error: " + str(e))
-        return None
+        tag = get_tag_name()
+        common.logger.info("Looking for changes between HEAD and %s" % tag)
+        try:
+            output = common.run_shell_command("git diff --name-only %s...HEAD" % tag)
+        except common.ShellError as e:
+            common.logger.error("Error: " + str(e))
+            return None
+    else:
+        common.logger.info("Looking for changes between HEAD and %s" % common.target)
+        try:
+            output = common.run_shell_command("git diff --name-only origin/%s...HEAD" % common.target)
+        except common.ShellError as e:
+            common.logger.error("Error: " + str(e))
+            return None
 
     #common.logger.info("Changed files:")
     #common.logger.info(output)
@@ -406,6 +413,11 @@ def generate_command(file_name, cmds):
 
 ###############################################################################
 
+def get_tag_name():
+    return 'deployed_version_%s' % common.branch
+
+###############################################################################
+
 def make(root_dir, sub_dir, dmake_command, app, options):
     if 'DMAKE_TMP_DIR' in os.environ:
         del os.environ['DMAKE_TMP_DIR']
@@ -414,12 +426,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if dmake_command == "stop":
         common.run_shell_command("docker rm -f `docker ps -q -f name=%s.%s.%s`" % (app, common.branch, common.build_id))
         return
-
-    if dmake_command == "deploy" and common.is_local:
-        r = common.read_input("Carefull ! Are you sure you want to deploy ? [Y/n] ")
-        if r.lower() != 'y' and r != "":
-            print('Aborting')
-            sys.exit(0)
 
     # Format args
     auto_complete = False
@@ -563,6 +569,12 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                 raise DMakeException('Bad ordering')
             common.logger.info("- %s @ %s" % (command, service))
 
+    if dmake_command == "deploy" and common.is_local:
+        r = common.read_input("Careful ! Are you sure you want to deploy ? [Y/n] ")
+        if r.lower() != 'y' and r != "":
+            print('Aborting')
+            sys.exit(0)
+
     # Generate the list of command to run
     all_commands = []
     append_command(all_commands, 'env', var = "REPO", value = common.repo)
@@ -623,7 +635,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
 
     # If not on Pull Request, tag the commit as deployed
     if dmake_command == "deploy" and not common.is_pr:
-        append_command(all_commands, 'git_tag', tag = 'deployed_version_%s' % common.branch)
+        append_command(all_commands, 'git_tag', tag = get_tag_name())
 
     # Generate output
     if common.is_local:
