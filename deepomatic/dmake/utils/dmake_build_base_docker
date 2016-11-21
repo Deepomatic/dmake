@@ -43,8 +43,11 @@ if [[ "$ROOT_IMAGE" != *":"* ]]; then
 else
     FULL_ROOT_IMAGE="$ROOT_IMAGE"
 fi
-docker pull ${FULL_ROOT_IMAGE}
+docker pull ${FULL_ROOT_IMAGE} || :
 ID_ROOT=$(docker_get_image_id ${FULL_ROOT_IMAGE})
+if [ -z "${ID_ROOT}" ]; then
+    dmake_fail "Could not find root image: ${FULL_ROOT_IMAGE}"
+fi
 
 # Retrieve the base image
 export BASE_IMAGE="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
