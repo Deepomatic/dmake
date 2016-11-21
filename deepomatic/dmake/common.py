@@ -131,7 +131,7 @@ def init(_command, _root_dir, _options):
     # Set Job description
     build_description = None
     if use_pipeline:
-        run_shell_command('git submodule update --init')
+        run_shell_command('git submodule update --init', ignore_error = True)
         if is_pr:
             build_description = "<a href=%s>PR #%s</a>: %s" % (
                 os.getenv('CHANGE_URL'),

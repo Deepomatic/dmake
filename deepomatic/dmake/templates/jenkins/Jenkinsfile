@@ -1,5 +1,5 @@
 properties([[$class: 'ParametersDefinitionProperty', parameterDefinitions: [
-    [$class: 'StringParameterDefinition', defaultValue: '', description: '(option) Application to deploy', name : 'DMAKE_APP']
+    [$class: 'StringParameterDefinition', defaultValue: '', description: '(option) Application to deploy. If empty, it will build all the applications.', name : 'DMAKE_APP']
 ]]])
 node {
     checkout scm
