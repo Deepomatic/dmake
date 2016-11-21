@@ -134,12 +134,10 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children += activate_file(loaded_files, service_providers, service_dependencies, 'build', file)
             if getattr(common.options, 'dependencies', None):
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
-        elif command == 'build':
-            children = []
         elif command == 'build_docker':
             children = []
         elif command == 'run':
-            children = activate_service(loaded_files, service_providers, service_dependencies, 'build', service)
+            children = activate_file(loaded_files, service_providers, service_dependencies, 'build', file)
             if getattr(common.options, 'dependencies', None) and needs is not None:
                 for n in needs:
                     children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
@@ -590,8 +588,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         for (command, service), order in commands:
             append_command(all_commands, 'sh', shell = 'echo "Running %s @ %s"' % (command, service))
             if command == 'build':
-                file, _ = service_providers[service]
-                dmake = loaded_files[file]
+                dmake = loaded_files[service]
             else:
                 file, _ = service_providers[service]
                 dmake = loaded_files[file]
