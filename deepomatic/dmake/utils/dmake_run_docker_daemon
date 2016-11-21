@@ -23,7 +23,7 @@ SERVICE_NAME=$1
 NAME=$2
 shift 2
 
-CONTAINER_ID=`dmake_run_docker "" "${NAME}" -d $*`
+CONTAINER_ID=`dmake_run_docker "" "${NAME}" -d "$@"`
 while [ 1 = 1 ]; do
     if [ `docker ps -f id=$CONTAINER_ID -f status=running | wc -l` -gt "0" ]; then
         break

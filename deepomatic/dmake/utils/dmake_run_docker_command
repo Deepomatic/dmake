@@ -7,7 +7,7 @@
 # Run a docker command.
 
 if [ "${DMAKE_ON_BUILD_SERVER}" = "1" ]; then
-    dmake_run_docker "" "" --rm $*
+    dmake_run_docker "" "" --rm "$@"
 else
-    dmake_run_docker "" "" --rm -t $*
+    dmake_run_docker "" "" --rm -t "$@"
 fi

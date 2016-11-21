@@ -72,8 +72,7 @@ def add_service_provider(service_providers, service, file, needs = None):
 
 def activate_file(loaded_files, service_providers, service_dependencies, command, file):
     file_deps = {
-        'build_tests': 'base',
-        'build_service': 'base'
+        'build': 'base',
     }
 
     dmake = loaded_files[file]
@@ -122,27 +121,28 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children = activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
         elif command == 'shell':
             children = []
-            if getattr(common.options, 'dependencies', None):
-                if needs is not None:
-                    for n in needs:
-                        children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
+            if getattr(common.options, 'dependencies', None) and needs is not None:
+                for n in needs:
+                    children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
             children += activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
         elif command == 'test':
             children = []
-            for n in needs:
-                children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
-            children += activate_file(loaded_files, service_providers, service_dependencies, 'build_tests', file)
+            if getattr(common.options, 'dependencies', None) and needs is not None:
+                for n in needs:
+                    children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
+            children += activate_file(loaded_files, service_providers, service_dependencies, 'build', file)
             if getattr(common.options, 'dependencies', None):
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
+        elif command == 'build':
+            children = []
         elif command == 'build_docker':
-            children = activate_file(loaded_files, service_providers, service_dependencies, 'build_service', file)
+            children = []
         elif command == 'run':
-            children = activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
-            if getattr(common.options, 'dependencies', None):
-                if needs is not None:
-                    for n in needs:
-                        children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
+            children = activate_service(loaded_files, service_providers, service_dependencies, 'build', service)
+            if getattr(common.options, 'dependencies', None) and needs is not None:
+                for n in needs:
+                    children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'run_link':
             children = []
@@ -544,9 +544,9 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     # Separate into base / build / tests / deploy
     n = len(ordered_build_files)
     base   = list(filter(lambda a_b__c: a_b__c[0][0] in ['base'], ordered_build_files))
-    build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build_service', 'build_docker'], ordered_build_files))
-    test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['build_tests', 'test', 'shell', 'run_link', 'run'], ordered_build_files))
-    deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['deploy'], ordered_build_files))
+    build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build'], ordered_build_files))
+    test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['test', 'shell', 'run_link', 'run'], ordered_build_files))
+    deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['build_docker', 'deploy'], ordered_build_files))
     if len(base) + len(build) + len(test) + len(deploy) != len(ordered_build_files):
         raise Exception('Something went wrong when reorganizing build steps. One of the commands is probably missing.')
 
@@ -555,7 +555,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                            ('Running and Testing App', test)]
 
     if not common.is_pr:
-        ordered_build_files.append(('Deploying', list(deploy))) # build_service needs to be before others otherwise it may mess-up with tests
+        ordered_build_files.append(('Deploying', list(deploy)))
 
     # Display commands
     common.logger.info("Here is the plan:")
@@ -589,32 +589,30 @@ def make(root_dir, sub_dir, dmake_command, app, options):
             append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
         for (command, service), order in commands:
             append_command(all_commands, 'sh', shell = 'echo "Running %s @ %s"' % (command, service))
-            if command in ['build_tests', 'build_service']:
-                dmake = loaded_files[service]
+            if command == 'build':
+                file, _ = service_providers[service]
+                dmake = loaded_files[file]
             else:
                 file, _ = service_providers[service]
                 dmake = loaded_files[file]
             app_name = dmake.get_app_name()
             links = docker_links[app_name]
-            app_services = services[app_name]
 
             try:
                 if command == "base":
                     dmake.generate_base(all_commands)
                 elif command == "shell":
-                    dmake.generate_shell(all_commands, service, app_services, links)
+                    dmake.generate_shell(all_commands, service, links)
                 elif command == "test":
-                    dmake.generate_test(all_commands, service, app_services, links)
+                    dmake.generate_test(all_commands, service, links)
                 elif command == "run":
                     dmake.generate_run(all_commands, service, links)
                 elif command == "run_link":
                     dmake.generate_run_link(all_commands, service, links)
-                elif command == "build_tests":
-                    dmake.generate_build_tests(all_commands)
-                elif command == "build_service":
-                    dmake.generate_build_services(all_commands)
+                elif command == "build":
+                    dmake.generate_build(all_commands)
                 elif command == "build_docker":
-                    dmake.generate_build(all_commands, service)
+                    dmake.generate_build_docker(all_commands, service)
                 elif command == "deploy":
                     dmake.generate_deploy(all_commands, service, links)
                 else:

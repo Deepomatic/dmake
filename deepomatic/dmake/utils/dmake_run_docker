@@ -46,6 +46,6 @@ if [ ! -z "${TMP_DIR}" ]; then
     echo ${NAME} >> ${TMP_DIR}/containers_to_remove.txt
 fi
 
-docker run --name ${NAME} $*
+docker run --name ${NAME} "$@"
 
 

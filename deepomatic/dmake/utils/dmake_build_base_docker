@@ -53,20 +53,17 @@ fi
 export BASE_IMAGE="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
 BASE_IMAGE_GENERAL="${DOCKER_IMAGE_NAME}:base-${DOCKER_IMAGE_VERSION}"
 echo "Retrieving ID for ${BASE_IMAGE}"
-ID_BASE=$(docker_get_image_id $BASE_IMAGE)
-#If not found, pull only if image has a user
-if [ -z "${ID_BASE}" ] && [[ "${BASE_IMAGE}" =~ .+/.+ ]]; then
-    echo "${BASE_IMAGE} not found, try pulling it"
+if [[ "${BASE_IMAGE}" =~ .+/.+ ]]; then
     docker pull $BASE_IMAGE || :
-    ID_BASE=$(docker_get_image_id ${BASE_IMAGE})
-    #If still not found, if may be because it is a newly created branch. We pull the general base image
-    if [ -z "${ID_BASE}" ]; then
-        echo "${BASE_IMAGE} not found on docker-hub, try pulling ${BASE_IMAGE_GENERAL}"
-        docker pull ${BASE_IMAGE_GENERAL} || :
-        ID_BASE=$(docker_get_image_id ${BASE_IMAGE_GENERAL})
-        if [ ! -z "${ID_BASE}" ]; then
-            docker tag ${BASE_IMAGE_GENERAL} ${BASE_IMAGE}
-        fi
+fi
+ID_BASE=$(docker_get_image_id $BASE_IMAGE)
+#If still not found, if may be because it is a newly created branch. We pull the general base image
+if [ -z "${ID_BASE}" ] && [[ "${BASE_IMAGE_GENERAL}" =~ .+/.+ ]]; then
+    echo "${BASE_IMAGE} not found on docker-hub, try pulling ${BASE_IMAGE_GENERAL}"
+    docker pull ${BASE_IMAGE_GENERAL} || :
+    ID_BASE=$(docker_get_image_id ${BASE_IMAGE_GENERAL})
+    if [ ! -z "${ID_BASE}" ]; then
+        docker tag ${BASE_IMAGE_GENERAL} ${BASE_IMAGE}
     fi
 fi
 
