@@ -67,11 +67,11 @@ def append_command(commands, cmd, prepend = False, **args):
 
 ###############################################################################
 
-def generate_copy_command(commands, path_dir, tmp_dir, file_or_dir, recursive = False):
-    src = os.path.join(path_dir, file_or_dir)
-    dst = os.path.join(tmp_dir, file_or_dir)
-    d = os.path.dirname(dst)
-    append_command(commands, 'sh', shell = 'mkdir -p %s && cp %s %s %s' % (d, '-r' if recursive else '', src, dst))
+# def generate_copy_command(commands, path_dir, tmp_dir, file_or_dir, recursive = False):
+#     src = os.path.join(path_dir, file_or_dir)
+#     dst = os.path.join(tmp_dir, file_or_dir)
+#     d = os.path.dirname(dst)
+#     append_command(commands, 'sh', shell = 'mkdir -p %s && cp %s %s %s' % (d, '-r' if recursive else '', src, dst))
 
 ###############################################################################
 
@@ -305,42 +305,42 @@ class DeployStageSerializer(YAML2PipelineSerializer):
     aws_beanstalk = AWSBeanStalkDeploySerializer(optional = True, help_text = "Deploy via Elastic Beanstalk")
     ssh           = SSHDeploySerializer(optional = True, help_text = "Deploy via SSH")
 
-class InstallExeSerializer(YAML2PipelineSerializer):
-    exe = FieldSerializer("path", child_path_only = True, check_path = False, example = "some/relative/binary", help_text = "Path to the executable to copy (will be copied in /usr/bin).")
+# class InstallExeSerializer(YAML2PipelineSerializer):
+#     exe = FieldSerializer("path", child_path_only = True, check_path = False, example = "some/relative/binary", help_text = "Path to the executable to copy (will be copied in /usr/bin).")
 
-    def docker_cmd(self, commands, path_dir, tmp_dir):
-        generate_copy_command(commands, path_dir, tmp_dir, self.exe)
-        return "COPY %s /usr/bin/" % os.path.basename(self.exe)
+#     def docker_cmd(self, commands, path_dir, tmp_dir):
+#         generate_copy_command(commands, path_dir, tmp_dir, self.exe)
+#         return "COPY %s /usr/bin/" % os.path.basename(self.exe)
 
-    def docker_opt(self, path_dir):
-        return "-v %s:/usr/bin/%s" % (os.path.join(path_dir, self.exe), os.path.basename(self.exe))
+#     def docker_opt(self, path_dir):
+#         return "-v %s:/usr/bin/%s" % (os.path.join(path_dir, self.exe), os.path.basename(self.exe))
 
-class InstallLibSerializer(YAML2PipelineSerializer):
-    lib = FieldSerializer("path", child_path_only = True, check_path = False, example = "some/relative/libexample.so", help_text = "Path to the executable to copy (will be copied in /usr/lib).")
+# class InstallLibSerializer(YAML2PipelineSerializer):
+#     lib = FieldSerializer("path", child_path_only = True, check_path = False, example = "some/relative/libexample.so", help_text = "Path to the executable to copy (will be copied in /usr/lib).")
 
-    def docker_cmd(self, commands, path_dir, tmp_dir):
-        generate_copy_command(commands, path_dir, tmp_dir, self.lib)
-        return "COPY %s /usr/lib/" % os.path.basename(self.lib)
+#     def docker_cmd(self, commands, path_dir, tmp_dir):
+#         generate_copy_command(commands, path_dir, tmp_dir, self.lib)
+#         return "COPY %s /usr/lib/" % os.path.basename(self.lib)
 
-    def docker_opt(self, path_dir):
-        return "-v %s:/usr/lib/%s" % (os.path.join(path_dir, self.lib), os.path.basename(self.lib))
+#     def docker_opt(self, path_dir):
+#         return "-v %s:/usr/lib/%s" % (os.path.join(path_dir, self.lib), os.path.basename(self.lib))
 
-class InstallDirSerializer(YAML2PipelineSerializer):
-    dir_src = FieldSerializer("dir", child_path_only = True, check_path = False, example = "some/relative/directory/", help_text = "Path to the source directory (relative to this dmake file) to copy.")
-    dir_dst = FieldSerializer("string", check_path = False, help_text = "Path to the install directory (in the docker).")
+# class InstallDirSerializer(YAML2PipelineSerializer):
+#     dir_src = FieldSerializer("dir", child_path_only = True, check_path = False, example = "some/relative/directory/", help_text = "Path to the source directory (relative to this dmake file) to copy.")
+#     dir_dst = FieldSerializer("string", check_path = False, help_text = "Path to the install directory (in the docker).")
 
-    def docker_cmd(self, commands, path_dir, tmp_dir):
-        generate_copy_command(commands, path_dir, tmp_dir, self.dir_src, recursive = True)
-        return "ADD %s %s" % (self.dir_src, self.dir_dst)
+#     def docker_cmd(self, commands, path_dir, tmp_dir):
+#         generate_copy_command(commands, path_dir, tmp_dir, self.dir_src, recursive = True)
+#         return "ADD %s %s" % (self.dir_src, self.dir_dst)
 
-    def docker_opt(self, path_dir):
-        #self.dir_dst start with / and os.path.join would ignore /dmake/volumes if not putting the '+'
-        return '-v %s:%s' % (common.join_without_slash(path_dir, self.dir_src),
-                             common.join_without_slash('/dmake', 'volumes' + self.dir_dst))
+#     def docker_opt(self, path_dir):
+#         #self.dir_dst start with / and os.path.join would ignore /dmake/volumes if not putting the '+'
+#         return '-v %s:%s' % (common.join_without_slash(path_dir, self.dir_src),
+#                              common.join_without_slash('/dmake', 'volumes' + self.dir_dst))
 
 class ServiceDockerSerializer(YAML2PipelineSerializer):
-    workdir         = FieldSerializer("string", default = "/", help_text = "Working directory of the produced docker file.")
-    install_targets = FieldSerializer("array", child = FieldSerializer([InstallExeSerializer(), InstallLibSerializer(), InstallDirSerializer()]), default = [], help_text = "Target files or directories to install.")
+    workdir         = FieldSerializer("dir", optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
+    #install_targets = FieldSerializer("array", child = FieldSerializer([InstallExeSerializer(), InstallLibSerializer(), InstallDirSerializer()]), default = [], help_text = "Target files or directories to install.")
     install_script  = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "install.sh", help_text = "The install script (will be run in the docker). It has to be executable.")
     entrypoint      = FieldSerializer("path", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
     start_script    = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
@@ -357,34 +357,27 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         dockerfile_template = os.path.join(tmp_dir, 'Dockerfile_template')
         with open(dockerfile_template, 'w') as f:
             f.write('FROM %s\n' % docker_base)
-            f.write('\n')
             f.write('${ENV_VARS}\n')
-            f.write('\n')
+            f.write("ADD %s /app\n" % common.root_dir)
+
+            if self.workdir is not None:
+                workdir = self.workdir
+            else:
+                workdir = path_dir
+            workdir = '/app/' + workdir
             f.write('WORKDIR %s\n' % self.workdir)
-            f.write('\n')
+
             for port in config.ports:
                 f.write('EXPOSE %s\n' % port.container_port)
-            f.write('\n')
-            for target in self.install_targets:
-                f.write(target.docker_cmd(commands, path_dir, tmp_dir) + "\n")
-            f.write('\n')
 
             if self.install_script is not None:
-                generate_copy_command(commands, path_dir, tmp_dir, self.install_script)
-                f.write('COPY %s %s\n' % (
-                    self.install_script,
-                    os.path.join(self.workdir, self.install_script)))
-                f.write('RUN cd %s && ./%s\n' % (self.workdir, self.install_script))
+                f.write('RUN cd %s && /app/%s\n' % (workdir, os.path.join(path_dir, self.install_script)))
 
             if self.start_script is not None:
-                generate_copy_command(commands, path_dir, tmp_dir, self.start_script)
-                f.write('COPY %s %s\n' % (
-                    self.start_script,
-                    os.path.join(self.workdir, self.start_script)))
-                f.write('CMD ["./%s"]\n' % self.start_script)
+                f.write('CMD ["/app/%s"]\n' % os.path.join(path_dir, self.start_script))
 
             if self.entrypoint is not None:
-                f.write('ENTRYPOINT ["./%s"]\n' % self.entrypoint)
+                f.write('ENTRYPOINT ["/app/%s"]\n' % os.path.join(path_dir, self.entrypoint))
 
         generate_dockerfile(commands, tmp_dir, env)
 
@@ -615,14 +608,18 @@ class DMakeFile(DMakeFileSerializer):
 
     def launch_options(self, commands, service, docker_links):
         service = self._get_service_(service)
+        workdir = common.join_without_slash('/app', self.__path__)
         if service.config is None:
-            workdir = '/app'
             entrypoint = None
         else:
-            workdir = service.config.docker_image.workdir
+            if service.config.docker_image.workdir is not None:
+                workdir = common.join_without_slash('/app', service.config.docker_image.workdir)
             entrypoint = service.config.docker_image.entrypoint
 
-        docker_opts = ' -w %s' % workdir
+        docker_opts = ' -v %s:/app -w %s' % (common.join_without_slash(common.root_dir), workdir)
+        if entrypoint is not None:
+            full_path_container = os.path.join('/app', self.__path__, entrypoint)
+            docker_opts += ' --entrypoint %s' % full_path_container
 
         self._get_check_needed_services_(commands, service)
 
@@ -630,25 +627,19 @@ class DMakeFile(DMakeFileSerializer):
 
         env_str = []
         if self.build.has_value() and self.build.env.has_value():
-            for var_value in self.build.env.production.items():
+            for var_value in self.build.env.testing.items():
                 env_str.append('-e %s=%s' % var_value)
         env_str = " ".join(env_str)
 
         self._get_link_opts_(commands, service)
+        image_name = self.docker.get_docker_base_image_name_tag()
         opts = docker_opts + " " + service.config.full_docker_opts(True)
-        opts = " ${DOCKER_LINK_OPTS} %s --env-file %s -e ENV_TYPE=%s -e BUILD=%s %s" % (opts, env_file, common.env_type, common.build_id, env_str)
+        opts = " ${DOCKER_LINK_OPTS} %s --env-file %s -e ENV_TYPE=%s -e BUILD=%s %s -i %s" % (opts, env_file, common.env_type, common.build_id, env_str, image_name)
         return opts, workdir, entrypoint
 
     def generate_shell(self, commands, service, docker_links):
         opts, workdir, entrypoint = self.launch_options(commands, service, docker_links)
-
-        opts += ' -v %s:%s' % (common.join_without_slash(common.root_dir), workdir)
-        if entrypoint is not None:
-            full_path_container = os.path.join(workdir, self.__path__, entrypoint)
-            opts += ' --entrypoint %s' % full_path_container
-
-        image_name = self.docker.get_docker_base_image_name_tag()
-        append_command(commands, 'sh', shell = "dmake_run_docker '' '' --rm -t %s -i %s %s" % (opts, image_name, self.docker.command))
+        append_command(commands, 'sh', shell = "dmake_run_docker '' '' --rm -t %s %s" % (opts, self.docker.command))
 
     def generate_run(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
@@ -657,30 +648,27 @@ class DMakeFile(DMakeFileSerializer):
 
         opts, workdir, entrypoint = self.launch_options(commands, service_name, docker_links)
 
-        # Simulate target installation (should normally include entrypoint)
-        volumes = []
-        for target in service.config.docker_image.install_targets:
-            volumes.append(target.docker_opt(os.path.join(common.root_dir, self.__path__)))
-        volumes = ' '.join(volumes)
-        opts += ' ' + volumes
-
         # Create file to signal the installation is done and that we can move one
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
         installed_file = os.path.join(tmp_dir, 'installed')
         common.run_shell_command('touch %s' % installed_file)
-        opts += ' -v %s:/installed' % installed_file
+        opts = ('-v %s:/installed ' % installed_file) + opts
 
-        copy_cmd = 'cp -r /dmake/volumes/* / && '
-        cmd = "echo 1 > /installed && " + service.config.docker_image.start_script
+        cmd = ""
         if service.config.docker_image.install_script is not None:
-            cmd = copy_cmd + service.config.docker_image.install_script + " && " + cmd
-        else:
-            cmd = copy_cmd + cmd
+            cmd += service.config.docker_image.install_script + " && "
+        if service.config.pre_deploy_script is not None:
+            cmd += service.config.pre_deploy_script + " && "
+        cmd += "echo 1 > /installed && " + service.config.docker_image.start_script
+        if service.config.mid_deploy_script is not None:
+            cmd += " && " + service.config.mid_deploy_script
+        if service.config.post_deploy_script is not None:
+            cmd += " && " + service.config.post_deploy_script
+
         cmd = "bash -c \"%s\"" % cmd
 
-        image_name = self.docker.get_docker_base_image_name_tag()
-        append_command(commands, 'sh', shell = "ID=$(dmake_run_docker_daemon \"%s\" \"\" %s -i %s %s) && " % (service_name, opts, image_name, cmd) +
-                                               "echo \"Launched daemon for %s with ID: $ID\" && " % (image_name) +
+        append_command(commands, 'sh', shell = "ID=$(dmake_run_docker_daemon \"%s\" \"\" %s %s) && " % (service_name, opts, cmd) +
+                                               "echo \"Launched daemon with ID: $ID\" && " +
                                                "echo 'Waiting for daemon to start...' && " +
                                                "while [[ `cat %s` != 1 ]]; do sleep 1; if [ `docker ps --filter id=$ID | sed 1d | wc -l` = 0 ]; then echo 'Worker crashed. Here are the logs:'; docker logs $ID; exit 1; fi; done; sleep 2" % installed_file)
 
