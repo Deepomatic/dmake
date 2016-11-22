@@ -654,23 +654,29 @@ class DMakeFile(DMakeFileSerializer):
         common.run_shell_command('touch %s' % installed_file)
         opts = ('-v %s:/installed ' % installed_file) + opts
 
-        cmd = ""
+        cmd = []
         if service.config.docker_image.install_script is not None:
-            cmd += service.config.docker_image.install_script + " && "
+            cmd.append(service.config.docker_image.install_script)
         if service.config.pre_deploy_script:
-            cmd += service.config.pre_deploy_script + " && "
-        cmd += "echo 1 > /installed && " + service.config.docker_image.start_script
-        if service.config.mid_deploy_script:
-            cmd += " && " + service.config.mid_deploy_script
-        if service.config.post_deploy_script:
-            cmd += " && " + service.config.post_deploy_script
-
-        cmd = "bash -c \"%s\"" % cmd
+            cmd.append(service.config.pre_deploy_script)
+        cmd.append("echo 1 > /installed")
+        cmd.append(service.config.docker_image.start_script)
+        cmd = " && ".join(cmd)
+        cmd = 'bash -c "%s"' % cmd
 
         append_command(commands, 'sh', shell = "ID=$(dmake_run_docker_daemon \"%s\" \"\" %s %s) && " % (service_name, opts, cmd) +
                                                "echo \"Launched daemon with ID: $ID\" && " +
                                                "echo 'Waiting for daemon to start...' && " +
                                                "while [[ `cat %s` != 1 ]]; do sleep 1; if [ `docker ps --filter id=$ID | sed 1d | wc -l` = 0 ]; then echo 'Worker crashed. Here are the logs:'; docker logs $ID; exit 1; fi; done; sleep 2" % installed_file)
+        cmd = []
+        if service.config.mid_deploy_script:
+            cmd.append(service.config.mid_deploy_script)
+        if service.config.post_deploy_script:
+            cmd.append(service.config.post_deploy_script)
+        cmd = " && ".join(cmd)
+        if cmd:
+            cmd = 'bash -c "%s"' % cmd
+            append_command(commands, 'sh', shell = "dmake_run_docker '' '' --rm -t %s %s" % (opts, cmd))
 
     def generate_build(self, commands):
         if not self.build.has_value():
