@@ -657,12 +657,12 @@ class DMakeFile(DMakeFileSerializer):
         cmd = ""
         if service.config.docker_image.install_script is not None:
             cmd += service.config.docker_image.install_script + " && "
-        if service.config.pre_deploy_script is not None:
+        if service.config.pre_deploy_script:
             cmd += service.config.pre_deploy_script + " && "
         cmd += "echo 1 > /installed && " + service.config.docker_image.start_script
-        if service.config.mid_deploy_script is not None:
+        if service.config.mid_deploy_script:
             cmd += " && " + service.config.mid_deploy_script
-        if service.config.post_deploy_script is not None:
+        if service.config.post_deploy_script:
             cmd += " && " + service.config.post_deploy_script
 
         cmd = "bash -c \"%s\"" % cmd
