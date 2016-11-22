@@ -6,6 +6,8 @@ node {
     sshagent (credentials: ['dmake-ssh']) {
         checkout scm
         sh 'dmake deploy ${DMAKE_APP}'
-        load 'DMakefile'
-    }()
+        { ->
+            load 'DMakefile'
+        }()()
+    }
 }
