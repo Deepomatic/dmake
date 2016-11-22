@@ -106,8 +106,6 @@ def init(_command, _root_dir, _options):
         pr_id    = os.getenv('CHANGE_ID')
         build_id = os.getenv('BUILD_ID')
     is_pr = target is not None
-    if build_id is None:
-        build_id = "0"
 
     branch = branch.replace('#', 'X')
 
@@ -144,14 +142,13 @@ def init(_command, _root_dir, _options):
                     branch)
 
     os.environ["REPO"]        = repo
-    os.environ["BUILD"]       = build_id
     os.environ["BRANCH"]      = str(branch)
     os.environ["COMMIT_ID"]   = commit_id
     os.environ["ENV_TYPE"]    = env_type
 
     logger.info("===============")
     logger.info("REPO : %s" % repo)
-    if build_id != "0":
+    if build_id is not None:
         logger.info("BUILD : %s" % build_id)
     if is_pr:
         logger.info("PR : %s -> %s" % (branch, target))

@@ -577,7 +577,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     all_commands = []
     append_command(all_commands, 'env', var = "REPO", value = common.repo)
     append_command(all_commands, 'env', var = "COMMIT", value = common.commit_id)
-    append_command(all_commands, 'env', var = "BUILD", value = common.build_id)
     append_command(all_commands, 'env', var = "BRANCH", value = common.branch)
     append_command(all_commands, 'env', var = "ENV_TYPE", value = common.env_type)
     append_command(all_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
