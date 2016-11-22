@@ -550,7 +550,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
 
     ordered_build_files = [('Building Docker', base),
                            ('Building App', build),
-                           ('Running and Testing App', test)]
+                           ('Testing App', test)]
 
     if not common.is_pr:
         ordered_build_files.append(('Deploying', list(deploy)))
