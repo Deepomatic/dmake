@@ -73,6 +73,11 @@ def append_command(commands, cmd, prepend = False, **args):
 #     d = os.path.dirname(dst)
 #     append_command(commands, 'sh', shell = 'mkdir -p %s && cp %s %s %s' % (d, '-r' if recursive else '', src, dst))
 
+def generate_copy_command(commands, tmp_dir, src):
+    dst = os.path.join(tmp_dir, 'app', src)
+    sub_dir = os.path.dirname(dst)
+    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -r %s %s' % (sub_dir, src, dst))
+
 ###############################################################################
 
 def generate_dockerfile(commands, tmp_dir, env):
@@ -339,11 +344,12 @@ class DeployStageSerializer(YAML2PipelineSerializer):
 #                              common.join_without_slash('/dmake', 'volumes' + self.dir_dst))
 
 class ServiceDockerSerializer(YAML2PipelineSerializer):
-    workdir         = FieldSerializer("dir", optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
+    workdir          = FieldSerializer("dir", optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
     #install_targets = FieldSerializer("array", child = FieldSerializer([InstallExeSerializer(), InstallLibSerializer(), InstallDirSerializer()]), default = [], help_text = "Target files or directories to install.")
-    install_script  = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "install.sh", help_text = "The install script (will be run in the docker). It has to be executable.")
-    entrypoint      = FieldSerializer("path", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
-    start_script    = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
+    copy_directories = FieldSerializer("array", child = "dir", default = [], help_text = "Directories to copy in the docker image.")
+    install_script   = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "install.sh", help_text = "The install script (will be run in the docker). It has to be executable.")
+    entrypoint       = FieldSerializer("path", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
+    start_script     = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
 
     def get_image_name(self, app_name, service_name):
         image_name = "%s-%s:%s" % (app_name, service_name, common.branch.lower())
@@ -351,24 +357,39 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
             image_name += '.' + common.build_id
         return image_name
 
-    def generate_build(self, commands, path_dir, app_name, service_name, docker_base, env, config):
+    def generate_build_docker(self, commands, path_dir, app_name, service_name, docker_base, env, build, config):
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+        common.run_shell_command('mkdir %s' % os.path.join(tmp_dir, 'app'))
+
+        generate_copy_command(commands, tmp_dir, path_dir)
+        for d in self.copy_directories:
+            if d == path_dir:
+                continue
+            generate_copy_command(commands, tmp_dir, d)
 
         dockerfile_template = os.path.join(tmp_dir, 'Dockerfile_template')
         with open(dockerfile_template, 'w') as f:
             f.write('FROM %s\n' % docker_base)
             f.write('${ENV_VARS}\n')
-            f.write("ADD %s /app\n" % common.root_dir)
+            f.write("ADD app /app\n")
 
             if self.workdir is not None:
                 workdir = self.workdir
             else:
                 workdir = path_dir
             workdir = '/app/' + workdir
-            f.write('WORKDIR %s\n' % self.workdir)
+            f.write('WORKDIR %s\n' % workdir)
 
             for port in config.ports:
                 f.write('EXPOSE %s\n' % port.container_port)
+
+            if build.has_value():
+                cmds = []
+                for cmd in build.commands:
+                    cmds += cmd
+                if len(cmds) > 0:
+                    cmd = ' && '.join(cmds)
+                    f.write('RUN cd %s && %s\n' % (workdir, cmd))
 
             if self.install_script is not None:
                 f.write('RUN cd %s && /app/%s\n' % (workdir, os.path.join(path_dir, self.install_script)))
@@ -379,10 +400,15 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
             if self.entrypoint is not None:
                 f.write('ENTRYPOINT ["/app/%s"]\n' % os.path.join(path_dir, self.entrypoint))
 
+        env = copy.deepcopy(env)
+        if build.has_value() and build.env.has_value():
+            for var, value in build.env.production.items():
+                env[var] = common.eval_str_in_env(value)
         generate_dockerfile(commands, tmp_dir, env)
 
         image_name = self.get_image_name(app_name, service_name)
         append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
+
         return tmp_dir
 
 class DeployConfigSerializer(YAML2PipelineSerializer):
@@ -426,12 +452,12 @@ class DeploySerializer(YAML2PipelineSerializer):
 
     _tmp_dir_    = None
 
-    def generate_build(self, commands, path_dir, app_name, service_name, docker_base, env, config):
+    def generate_build_docker(self, commands, path_dir, app_name, service_name, docker_base, env, build, config):
         if self._tmp_dir_ is not None:
             raise DMakeException('Build already generated')
 
         if config.docker_image.has_value():
-            self._tmp_dir_ = config.docker_image.generate_build(commands, path_dir, app_name, service_name, docker_base, env, config)
+            self._tmp_dir_ = config.docker_image.generate_build_docker(commands, path_dir, app_name, service_name, docker_base, env, build, config)
 
     def generate_deploy(self, commands, app_name, service_name, docker_links, env, config):
         if self._tmp_dir_ is None:
@@ -627,8 +653,8 @@ class DMakeFile(DMakeFileSerializer):
 
         env_str = []
         if self.build.has_value() and self.build.env.has_value():
-            for var_value in self.build.env.testing.items():
-                env_str.append('-e %s=%s' % var_value)
+            for var, value in self.build.env.testing.items():
+                env_str.append('-e %s=%s' % (var, common.eval_str_in_env(value)))
         env_str = " ".join(env_str)
 
         self._get_link_opts_(commands, service)
@@ -683,7 +709,8 @@ class DMakeFile(DMakeFileSerializer):
             return
         env = {}
         if self.build.env.has_value():
-            env = self.build.env.testing
+            for var, value in self.build.env.testing.items():
+                env[var] = common.eval_str_in_env(value)
         docker_cmd = self._generate_docker_cmd_(commands, self.app_name, env)
         for cmds in self.build.commands:
             append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + '%s' % cmd for cmd in cmds])
@@ -691,7 +718,7 @@ class DMakeFile(DMakeFileSerializer):
     def generate_build_docker(self, commands, service):
         service = self._get_service_(service)
         docker_base = self.docker.get_docker_base_image_name_tag()
-        service.deploy.generate_build(commands, self.__path__, self.app_name, service.service_name, docker_base, self.env, service.config)
+        service.deploy.generate_build_docker(commands, self.__path__, self.app_name, service.service_name, docker_base, self.env, self.build, service.config)
 
     def generate_test(self, commands, service, docker_links):
         service = self._get_service_(service)
