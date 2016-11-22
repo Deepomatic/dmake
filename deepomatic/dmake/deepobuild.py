@@ -80,7 +80,7 @@ def generate_copy_command(commands, tmp_dir, src):
 
 ###############################################################################
 
-def generate_dockerfile(commands, tmp_dir, env):
+def generate_env_file(tmp_dir, env):
     while True:
         file = os.path.join(tmp_dir, 'env.txt.%d' % random.randint(0, 999999))
         if not os.path.isfile(file):
@@ -88,7 +88,11 @@ def generate_dockerfile(commands, tmp_dir, env):
     with open(file, 'w') as f:
         for key, value in env.items():
             value = common.eval_str_in_env(value)
-            f.write('ENV %s "%s"\n' % (key, value.replace('"', '\\"')))
+            f.write('%s=%s\n' % (key, value))
+    return file
+
+def generate_dockerfile(commands, tmp_dir, env):
+    generate_env_file(tmp_dir, env)
     append_command(commands, 'sh', shell = 'dmake_replace_vars_from_file ENV_VARS %s %s %s' % (
         file,
         os.path.join(tmp_dir, 'Dockerfile_template'),
@@ -214,9 +218,11 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
     stack    = FieldSerializer("string", default = "64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2")
     options  = FieldSerializer("path", example = "path/to/options.txt", help_text = "AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html")
 
-    def _serialize_(self, commands, tmp_dir, app_name, docker_links, config):
+    def _serialize_(self, commands, app_name, docker_links, config, image_name, env):
         if not self.has_value():
             return
+
+        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
 
         for port in config.ports:
             if port.container_port != port.host_port:
@@ -237,16 +243,28 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
             raise DMakeException("Docker options for AWS is not supported yet.")
 
         # Generate Dockerrun.aws.json
+        bucket = os.environ.get('DMAKE_AWS_DOCKER_CREDENTIALS', None)
+        if bucket is not None:
+            if bucket.startswith('s3://'):
+                bucket = bucket[len('s3://'):]
+            elif bucket.find('//') >= 0:
+                bucket = None
+        if bucket is None:
+            raise DMakeException('Please specify the S3 path to the docker credential file by defining the environment variable DMAKE_AWS_DOCKER_CREDENTIALS. See http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/create_deploy_docker.container.console.html')
+
+        bucket = bucket.split('/')
+        key = '/'.join(bucket[1:])
+        bucket = bucket[0]
         data = {
             "AWSEBDockerrunVersion": "1",
-            # "Authentication": {
-            #     "Bucket": "my-bucket",
-            #     "Key": "mydockercfg"
-            # },
-            # "Image": {
-            #     "Name": "quay.io/johndoe/private-image",
-            #     "Update": "true"
-            # },
+            "Authentication": {
+                "Bucket": bucket,
+                "Key": key
+            },
+            "Image": {
+                "Name": image_name,
+                "Update": "true"
+            },
             "Ports": ports,
             "Volumes": volumes,
             "Logging": "/var/log/deepomatic"
@@ -254,6 +272,8 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
         with open(os.path.join(tmp_dir, "Dockerrun.aws.json"), 'w') as dockerrun:
             json.dump(data, dockerrun)
 
+        for var, value in env.items():
+            os.environ[var] = common.eval_str_in_env(value)
         common.run_shell_command('dmake_replace_vars %s %s' % (self.options, os.path.join(tmp_dir, 'options.txt')))
 
         append_command(commands, 'sh', shell = 'dmake_deploy_aws_eb "%s" "%s" "%s" "%s"' % (
@@ -267,32 +287,33 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
     host = FieldSerializer("string", example = "192.168.0.1", help_text = "Host address")
     port = FieldSerializer("int", default = "22", help_text = "SSH port")
 
-    def _serialize_(self, commands, tmp_dir, app_name, docker_links, config):
+    def _serialize_(self, commands, app_name, docker_links, config, image_name, env):
         if not self.has_value():
             return
 
-        opts = config.full_docker_opts(False)
+        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+        app_name = app_name + "-%s" % common.branch.lower()
+        env_file = generate_env_file(tmp_dir, env)
+
+        opts = config.full_docker_opts(False) + " --env-file " + os.path.basename(env_file)
 
         launch_links = ""
         for link in docker_links:
             launch_links += 'if [ \\`docker ps -f name=%s | wc -l\\` = "1" ]; then set +e; docker rm -f %s 2> /dev/null ; set -e; docker run -d --name %s %s -i %s; fi\n' % (link.link_name, link.link_name, link.link_name, link.deployed_options, link.image_name)
             opts += " --link %s" % link.link_name
 
-        common.run_shell_command('export APP_NAME="%s" && export DOCKER_OPTS="%s" && export LAUNCH_LINK="%s" && export PRE_DEPLOY_HOOKS="%s" && export MID_DEPLOY_HOOKS="%s" && export POST_DEPLOY_HOOKS="%s" && dmake_copy_template deploy/deploy_ssh/start_app.sh %s && dmake_copy_template deploy/deploy_ssh/start_cmd.sh %s' % (
-            app_name + "-%s" % common.branch.lower(),
-            opts,
-            launch_links,
-            config.pre_deploy_script,
-            config.mid_deploy_script,
-            config.post_deploy_script,
-            os.path.join(tmp_dir, "start_app.sh"),
-            os.path.join(tmp_dir, "start_cmd.sh")))
+        start_file = os.path.join(tmp_dir, "start_app.sh")
+        common.run_shell_command(
+            ('export IMAGE_NAME="%s" && ' % image_name) +
+            ('export APP_NAME="%s" && ' % app_name) +
+            ('export DOCKER_OPTS="%s" && ' % opts) +
+            ('export LAUNCH_LINK="%s" && ' % launch_links) +
+            ('export PRE_DEPLOY_HOOKS="%s" && ' % config.pre_deploy_script) +
+            ('export MID_DEPLOY_HOOKS="%s" && ' % config.mid_deploy_script) +
+            ('export POST_DEPLOY_HOOKS="%s" && ' % config.post_deploy_script) +
+             'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file)
 
-        cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s"' % (
-                tmp_dir,
-                self.user,
-                self.host,
-                self.port)
+        cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%s"' % (tmp_dir, app_name, self.user, self.host, self.port)
         append_command(commands, 'sh', shell = cmd)
 
 class DeployConfigPortsSerializer(YAML2PipelineSerializer):
@@ -344,6 +365,7 @@ class DeployStageSerializer(YAML2PipelineSerializer):
 #                              common.join_without_slash('/dmake', 'volumes' + self.dir_dst))
 
 class ServiceDockerSerializer(YAML2PipelineSerializer):
+    check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
     name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry.")
     tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be {:branch_name}-{:build_id}")
     workdir          = FieldSerializer("dir", optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
@@ -366,6 +388,9 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         return image_name
 
     def generate_build_docker(self, commands, path_dir, app_name, service_name, docker_base, env, build, config):
+        if common.command == "deploy" and self.name is None:
+            raise DMakeException('You need to specify an image name for %s/%s in order to deploy the service.' % (app_name, service_name))
+
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
         common.run_shell_command('mkdir %s' % os.path.join(tmp_dir, 'app'))
 
@@ -415,7 +440,7 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         generate_dockerfile(commands, tmp_dir, env)
 
         image_name = self.get_image_name(app_name, service_name)
-        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
+        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s" "%s"' % (tmp_dir, image_name, "1" if self.check_private else "0"))
 
         return tmp_dir
 
@@ -468,8 +493,8 @@ class DeploySerializer(YAML2PipelineSerializer):
             self._tmp_dir_ = config.docker_image.generate_build_docker(commands, path_dir, app_name, service_name, docker_base, env, build, config)
 
     def generate_deploy(self, commands, app_name, service_name, docker_links, env, config):
-        if self._tmp_dir_ is None:
-            raise DMakeException('Sanity check failed: it seems the build step has been skipped: _tmp_dir_ is null.')
+        #if self._tmp_dir_ is None:
+        #    raise DMakeException('Sanity check failed: it seems the build step has been skipped: _tmp_dir_ is null.')
 
         if self.deploy_name is not None:
             app_name = self.deploy_name
@@ -482,20 +507,19 @@ class DeploySerializer(YAML2PipelineSerializer):
                 raise DMakeException("Unknown link name: '%s'" % link_name)
             links.append(docker_links[link_name])
 
+        image_name = config.docker_image.get_image_name(app_name, service_name)
+
         for stage in self.stages:
             branches = stage.branches
             if common.branch not in branches and '*' not in branches:
                 continue
 
-            env = copy.deepcopy(env)
+            branch_env = copy.deepcopy(env)
             for var, value in stage.env.items():
-                env[var] = value
-                os.environ[var] = value
+                branch_env[var] = value
 
-            generate_dockerfile(commands, self._tmp_dir_, env)
-
-            stage.aws_beanstalk._serialize_(commands, self._tmp_dir_, app_name, links, config)
-            stage.ssh._serialize_(commands, self._tmp_dir_, app_name, links, config)
+            stage.aws_beanstalk._serialize_(commands, app_name, links, config, image_name, branch_env)
+            stage.ssh._serialize_(commands, app_name, links, config, image_name, branch_env)
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
@@ -777,5 +801,6 @@ class DMakeFile(DMakeFileSerializer):
         service = self._get_service_(service)
         if not service.deploy.has_value():
             return
-
+        if not service.config.has_value():
+            raise DMakeException("You need to specify a 'config' when deploying.")
         service.deploy.generate_deploy(commands, self.app_name, service.service_name, docker_links, self.env, service.config)

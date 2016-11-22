@@ -1,12 +1,12 @@
 #!/bin/bash
 #
 # Usage:
-# dmake_build_docker TMP_DIR NAME
+# dmake_build_docker TMP_DIR NAME CHECK_PRIVATE
 #
 # Result:
 # Build a docker given a ${TMP_DIR}/Dockerfile
 
-if [ $# -ne 2 ]; then
+if [ $# -ne 3 ]; then
     dmake_fail "$0: Missing arguments"
     exit 1
 fi
@@ -20,9 +20,22 @@ set -e
 
 TMP_DIR=$1
 NAME=$2
+CHECK_PRIVATE=$3
 
 cd ${TMP_DIR}
 
 docker build -t ${NAME} .
 echo ${NAME} >> ${DMAKE_TMP_DIR}/images_to_remove.txt
 
+if [[ "${NAME}" =~ .+/.+ ]]; then
+    if [ "${CHECK_PRIVATE}" != "0" ]; then
+        set +e
+        wget -q -O /dev/null https://hub.docker.com/v2/repositories/${NAME}
+        STATUS=$?
+        set -e
+        if [ "${STATUS}" = "0" ]; then
+            echo "The docker image repository ${NAME} is public. Aborting. If you still want to push, please set 'check_private' to '0' in the concerned service configuration."
+        fi
+    fi
+    docker push ${NAME}
+fi

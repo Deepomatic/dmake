@@ -567,12 +567,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                 raise DMakeException('Bad ordering')
             common.logger.info("- %s @ %s" % (command, service))
 
-    if dmake_command == "deploy" and common.is_local:
-        r = common.read_input("Careful ! Are you sure you want to deploy ? [Y/n] ")
-        if r.lower() != 'y' and r != "":
-            print('Aborting')
-            sys.exit(0)
-
     # Generate the list of command to run
     all_commands = []
     append_command(all_commands, 'env', var = "REPO", value = common.repo)
@@ -608,7 +602,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                 elif command == "build":
                     dmake.generate_build(all_commands)
                 elif command == "build_docker":
-                    dmake.generate_build_docker(all_commands, service)
+                  dmake.generate_build_docker(all_commands, service)
                 elif command == "deploy":
                    dmake.generate_deploy(all_commands, service, links)
                 else:
@@ -638,6 +632,12 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         file_to_generate = "DMakefile"
     generate_command(file_to_generate, all_commands)
     common.logger.info("Output has been written to %s" % file_to_generate)
+
+    if dmake_command == "deploy" and common.is_local:
+        r = common.read_input("Careful ! Are you sure you want to deploy ? [Y/n] ")
+        if r.lower() != 'y' and r != "":
+            print('Aborting')
+            sys.exit(0)
 
     # If on local, run the commands
     if common.is_local:

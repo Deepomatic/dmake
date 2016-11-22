@@ -76,6 +76,10 @@ function aws_wait_env_not_ready () {
 
 cd ${TMP_DIR}
 
+if [ -z "${BUILD}" ]; then
+    BUILD=local-$RANDOM
+fi
+
 APP_LABEL="${BRANCH}-${BUILD}"
 AWS_ENV="${APP_NAME}-${BRANCH}"
 
