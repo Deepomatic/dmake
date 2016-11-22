@@ -595,25 +595,24 @@ def make(root_dir, sub_dir, dmake_command, app, options):
             links = docker_links[app_name]
 
             try:
-                # if command == "base":
-                #     dmake.generate_base(all_commands)
-                # elif command == "shell":
-                #     dmake.generate_shell(all_commands, service, links)
-                # elif command == "test":
-                #     dmake.generate_test(all_commands, service, links)
-                # elif command == "run":
-                #     dmake.generate_run(all_commands, service, links)
-                # elif command == "run_link":
-                #     dmake.generate_run_link(all_commands, service, links)
-                # elif command == "build":
-                #     dmake.generate_build(all_commands)
-                # HACK
-                if command == "build_docker":
+                if command == "base":
+                    dmake.generate_base(all_commands)
+                elif command == "shell":
+                    dmake.generate_shell(all_commands, service, links)
+                elif command == "test":
+                    dmake.generate_test(all_commands, service, links)
+                elif command == "run":
+                    dmake.generate_run(all_commands, service, links)
+                elif command == "run_link":
+                    dmake.generate_run_link(all_commands, service, links)
+                elif command == "build":
+                    dmake.generate_build(all_commands)
+                elif command == "build_docker":
                     dmake.generate_build_docker(all_commands, service)
                 elif command == "deploy":
                    dmake.generate_deploy(all_commands, service, links)
-                #else:
-                #    raise Exception("Unkown command '%s'" % command)
+                else:
+                   raise Exception("Unkown command '%s'" % command)
             except DMakeException as e:
                 print(('ERROR in file %s:\n' % file) + str(e))
                 sys.exit(1)
@@ -644,8 +643,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         if result != 0 or dmake_command != 'run':
-            # HACK
-            pass
-            #os.system('dmake_clean %s' % common.tmp_dir)
+            os.system('dmake_clean %s' % common.tmp_dir)
 
 
