@@ -55,7 +55,7 @@ else:
 
 def init(_command, _root_dir, _options):
     global root_dir, tmp_dir, cache_dir, key_file
-    global branch, target, is_pr, pr_id, build_id, commit_id
+    global branch, target, is_pr, pr_id, build_id, commit_id, is_manual_trigger
     global repo_url, repo, env_type, use_pipeline, is_local
     global build_description
     global command, options, uname
@@ -83,6 +83,7 @@ def init(_command, _root_dir, _options):
         run_shell_command('sudo chown jenkins * -R')
 
     use_pipeline = True
+    is_manual_trigger = False
     branch   = os.getenv('BRANCH_NAME', None)
     if branch is None:
         use_pipeline = False
@@ -95,6 +96,7 @@ def init(_command, _root_dir, _options):
             branch = "PR-%s" % pr_id
         if branch is None:
             branch = run_shell_command("git rev-parse --abbrev-ref HEAD")
+            is_manual_trigger = True
         if branch is not None:
             branch = branch.split('/')
             if len(branch) > 1:
