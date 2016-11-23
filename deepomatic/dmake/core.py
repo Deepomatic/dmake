@@ -137,7 +137,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             if getattr(common.options, 'dependencies', None):
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'build_docker':
-            children = []
+            children = activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
         elif command == 'run':
             children = activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if getattr(common.options, 'dependencies', None) and needs is not None:
