@@ -81,3 +81,4 @@ try:
     core.make(root_dir, sub_dir, command, app, options)
 except DMakeException as e:
     print('ERROR: ' + str(e))
+    sys.exit(1)
