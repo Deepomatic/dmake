@@ -1,0 +1,30 @@
+#!/bin/bash
+#
+# Usage:
+# dmake_push_docker_image NAME CHECK_PRIVATE
+#
+# Result:
+# Push a docker image
+
+if [ $# -ne 2 ]; then
+    dmake_fail "$0: Missing arguments"
+    exit 1
+fi
+
+set -e
+
+NAME=$1
+CHECK_PRIVATE=$2
+
+if [[ "${NAME}" =~ .+/.+ ]]; then
+    if [ "${CHECK_PRIVATE}" != "0" ]; then
+        set +e
+        wget -q -O /dev/null https://hub.docker.com/v2/repositories/${NAME}
+        STATUS=$?
+        set -e
+        if [ "${STATUS}" = "0" ]; then
+            echo "The docker image repository ${NAME} is public. Aborting. If you still want to push, please set 'check_private' to '0' in the concerned service configuration."
+        fi
+    fi
+    docker push ${NAME}
+fi

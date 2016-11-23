@@ -80,7 +80,7 @@ def generate_copy_command(commands, tmp_dir, src):
 
 ###############################################################################
 
-def generate_env_file(tmp_dir, env):
+def generate_env_file(tmp_dir, env, docker_cmd = False):
     while True:
         file = os.path.join(tmp_dir, 'env.txt.%d' % random.randint(0, 999999))
         if not os.path.isfile(file):
@@ -88,11 +88,14 @@ def generate_env_file(tmp_dir, env):
     with open(file, 'w') as f:
         for key, value in env.items():
             value = common.eval_str_in_env(value)
-            f.write('%s=%s\n' % (key, value))
+            if docker_cmd:
+                f.write('ENV %s "%s"\n' % (key, value))
+            else:
+                f.write('%s=%s\n' % (key, value))
     return file
 
 def generate_dockerfile(commands, tmp_dir, env):
-    file = generate_env_file(tmp_dir, env)
+    file = generate_env_file(tmp_dir, env, True)
     append_command(commands, 'sh', shell = 'dmake_replace_vars_from_file ENV_VARS %s %s %s' % (
         file,
         os.path.join(tmp_dir, 'Dockerfile_template'),
@@ -435,14 +438,12 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
 
         env = copy.deepcopy(env)
         if build.has_value() and build.env.has_value():
-            for var, value in build.env.production.items():
-                env[var] = common.eval_str_in_env(value)
+            for var, value in build.env.production:
+                env[var] = value
         generate_dockerfile(commands, tmp_dir, env)
 
         image_name = self.get_image_name(app_name, service_name)
-        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s" "%s"' % (tmp_dir, image_name, "1" if self.check_private else "0"))
-
-        return tmp_dir
+        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
 
 class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_image       = ServiceDockerSerializer(help_text = "Docker to build for running and deploying")
@@ -483,19 +484,11 @@ class DeploySerializer(YAML2PipelineSerializer):
     deploy_name  = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to \"db-app_name-service_name\" if not specified")
     stages       = FieldSerializer("array", child = DeployStageSerializer(), help_text = "Deployment possibilities")
 
-    _tmp_dir_    = None
-
     def generate_build_docker(self, commands, path_dir, app_name, service_name, docker_base, env, build, config):
-        if self._tmp_dir_ is not None:
-            raise DMakeException('Build already generated')
-
         if config.docker_image.has_value():
-            self._tmp_dir_ = config.docker_image.generate_build_docker(commands, path_dir, app_name, service_name, docker_base, env, build, config)
+            config.docker_image.generate_build_docker(commands, path_dir, app_name, service_name, docker_base, env, build, config)
 
     def generate_deploy(self, commands, app_name, service_name, docker_links, env, config):
-        #if self._tmp_dir_ is None:
-        #    raise DMakeException('Sanity check failed: it seems the build step has been skipped: _tmp_dir_ is null.')
-
         if self.deploy_name is not None:
             app_name = self.deploy_name
         else:
@@ -508,6 +501,7 @@ class DeploySerializer(YAML2PipelineSerializer):
             links.append(docker_links[link_name])
 
         image_name = config.docker_image.get_image_name(app_name, service_name)
+        append_command(commands, 'sh', shell = 'dmake_push_docker_image "%s" "%s"' % (image_name, "1" if config.docker_image.check_private else "0"))
 
         for stage in self.stages:
             branches = stage.branches
@@ -701,40 +695,27 @@ class DMakeFile(DMakeFileSerializer):
         self._get_link_opts_(commands, service)
         image_name = self.docker.get_docker_base_image_name_tag()
         opts = docker_opts + " " + service.config.full_docker_opts(True)
-        opts = " ${DOCKER_LINK_OPTS} %s --env-file %s -e ENV_TYPE=%s -e BUILD=%s %s -i %s" % (opts, env_file, common.env_type, build_id, env_str, image_name)
-        return opts, workdir, entrypoint
+        opts = " ${DOCKER_LINK_OPTS} %s --env-file %s -e ENV_TYPE=%s -e BUILD=%s %s" % (opts, env_file, common.env_type, build_id, env_str)
+        return opts, " -i %s" % image_name
 
     def generate_shell(self, commands, service, docker_links):
-        opts, workdir, entrypoint = self.launch_options(commands, service, docker_links)
-        append_command(commands, 'sh', shell = "dmake_run_docker_command %s %s" % (opts, self.docker.command))
+        opts, image_opts = self.launch_options(commands, service, docker_links)
+        append_command(commands, 'sh', shell = "dmake_run_docker_command %s %s" % (opts + image_opts, self.docker.command))
 
     def generate_run(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
         if service.config is None or service.config.docker_image.start_script is None:
             return
 
-        opts, workdir, entrypoint = self.launch_options(commands, service_name, docker_links)
+        opts, _ = self.launch_options(commands, service_name, docker_links)
 
-        # Create file to signal the installation is done and that we can move one
-        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
-        installed_file = os.path.join(tmp_dir, 'installed')
-        common.run_shell_command('touch %s' % installed_file)
-        opts = ('-v %s:/installed ' % installed_file) + opts
-
-        cmd = []
-        if service.config.docker_image.install_script is not None:
-            cmd.append(service.config.docker_image.install_script)
         if service.config.pre_deploy_script:
-            cmd.append(service.config.pre_deploy_script)
-        cmd.append("echo 1 > /installed")
-        cmd.append(service.config.docker_image.start_script)
-        cmd = " && ".join(cmd)
-        cmd = 'bash -c "%s"' % cmd
+            cmd = service.config.pre_deploy_script
+            append_command(commands, 'sh', shell = "dmake_run_docker_command %s %s" % (opts, cmd))
 
-        append_command(commands, 'sh', shell = "ID=$(dmake_run_docker_daemon \"%s\" \"\" %s %s) && " % (service_name, opts, cmd) +
-                                               "echo \"Launched daemon with ID: $ID\" && " +
-                                               "echo 'Waiting for daemon to start...' && " +
-                                               "while [[ `cat %s` != 1 ]]; do sleep 1; if [ `docker ps --filter id=$ID | sed 1d | wc -l` = 0 ]; then echo 'Worker crashed. Here are the logs:'; docker logs $ID; exit 1; fi; done; sleep 2" % installed_file)
+        image_name = service.config.docker_image.get_image_name(self.app_name, service_name)
+        append_command(commands, 'sh', shell = "dmake_run_docker_daemon \"%s\" \"\" %s -i %s" % (service_name, service.config.full_docker_opts(True), image_name))
+
         cmd = []
         if service.config.mid_deploy_script:
             cmd.append(service.config.mid_deploy_script)
