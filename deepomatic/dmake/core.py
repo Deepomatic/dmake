@@ -286,10 +286,8 @@ def order_dependencies(dependencies, sorted_leaves):
 ###############################################################################
 
 def generate_command_pipeline(file, cmds):
-    file.write('{ ->\n')
     if common.build_description is not None:
         file.write("currentBuild.description = '%s'\n" % common.build_description.replace("'", "\\'"))
-    file.write('node {\n')
     file.write('try {\n')
 
     # Check crendentials
@@ -367,7 +365,7 @@ def generate_command_pipeline(file, cmds):
     file.write('finally {\n')
     file.write('sh("dmake_clean")\n')
     file.write('sh("sudo chown jenkins:jenkins . -R")\n')
-    file.write('}\n}}\n')
+    file.write('}\n')
 
 ###############################################################################
 
