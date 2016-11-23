@@ -33,10 +33,6 @@ if [ ! -z "$SSH_AUTH_SOCK" ] || [ -f "/key" ]; then # HACK for mac: Waiting for 
     if [ -f "/key" ]; then
         chmod 400 /key
         echo -e "    IdentityFile /key\n" >> /etc/ssh/ssh_config
-    else
-        if [ ! -z "$DMAKE_SSH_KEY" ]; then
-            ssh-add $DMAKE_SSH_KEY
-        fi
     fi
 fi
 

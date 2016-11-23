@@ -365,7 +365,7 @@ def generate_command_pipeline(file, cmds):
 
     file.write('}\n')
     file.write('finally {\n')
-    file.write('sh("dmake_clean %s")\n' % common.tmp_dir)
+    file.write('sh("dmake_clean")\n')
     file.write('sh("sudo chown jenkins:jenkins . -R")\n')
     file.write('}\n}}\n')
 
@@ -645,6 +645,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         if result != 0 or dmake_command != 'run':
-            os.system('dmake_clean %s' % common.tmp_dir)
+            os.system('dmake_clean')
 
 

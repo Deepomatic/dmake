@@ -1,26 +1,34 @@
 #!/bin/bash
 #
 # Usage:
-# dmake_clean TMP_DIR
+# dmake_clean
 #
 # Result:
 # Clean directory created with dmake_make_tmp_dir and linked dockers
 
-if [ $# -ne 1 ]; then
+if [ $# -ne 0 ]; then
     dmake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+if [ -z "${DMAKE_TMP_DIR}" ]; then
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
     echo "exit 1"
     exit 1
 fi
 
 set -e
 
-TMP_DIR=$1
-
-if [ -f ${TMP_DIR}/files_to_remove.txt ]; then
-    cat ${TMP_DIR}/files_to_remove.txt | xargs -n 1 rm -rf
+if [ -f ${DMAKE_TMP_DIR}/processes_to_kill.txt ]; then
+    cat ${DMAKE_TMP_DIR}/processes_to_kill.txt | xargs kill -9
 fi
 
-dmake_remove_docker_containers_and_images ${TMP_DIR}
+if [ -f ${DMAKE_TMP_DIR}/files_to_remove.txt ]; then
+    cat ${DMAKE_TMP_DIR}/files_to_remove.txt | xargs -n 1 rm -rf
+fi
 
-rm -rf ${TMP_DIR}
+dmake_remove_docker_containers_and_images ${DMAKE_TMP_DIR}
+
+rm -rf ${DMAKE_TMP_DIR}
 
