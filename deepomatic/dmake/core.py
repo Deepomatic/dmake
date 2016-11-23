@@ -10,6 +10,8 @@ tag_push_error_msg = "Unauthorized to push the current state of deployment to gi
 ###############################################################################
 
 def look_for_changed_directories():
+    if common.is_manual_trigger:
+        return None
     if common.target is None:
         tag = get_tag_name()
         common.logger.info("Looking for changes between HEAD and %s" % tag)
@@ -159,7 +161,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
 def find_active_files(loaded_files, service_providers, service_dependencies, sub_dir, command):
     changed_dirs = look_for_changed_directories()
     if changed_dirs is None:
-        common.logger.info("Forcing full rebuild")
+        common.logger.info("Forcing full re-build")
 
     for file_name, dmake in loaded_files.items():
         if not file_name.startswith(sub_dir):
@@ -589,24 +591,25 @@ def make(root_dir, sub_dir, dmake_command, app, options):
             links = docker_links[app_name]
 
             try:
-                if command == "base":
-                    dmake.generate_base(all_commands)
-                elif command == "shell":
-                    dmake.generate_shell(all_commands, service, links)
-                elif command == "test":
-                    dmake.generate_test(all_commands, service, links)
-                elif command == "run":
-                    dmake.generate_run(all_commands, service, links)
-                elif command == "run_link":
-                    dmake.generate_run_link(all_commands, service, links)
-                elif command == "build":
-                    dmake.generate_build(all_commands)
-                elif command == "build_docker":
-                  dmake.generate_build_docker(all_commands, service)
+                # if command == "base":
+                #     dmake.generate_base(all_commands)
+                # elif command == "shell":
+                #     dmake.generate_shell(all_commands, service, links)
+                # elif command == "test":
+                #     dmake.generate_test(all_commands, service, links)
+                # elif command == "run":
+                #     dmake.generate_run(all_commands, service, links)
+                # elif command == "run_link":
+                #     dmake.generate_run_link(all_commands, service, links)
+                # elif command == "build":
+                #     dmake.generate_build(all_commands)
+                if command == "build_docker":
+                    dmake.generate_build_docker(all_commands, service)
                 elif command == "deploy":
-                   dmake.generate_deploy(all_commands, service, links)
-                else:
-                   raise Exception("Unkown command '%s'" % command)
+                    dmake.generate_deploy(all_commands, service, links)
+                # HACK
+                # else:
+                #    raise Exception("Unkown command '%s'" % command)
             except DMakeException as e:
                 print(('ERROR in file %s:\n' % file) + str(e))
                 sys.exit(1)
@@ -643,6 +646,8 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         if result != 0 or dmake_command != 'run':
-            os.system('dmake_clean %s' % common.tmp_dir)
+            # HACK
+            pass
+            #os.system('dmake_clean %s' % common.tmp_dir)
 
 

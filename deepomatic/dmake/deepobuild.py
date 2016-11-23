@@ -92,7 +92,7 @@ def generate_env_file(tmp_dir, env):
     return file
 
 def generate_dockerfile(commands, tmp_dir, env):
-    generate_env_file(tmp_dir, env)
+    file = generate_env_file(tmp_dir, env)
     append_command(commands, 'sh', shell = 'dmake_replace_vars_from_file ENV_VARS %s %s %s' % (
         file,
         os.path.join(tmp_dir, 'Dockerfile_template'),
