@@ -422,6 +422,10 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if 'DMAKE_TMP_DIR' in os.environ:
         del os.environ['DMAKE_TMP_DIR']
     common.init(dmake_command, root_dir, options)
+
+    if app == "":
+        app = None
+
     if dmake_command == "deploy" and app == "*":
         app = None
         common.force_full_deploy = True
