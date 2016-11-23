@@ -10,7 +10,7 @@ tag_push_error_msg = "Unauthorized to push the current state of deployment to gi
 ###############################################################################
 
 def look_for_changed_directories():
-    if common.is_manual_trigger:
+    if common.force_full_deploy:
         return None
     if common.target is None:
         tag = get_tag_name()
