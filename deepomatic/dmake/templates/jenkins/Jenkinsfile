@@ -1,11 +1,11 @@
 properties([[$class: 'ParametersDefinitionProperty', parameterDefinitions: [
-    [$class: 'StringParameterDefinition', defaultValue: '', description: '(option) Application to deploy. If empty, it will build all the applications.', name : 'DMAKE_APP']
+    [$class: 'StringParameterDefinition', defaultValue: '', description: '(option) Application to deploy. If empty, it will build all the applications. Use * to force the deployment of all applications.', name : 'DMAKE_APP']
 ]]])
 
 node {
     sshagent (credentials: ['dmake-ssh']) {
         checkout scm
-        sh 'dmake deploy ${DMAKE_APP}'
+        sh 'dmake deploy "${DMAKE_APP}"'
         { ->
             load 'DMakefile'
         }()()

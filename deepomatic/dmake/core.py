@@ -422,6 +422,9 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if 'DMAKE_TMP_DIR' in os.environ:
         del os.environ['DMAKE_TMP_DIR']
     common.init(dmake_command, root_dir, options)
+    if dmake_command == "deploy" and app == "*":
+        app = ""
+        common.force_full_deploy = True
 
     if dmake_command == "stop":
         common.run_shell_command("docker rm -f `docker ps -q -f name=%s.%s.%s`" % (app, common.branch, common.build_id))
