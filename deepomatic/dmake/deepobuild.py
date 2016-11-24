@@ -715,7 +715,8 @@ class DMakeFile(DMakeFileSerializer):
             cmd = service.config.pre_deploy_script
             append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
 
-        append_command(commands, 'sh', shell = "dmake_run_docker_daemon \"%s\" \"\" %s -i %s" % (service_name, service.config.full_docker_opts(True), image_name))
+        daemon_opts = "${DOCKER_LINK_OPTS} %s" % service.config.full_docker_opts(True)
+        append_command(commands, 'sh', shell = "dmake_run_docker_daemon \"%s\" \"\" %s -i %s" % (service_name, daemon_opts, image_name))
 
         cmd = []
         if service.config.mid_deploy_script:
