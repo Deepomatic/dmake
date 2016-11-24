@@ -711,7 +711,7 @@ class DMakeFile(DMakeFileSerializer):
 
         if service.config.pre_deploy_script:
             cmd = service.config.pre_deploy_script
-            append_command(commands, 'sh', shell = "dmake_run_docker_command %s %s" % (opts, cmd))
+            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
 
         image_name = service.config.docker_image.get_image_name(self.app_name, service_name)
         append_command(commands, 'sh', shell = "dmake_run_docker_daemon \"%s\" \"\" %s -i %s" % (service_name, service.config.full_docker_opts(True), image_name))
@@ -724,7 +724,7 @@ class DMakeFile(DMakeFileSerializer):
         cmd = " && ".join(cmd)
         if cmd:
             cmd = 'bash -c "%s"' % cmd
-            append_command(commands, 'sh', shell = "dmake_run_docker_command %s %s" % (opts, cmd))
+            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
 
     def generate_build(self, commands):
         if not self.build.has_value():
