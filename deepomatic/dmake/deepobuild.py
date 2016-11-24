@@ -76,8 +76,7 @@ def append_command(commands, cmd, prepend = False, **args):
 def generate_copy_command(commands, tmp_dir, src):
     dst = os.path.join(tmp_dir, 'app', src)
     sub_dir = os.path.dirname(common.join_without_slash(dst))
-    # sudo: necessary for files generated in docker with no access right.
-    append_command(commands, 'sh', shell = 'mkdir -p %s && sudo cp -r %s %s' % (sub_dir, src, sub_dir))
+    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -r %s %s' % (sub_dir, src, sub_dir))
 
 ###############################################################################
 
@@ -738,6 +737,7 @@ class DMakeFile(DMakeFileSerializer):
         docker_cmd = self._generate_docker_cmd_(commands, self.app_name, env)
         for cmds in self.build.commands:
             append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + '%s' % cmd for cmd in cmds])
+        append_command(commands, 'sh', shell = "sudo chown jenkins:jenkins . -R")
 
     def generate_build_docker(self, commands, service):
         service = self._get_service_(service)
