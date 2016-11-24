@@ -364,7 +364,7 @@ def generate_command_pipeline(file, cmds):
     file.write('}\n')
     file.write('finally {\n')
     file.write('sh("sudo chown jenkins:jenkins . -R")\n')
-    file.write('sh("sudo dmake_clean")\n')
+    file.write('sh("dmake_clean")\n')
     file.write('}\n')
 
 ###############################################################################
