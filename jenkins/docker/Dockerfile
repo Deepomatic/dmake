@@ -10,7 +10,7 @@ RUN apt-get update && apt-get --no-install-recommends -y install python-pip
 RUN cd /tmp && wget -O docker.tgz https://get.docker.com/builds/Linux/x86_64/docker-1.12.2.tgz && tar -zxvf docker.tgz && cp docker/docker /usr/local/bin/ && rm -rf /tmp/*
 
 # Install sudo to switch user
-RUN apt-get install -y sudo
+RUN apt-get install -y sudo && usermod -a -G sudo jenkins && echo "jenkins ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Setup DMake variables
 ENV DMAKE_PATH            /dmake

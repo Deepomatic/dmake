@@ -1,9 +1,9 @@
 #!/bin/bash
 
-set -e
-
 if [ -S /var/run/docker.sock ]; then
-    chown jenkins:jenkins /var/run/docker.sock
+    sudo chmod a+w /var/run/docker.sock
 fi
+
+set -e
 
 sudo -H -u jenkins $*

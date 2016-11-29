@@ -114,10 +114,9 @@ This declares that we will use RabbitMQ 3.6 (Docker image ```rabbitmq:3.6```) an
 Then comes the commands to build the services declared in this file (see below) and there unit-tests.
 
 ```yaml
-build_services_commands:
-    - make
-build_tests_commands:
-    - make
+build:
+    commands:
+        - make
 ```
 
 Last but not least, we have the list of all the  micro-services declared in this file. Here there is only one micro service named ```worker```:
@@ -128,11 +127,7 @@ services:
         service_name: worker
         config:
             docker_image:
-                workdir: /app
                 entrypoint: deploy/entrypoint.sh
-                install_targets:
-                    - dir_src: .
-                      dir_dst: /app
                 start_script: deploy/start.sh
         tests:
             docker_links_names:
@@ -141,7 +136,9 @@ services:
                 - ./bin/worker_test
 ```
 
-**DMake** builds a Docker image for each specified service. The field ```docker_image``` allows to configure this Docker image. Here, the ```install_targets``` specifies that all the content of the current directory (relatively to the location of the ```dmake.yml``` file) will be copied in the ```/app``` directory of the built Docker image. The ```workdir``` and ```start_script``` fields specify that when launching your app, the working directory will be set to ```/app``` and you will then run ```deploy/start.sh```. The ```test``` field that **DMake** need to launch the compiled file ```./bin/worker_test``` and link with the RabbitMQ service defined previously by ```docker_links```. Speaking about linking, we use the entry point script ```deploy/entrypoint.sh``` (as defined by the field ```entrypoint```) to override the environment variable ```AMQP_URL``` with the URL of the linked RabbitMQ container. Check out [this page](https://docs.docker.com/engine/userguide/networking/default_network/container-communication/) to know more about linking Docker containers.
+**DMake** builds a Docker image for each specified service. The field ```docker_image``` allows to configure this Docker image. The ```start_script``` field specifies the default command that should be run when starting Docker container. The ```test``` field states that **DMake** needs to launch the compiled file ```./bin/worker_test``` and link with the RabbitMQ service defined previously by ```docker_links```.
+
+Speaking about linking, we use the entry point script ```deploy/entrypoint.sh``` (as defined by the field ```entrypoint```) to override the environment variable ```AMQP_URL``` with the URL of the linked RabbitMQ container. Check out [this page](https://docs.docker.com/engine/userguide/networking/default_network/container-communication/) to know more about linking Docker containers.
 
 Now that we went through the configuration file, you can try to test the worker with:
 
@@ -190,6 +187,32 @@ $ make
 It will build a Docker image for Jenkins (cf ```jenkins/docker/Dockerfile```) and launch it locally. Once launched, you can access it on [http://localhost:8080/](http://localhost:8080/) and connect with user ```admin``` and password ```password```. You will see a job called ```dmake-tutorial```. You can trigger a build of this job by clicking on the "play" button on the right and look at the build's output on [http://localhost:8080/job/dmake-tutorial/job/master/lastBuild/console](http://localhost:8080/job/dmake-tutorial/job/master/lastBuild/console).
 
 In order to setup DMake in your own Jenkins server, you can adjust the Dockerfile in ```jenkins/docker/Dockerfile``` to your taste.
+
+## Configuring Docker
+
+When experiencing with DMake (either on your own machine or on Jenkins), you may notice that files produced when building your app belong to the root user.
+
+You may check if this is the case on your machine by running ```docker run -v `pwd`:/mnt -ti ubuntu touch /mnt/foobar && ls -l foobar && rm foobar```. If the resulting owner of the file is root, you might need to adapt the configuration of Docker as indicated below.
+
+One simple solution would be to perform a ```sudo chown $(id -u):$(id -g) -R .``` after each build. This is however not very convenient nor suitable.
+
+Another solution consists of configuring Docker to map your user on the host machine to the root user of containers. In the following we assume the default non root user of the machine is ```deepomatic``` with UID 1000 and GID 1000. You simply need to:
+- ensure that the file ```/etc/subuid``` (respectively ```/etc/subgid```) contains a line like ```deepomatic:1000:65536``` where 1000 stands for your UID (respectively GID).
+- Edit the file ```/etc/default/docker``` so that it contains the following line:
+```bash
+DOCKER_OPTS="-g /mnt/docker --userns-remap=ubuntu"
+```
+- Restart Docker: ```sudo restart docker```
+
+This poses another problem when you try to use the Dockerfile provided in this repository for Jenkins: ```jenkins/docker/Dockerfile```. As a user called ```jenkins``` is declared in the original Jenkins Dockerfile, Jenkins won't start because all the file in the container belong to root and not to the ```jenkins``` user. In order to set the ownership to ```jenkins``` (with a UID of 1000 and GID 1000) in the container, the files need to have a UID and GID of 2000 on the host machine (or 1000+x if x is the UID/GID of your user). See [Docker Documentation](https://docs.docker.com/engine/reference/commandline/dockerd/#/daemon-user-namespace-options).
+
+A convenient way to achieve this is to create a new ```jenkins``` user on our machine with the correct UID and GID:
+
+```
+$ groupadd -g 2000 jenkins
+$ useradd -u 2000 -g 2000 -d ${DMAKE_PATH}/jenkins/jenkins_home -s /bin/bash jenkins
+$ chown jenkins:jenkins -R ${DMAKE_PATH}/jenkins/jenkins_home
+```    
 
 ## Documentation
 
