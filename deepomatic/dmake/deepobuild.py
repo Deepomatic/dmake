@@ -76,7 +76,7 @@ def append_command(commands, cmd, prepend = False, **args):
 def generate_copy_command(commands, tmp_dir, src):
     dst = os.path.join(tmp_dir, 'app', src)
     sub_dir = os.path.dirname(common.join_without_slash(dst))
-    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -r %s %s' % (sub_dir, src, sub_dir))
+    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -r %s %s' % (sub_dir, common.join_without_slash(src), sub_dir))
 
 ###############################################################################
 
@@ -378,9 +378,9 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
     entrypoint       = FieldSerializer("path", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
     start_script     = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
 
-    def get_image_name(self, app_name, service_name):
+    def get_image_name(self, service_name):
         if self.name is None:
-            name = "%s-%s" % (app_name, service_name)
+            name = service_name.replace('/', '-')
         else:
             name = self.name
         if self.tag is None:
@@ -442,7 +442,7 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
                 env[var] = value
         generate_dockerfile(commands, tmp_dir, env)
 
-        image_name = self.get_image_name(app_name, service_name)
+        image_name = self.get_image_name(service_name)
         append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
 
 class DeployConfigSerializer(YAML2PipelineSerializer):
@@ -500,7 +500,7 @@ class DeploySerializer(YAML2PipelineSerializer):
                 raise DMakeException("Unknown link name: '%s'" % link_name)
             links.append(docker_links[link_name])
 
-        image_name = config.docker_image.get_image_name(app_name, service_name)
+        image_name = config.docker_image.get_image_name(service_name)
         append_command(commands, 'sh', shell = 'dmake_push_docker_image "%s" "%s"' % (image_name, "1" if config.docker_image.check_private else "0"))
 
         for stage in self.stages:
@@ -708,7 +708,7 @@ class DMakeFile(DMakeFileSerializer):
             return
 
         opts, _ = self.launch_options(commands, service_name, docker_links)
-        image_name = service.config.docker_image.get_image_name(self.app_name, service_name)
+        image_name = service.config.docker_image.get_image_name(service_name)
 
         if service.config.pre_deploy_script:
             cmd = service.config.pre_deploy_script
@@ -737,15 +737,14 @@ class DMakeFile(DMakeFileSerializer):
         docker_cmd = self._generate_docker_cmd_(commands, self.app_name, env)
         for cmds in self.build.commands:
             append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + '%s' % cmd for cmd in cmds])
-        append_command(commands, 'sh', shell = "sudo chown jenkins:jenkins . -R")
 
-    def generate_build_docker(self, commands, service):
-        service = self._get_service_(service)
+    def generate_build_docker(self, commands, service_name):
+        service = self._get_service_(service_name)
         docker_base = self.docker.get_docker_base_image_name_tag()
-        service.deploy.generate_build_docker(commands, self.__path__, self.app_name, service.service_name, docker_base, self.env, self.build, service.config)
+        service.deploy.generate_build_docker(commands, self.__path__, self.app_name, service_name, docker_base, self.env, self.build, service.config)
 
-    def generate_test(self, commands, service, docker_links):
-        service = self._get_service_(service)
+    def generate_test(self, commands, service_name, docker_links):
+        service = self._get_service_(service_name)
         docker_cmd = self._generate_docker_cmd_(commands, self.app_name)
         if service.config.has_value() and service.config.docker_image.entrypoint:
            docker_cmd = (' --entrypoint %s ' % os.path.join('/app', self.__path__, service.config.docker_image.entrypoint)) + docker_cmd

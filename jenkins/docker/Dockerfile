@@ -9,8 +9,8 @@ RUN apt-get update && apt-get --no-install-recommends -y install python-pip
 # Install docker client
 RUN cd /tmp && wget -O docker.tgz https://get.docker.com/builds/Linux/x86_64/docker-1.12.2.tgz && tar -zxvf docker.tgz && cp docker/docker /usr/local/bin/ && rm -rf /tmp/*
 
-# Add Jenkins as sudoer: needed to 'chown jenkins:jenkins' the files created as root by docker in the workspace
-RUN apt-get install -y sudo && usermod -a -G sudo jenkins && echo "jenkins ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+# Install sudo to switch user
+RUN apt-get install -y sudo
 
 # Setup DMake variables
 ENV DMAKE_PATH            /dmake
@@ -27,9 +27,6 @@ ENV PYTHONPATH            $PYTHONPATH:$DMAKE_PATH
 
 # Import local docker sockets for jenkins
 COPY ./wrap_docker /wrap_docker
-
-# Switch to jenkins user
-USER jenkins
 
 ENTRYPOINT ["/wrap_docker"]
 CMD ["/usr/local/bin/jenkins.sh"]

@@ -77,10 +77,6 @@ def init(_command, _root_dir, _options):
 
     # Make sure DMAKE_ON_BUILD_SERVER is correctly configured
     is_local = os.getenv('DMAKE_ON_BUILD_SERVER', 0) != "1"
-    if is_local:
-        assert(os.getenv('USER') != "jenkins")
-    else:
-        run_shell_command('sudo chown jenkins * -R')
 
     use_pipeline = True
     branch   = os.getenv('BRANCH_NAME', None)

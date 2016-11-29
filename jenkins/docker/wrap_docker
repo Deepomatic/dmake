@@ -3,7 +3,7 @@
 set -e
 
 if [ -S /var/run/docker.sock ]; then
-    sudo chown jenkins:jenkins /var/run/docker.sock
+    chown jenkins:jenkins /var/run/docker.sock
 fi
 
-exec $*
+sudo -H -u jenkins $*

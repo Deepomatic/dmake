@@ -6,8 +6,9 @@
 # Result:
 # Run a docker command.
 
+OPTS="-u $(id -u):$(id -g) --rm"
 if [ "${DMAKE_ON_BUILD_SERVER}" = "1" ]; then
-    dmake_run_docker "" "" --rm "$@"
+    dmake_run_docker "" "" ${OPTS} "$@"
 else
-    dmake_run_docker "" "" --rm -t "$@"
+    dmake_run_docker "" "" ${OPTS} -t "$@"
 fi
