@@ -185,7 +185,7 @@ def init(_command, _root_dir, _options):
         if os.path.isfile(key_file):
             if os.getenv('SSH_AUTH_SOCK', None) is None:
                 lines = run_shell_command("eval `ssh-agent -s` && echo $SSH_AUTH_SOCK && echo $SSH_AGENT_PID").split('\n')
-                os.env['SSH_AUTH_SOCK'] = lines[-2]
+                os.environ['SSH_AUTH_SOCK'] = lines[-2]
                 run_shell_command('echo %s >> %s/processes_to_kill.txt' % (lines[-1], tmp_dir))
             logger.info("Adding SSH key %s to SSH Agent" % key_file)
             run_shell_command("ssh-add %s" % key_file, ignore_error = True)
