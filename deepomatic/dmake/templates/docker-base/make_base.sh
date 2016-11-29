@@ -59,6 +59,6 @@ fi
 if [ -f /etc/ssh/ssh_config ]; then
     head -n 4 /etc/ssh/ssh_config > /tmp/ssh_config
     mv /tmp/ssh_config /etc/ssh/ssh_config
-    rm -rf /var/lib/apt/lists/* || :
-    rm -rf /tmp/* || :
 fi
+rm -rf /tmp/* || :
+rm -rf /var/lib/apt/lists/* || :

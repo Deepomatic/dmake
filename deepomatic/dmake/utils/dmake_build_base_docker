@@ -136,7 +136,8 @@ if [ ${BUILD_BASE_DOCKER} = "1" ]; then
 
     if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ ]]; then
         echo "Tagging ${BASE_IMAGE} as ${BASE_IMAGE_GENERAL}"
-        docker tag -f ${BASE_IMAGE} ${BASE_IMAGE_GENERAL}
+        docker rmi ${BASE_IMAGE_GENERAL} || :
+        docker tag ${BASE_IMAGE} ${BASE_IMAGE_GENERAL}
         docker push ${BASE_IMAGE}
         docker push ${BASE_IMAGE_GENERAL}
     fi
