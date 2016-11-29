@@ -16,12 +16,21 @@ docker_links:
     link_name: mongo
     deployed_options: -v /mnt:/data
     testing_options: -v /mnt:/data
-build_tests_commands:
-- cmake .
-- make
-build_services_commands:
-- cmake .
-- make
+build:
+    env:
+        testing:
+            ENV_TYPE: dev
+            MY_ENV_VARIABLE: '1'
+        production:
+            ENV_TYPE: dev
+            MY_ENV_VARIABLE: '1'
+    commands:
+    - cmake .
+    - make
+pre_test_commands:
+- Some string
+post_test_commands:
+- Some string
 services:
 -   service_name: api
     needed_services:
@@ -29,9 +38,12 @@ services:
     sources: path/to/app
     config:
         docker_image:
-            workdir: /
-            install_targets:
-            -   exe: some/relative/binary
+            check_private: true
+            name: Some string
+            tag: Some string
+            workdir: some/directory/example
+            copy_directories:
+            - some/directory/example
             install_script: install.sh
             entrypoint: some/relative/path/example
             start_script: start.sh

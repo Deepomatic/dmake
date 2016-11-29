@@ -214,24 +214,27 @@ This Documentation was generated automatically.
         - **base_image** *(object, optional)*: Base (intermediate) image to speed-up builds. It must be an object with the following fields:
             - **name** *(string)*: Base image name. If no docker user is indicated, the image will be kept locally.
             - **version** *(string, default = latest
-..)*: Base image version. The branch name will be prefixed to form the docker image tag.
-            - **install_scripts** *(array\<file path\>, default = [])*: .
+...)*: Base image version. The branch name will be prefixed to form the docker image tag.
+            - **install_scripts** *(array\<file path\>, default = [])*:
             - **python_requirements** *(file path, default = '')*: Path to python requirements.txt.
             - **python3_requirements** *(file path, default = '')*: Path to python requirements.txt.
             - **copy_files** *(array\<file path\>, default = [])*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
         - **command** *(string, default = bash
-..)*: Only used when running 'dmake shell': set the command of the container.
+...)*: Only used when running 'dmake shell': set the command of the container.
 - **docker_links** *(array\<object\>, default = [])*: List of link to create, they are shared across the whole application, so potentially across multiple dmake files.
     - **image_name** *(string)*: Name and tag of the image to launch.
     - **link_name** *(string)*: Link name.
     - **deployed_options** *(string, default = '')*: Additional Docker options when deployed.
     - **testing_options** *(string, default = '')*: Additional Docker options when testing on Jenkins.
-- **build_tests_commands** *(array\<object\>, default = [])*: Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.
-    - a string
-    - an array of strings
-- **build_services_commands** *(array\<object\>, default = [])*: Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.
-    - a string
-    - an array of strings
+- **build** *(object, optional)*: Commands to run for building the application. It must be an object with the following fields:
+    - **env** *(object, optional)*: Environment variable to define when building. It must be an object with the following fields:
+        - **testing** *(free style object, default = {})*: List of environment variables that will be set when building for testing.
+        - **production** *(free style object, default = {})*: List of environment variables that will be set when building for production.
+    - **commands** *(array\<object\>, default = [])*: Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.
+        - a string
+        - an array of strings
+- **pre_test_commands** *(array\<string\>, default = [])*: Command list to run before running tests.
+- **post_test_commands** *(array\<string\>, default = [])*: Command list to run after running tests.
 - **services** *(array\<object\>, default = [])*: Service list.
     - **service_name** *(string, default = '')*: The name of the application part.
     - **needed_services** *(array\<string\>, default = [])*: List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.
@@ -240,16 +243,12 @@ This Documentation was generated automatically.
         - a directory
     - **config** *(object, optional)*: Deployment configuration. It must be an object with the following fields:
         - **docker_image** *(object)*: Docker to build for running and deploying. It must be an object with the following fields:
-            - **workdir** *(string, default = /
-..)*: Working directory of the produced docker file.
-            - **install_targets** *(array\<object\>, default = [])*: Target files or directories to install.
-                - an object with the following fields:
-                    - **exe** *(file path)*: Path to the executable to copy (will be copied in /usr/local/bin).
-                - an object with the following fields:
-                    - **lib** *(file path)*: Path to the executable to copy (will be copied in /usr/local/lib).
-                - an object with the following fields:
-                    - **dir_src** *(directory path)*: Path to the source directory (relative to this dmake file) to copy.
-                    - **dir_dst** *(string)*: Path to the install directory (in the docker).
+            - **check_private** *(boolean, default = true
+...)*: Check that the docker repository is private before pushing the image.
+            - **name** *(string)*: Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry.
+            - **tag** *(string)*: Tag of the docker image to build. By default it will be {:branch_name}-{:build_id}.
+            - **workdir** *(directory path)*: Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.
+            - **copy_directories** *(array\<directory path\>, default = [])*: Directories to copy in the docker image.
             - **install_script** *(file path)*: The install script (will be run in the docker). It has to be executable.
             - **entrypoint** *(file path)*: Set the entrypoint of the docker image generated to run the app.
             - **start_script** *(file path)*: The start script (will be run in the docker). It has to be executable.
@@ -273,9 +272,9 @@ This Documentation was generated automatically.
         - **html_report** *(object, optional)*: Publish an HTML report. It must be an object with the following fields:
             - **directory** *(string)*: Directory of the html pages.
             - **index** *(string, default = index.html
-..)*: Main page.
+...)*: Main page.
             - **title** *(string, default = HTML Report
-..)*: Main page title.
+...)*: Main page title.
     - **deploy** *(object, optional)*: Deploy stage. It must be an object with the following fields:
         - **deploy_name** *(string)*: The name used for deployment. Will default to "db-app_name-service_name" if not specified.
         - **stages** *(array\<object\>)*: Deployment possibilities.
@@ -286,15 +285,14 @@ This Documentation was generated automatically.
             - **env** *(free style object, default = {})*: Additionnal environment variables for deployment.
             - **aws_beanstalk** *(object, optional)*: Deploy via Elastic Beanstalk. It must be an object with the following fields:
                 - **region** *(string, default = eu-west-1
-..)*: The AWS region where to deploy.
+...)*: The AWS region where to deploy.
                 - **stack** *(string, default = 64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2
-..)*: .
+...)*:
                 - **options** *(file path)*: AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html.
             - **ssh** *(object, optional)*: Deploy via SSH. It must be an object with the following fields:
                 - **user** *(string)*: User name.
                 - **host** *(string)*: Host address.
                 - **port** *(int, default = '22')*: SSH port.
-
 
 ## Example
 
@@ -318,12 +316,21 @@ docker_links:
     link_name: mongo
     deployed_options: -v /mnt:/data
     testing_options: -v /mnt:/data
-build_tests_commands:
-- cmake .
-- make
-build_services_commands:
-- cmake .
-- make
+build:
+    env:
+        testing:
+            ENV_TYPE: dev
+            MY_ENV_VARIABLE: '1'
+        production:
+            ENV_TYPE: dev
+            MY_ENV_VARIABLE: '1'
+    commands:
+    - cmake .
+    - make
+pre_test_commands:
+- Some string
+post_test_commands:
+- Some string
 services:
 -   service_name: api
     needed_services:
@@ -331,9 +338,12 @@ services:
     sources: path/to/app
     config:
         docker_image:
-            workdir: /
-            install_targets:
-            -   exe: some/relative/binary
+            check_private: true
+            name: Some string
+            tag: Some string
+            workdir: some/directory/example
+            copy_directories:
+            - some/directory/example
             install_script: install.sh
             entrypoint: some/relative/path/example
             start_script: start.sh
@@ -376,4 +386,5 @@ services:
                 user: ubuntu
                 host: 192.168.0.1
                 port: '22'
+
 ```

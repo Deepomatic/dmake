@@ -77,10 +77,10 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
         'build': 'base',
     }
 
-    dmake = loaded_files[file]
+    dmake_file = loaded_files[file]
     if command == 'base':
-        root_image = dmake.docker.root_image
-        base_image = dmake.docker.get_docker_base_image_name_tag()
+        root_image = dmake_file.docker.root_image
+        base_image = dmake_file.docker.get_docker_base_image_name_tag()
         if root_image != base_image:
             return [('base', base_image)]
         else:
@@ -92,8 +92,8 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
         return [node]
     elif command in ['test', 'run', 'deploy']:
         nodes = []
-        for service in dmake.get_services():
-            full_service_name = "%s/%s" % (dmake.app_name, service.service_name)
+        for service in dmake_file.get_services():
+            full_service_name = "%s/%s" % (dmake_file.app_name, service.service_name)
             nodes += activate_service(loaded_files, service_providers, service_dependencies, command, full_service_name)
         return nodes
     else:
@@ -650,6 +650,8 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         if result != 0 or dmake_command != 'run':
-            os.system('dmake_clean')
+            # HACK
+            pass
+            #os.system('dmake_clean')
 
 

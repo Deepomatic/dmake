@@ -12,7 +12,11 @@ while [ 1 ]; do
     # Trailing slash allows to have correct local path when DMAKE_TMP_DIR is not defined
     TMP=dmake_tmp_`date +%s%N`_$RANDOM/
     if [ -z "${DMAKE_TMP_DIR}" ]; then
-        TMP=/tmp/$TMP
+        if [ `uname` = "Darwin" ]; then
+            TMP=/private/tmp/$TMP
+        else
+            TMP=/tmp/$TMP
+        fi
     else
         TMP=${DMAKE_TMP_DIR}$TMP
     fi
