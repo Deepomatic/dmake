@@ -329,6 +329,8 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
             launch_links += 'if [ \\`docker ps -f name=%s | wc -l\\` = "1" ]; then set +e; docker rm -f %s 2> /dev/null ; set -e; docker run -d --name %s %s -i %s; fi\n' % (link.link_name, link.link_name, link.link_name, link.deployed_options, link.image_name)
             opts += " --link %s" % link.link_name
 
+        common.run_shell_command('cp -r ${HOME}/.docker* %s/ || :' % tmp_dir)
+
         start_file = os.path.join(tmp_dir, "start_app.sh")
         common.run_shell_command(
             ('export IMAGE_NAME="%s" && ' % image_name) +
@@ -469,6 +471,8 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         image_name = self.get_image_name(service_name)
         append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
 
+        return tmp_dir
+
 class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_image       = ServiceDockerSerializer(help_text = "Docker to build for running and deploying")
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
@@ -514,18 +518,19 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
         return opts
 
 class DeploySerializer(YAML2PipelineSerializer):
-    deploy_name  = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to \"db-app_name-service_name\" if not specified")
+    deploy_name  = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to \"${DMAKE_DEPLOY_PREFIX}-app_name-service_name\" if not specified")
     stages       = FieldSerializer("array", child = DeployStageSerializer(), help_text = "Deployment possibilities")
 
     def generate_build_docker(self, commands, path_dir, service_name, docker_base, env, build, config):
         if config.docker_image.has_value():
             config.docker_image.generate_build_docker(commands, path_dir, service_name, docker_base, env, build, config)
 
-    def generate_deploy(self, commands, app_name, service_name, docker_links, env, config):
+    def generate_deploy(self, commands, app_name, service_name, package_dir, docker_links, env, config):
         if self.deploy_name is not None:
             app_name = self.deploy_name
         else:
-            app_name = "dp-%s-%s" % (app_name, service_name)
+            app_name = "${DMAKE_DEPLOY_PREFIX}%s-%s" % (app_name, service_name)
+        app_name = common.eval_str_in_env(app_name)
 
         links = []
         for link_name in config.docker_links_names:
@@ -633,6 +638,7 @@ class DMakeFile(DMakeFileSerializer):
 
         self.env_file = None
         self.docker_services_image = None
+        self.app_package_dirs = {}
 
     def get_app_name(self):
         return self.app_name
@@ -775,7 +781,8 @@ class DMakeFile(DMakeFileSerializer):
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
         docker_base = self.docker.get_docker_base_image_name_tag()
-        service.deploy.generate_build_docker(commands, self.__path__, service_name, docker_base, self.env, self.build, service.config)
+        tmp_dir = service.deploy.generate_build_docker(commands, self.__path__, service_name, docker_base, self.env, self.build, service.config)
+        self.app_package_dirs[service.service_name] = tmp_dir
 
     def generate_test(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
@@ -820,4 +827,5 @@ class DMakeFile(DMakeFileSerializer):
             return
         if not service.config.has_value():
             raise DMakeException("You need to specify a 'config' when deploying.")
-        service.deploy.generate_deploy(commands, self.app_name, service.service_name, docker_links, self.env, service.config)
+        assert(service.service_name in self.app_package_dirs)
+        service.deploy.generate_deploy(commands, self.app_name, service.service_name, self.app_package_dirs[service.service_name], docker_links, self.env, service.config)
