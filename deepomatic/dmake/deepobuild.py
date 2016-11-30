@@ -554,6 +554,9 @@ class TestSerializer(YAML2PipelineSerializer):
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
 
     def generate_test(self, commands, app_name, docker_cmd, docker_links):
+        if not self.has_value():
+            return
+
         if common.build_id is None:
             build_id = 0
         else:

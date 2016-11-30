@@ -424,7 +424,7 @@ class YAML2PipelineSerializer(BaseYAML2PipelineSerializer):
                 if has_data:
                     return fields[key]._value_()
                 else:
-                    raise DMakeException("No data has been validated yet, cannot access field '%s'" % key)
+                    raise Exception("No data has been validated yet, cannot access field '%s'" % key)
             else:
                 return fields[key]
         else:

@@ -480,7 +480,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     services = {}
     for file, dmake_file in loaded_files.items():
         env = {}
-        if dmake_file.env.has_value():
+        if dmake_file.env is not None:
             cmd = []
             if dmake_file.env.source is not None:
                 source = common.eval_str_in_env(dmake_file.env.source)
