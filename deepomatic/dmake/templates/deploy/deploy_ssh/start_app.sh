@@ -38,7 +38,7 @@ if [ -e $device_name ] && [ `df | grep $device_name | wc -l` == "0" ] && [ ! -e 
 fi
 
 # Copy docker credentials
-cp -r .docker* ${HOME}/ || :
+cp -r .docker* $HOME/ || :
 
 # Launch links if not launched
 ${LAUNCH_LINK}
