@@ -6,4 +6,4 @@ fi
 
 set -e
 
-sudo -H -u jenkins $*
+sudo -E -H -u jenkins $*

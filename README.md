@@ -203,6 +203,7 @@ Another solution consists of configuring Docker to map your user on the host mac
 DOCKER_OPTS="-g /mnt/docker --userns-remap=ubuntu"
 ```
 - Restart Docker: ```sudo restart docker```
+- If you use the provided Jenkins image, change the Docker socket ownership to your user: e.g. ```sudo chown deepomatic /var/run/docker.sock```. This will allow Jenkins to interact with Docker within its container. You need to do this each time you start Jenkins so you might want to include this into Jenkins start script.
 
 This poses another problem when you try to use the Dockerfile provided in this repository for Jenkins: ```jenkins/docker/Dockerfile```. As a user called ```jenkins``` is declared in the original Jenkins Dockerfile, Jenkins won't start because all the file in the container belong to root and not to the ```jenkins``` user. In order to set the ownership to ```jenkins``` (with a UID of 1000 and GID 1000) in the container, the files need to have a UID and GID of 2000 on the host machine (or 1000+x if x is the UID/GID of your user). See [Docker Documentation](https://docs.docker.com/engine/reference/commandline/dockerd/#/daemon-user-namespace-options).
 
