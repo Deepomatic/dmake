@@ -456,6 +456,9 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
     post_deploy_script = FieldSerializer("string", default = "", child_path_only = True, example = "my/post_deploy/script", help_text = "Scripts to run after stopping old version.")
 
     def full_docker_opts(self, testing_mode):
+        if not self.has_value():
+            return ""
+
         opts = []
         for ports in self.ports:
             opts.append("-p 0.0.0.0:%s:%s" % (ports.host_port, ports.container_port))
@@ -477,7 +480,11 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
 
             opts.append("-v %s:%s" % (common.join_without_slash(host_volume), common.join_without_slash(volumes.container_volume)))
 
-        opts = self.docker_opts + " " + (" ".join(opts))
+        opts = self.docker_opts
+        if testing_mode:
+            if opts.find('--privileged') >= 0:
+                opts += ' --userns=host'
+        opts += " " + (" ".join(opts))
         return opts
 
 class DeploySerializer(YAML2PipelineSerializer):
@@ -517,7 +524,6 @@ class DeploySerializer(YAML2PipelineSerializer):
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
-    docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add when testing or launching.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     junit_report       = FieldSerializer("string", optional = True, example = "test-reports/*.xml", help_text = "Uses JUnit plugin to generate unit test report.")
     cobertura_report   = FieldSerializer("string", optional = True, example = "", help_text = "Publish a Cobertura report (not working for now).")
@@ -529,7 +535,7 @@ class TestSerializer(YAML2PipelineSerializer):
         else:
             build_id = common.build_id
         for cmd in self.commands:
-            d_cmd = "${DOCKER_LINK_OPTS} -e BUILD=%s " % build_id + self.docker_opts + docker_cmd
+            d_cmd = "${DOCKER_LINK_OPTS} -e BUILD=%s " % build_id + docker_cmd
             append_command(commands, 'sh', shell = "dmake_run_docker_command " + d_cmd + cmd)
 
         if self.junit_report is not None:
@@ -746,6 +752,7 @@ class DMakeFile(DMakeFileSerializer):
     def generate_test(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
         docker_cmd = self._generate_docker_cmd_(commands, self.app_name)
+        docker_cmd = service.config.full_docker_opts(True) + " " + docker_cmd
         if service.config.has_value() and service.config.docker_image.entrypoint:
            docker_cmd = (' --entrypoint %s ' % os.path.join('/app', self.__path__, service.config.docker_image.entrypoint)) + docker_cmd
 

@@ -1,4 +1,4 @@
-FROM jenkins:2.19.1
+FROM jenkins:2.19.3
 MAINTAINER Vincent Delaitre <vincent@deepomatic.com>
 
 USER root
@@ -17,6 +17,7 @@ ENV DMAKE_PATH            /dmake
 ENV DMAKE_JENKINS_FILE    $DMAKE_PATH/deepomatic/dmake/templates/jenkins/Jenkinsfile
 ENV DMAKE_ON_BUILD_SERVER 1
 ENV DMAKE_SSH_KEY         ""
+ENV DMAKE_CONFIG_DIR      ""
 
 # Clone DMake
 RUN git clone https://github.com/Deepomatic/dmake.git $DMAKE_PATH && pip install -r $DMAKE_PATH/requirements.txt
