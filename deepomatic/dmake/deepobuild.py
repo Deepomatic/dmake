@@ -504,11 +504,11 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
 
             opts.append("-v %s:%s" % (common.join_without_slash(host_volume), common.join_without_slash(volumes.container_volume)))
 
-        opts = self.docker_opts
+        docker_opts = self.docker_opts
         if testing_mode:
-            if opts.find('--privileged') >= 0:
-                opts += ' --userns=host'
-        opts += " " + (" ".join(opts))
+            if docker_opts.find('--privileged') >= 0:
+                docker_opts += ' --userns=host'
+        opts = docker_opts + " " + (" ".join(opts))
         return opts
 
 class DeploySerializer(YAML2PipelineSerializer):
