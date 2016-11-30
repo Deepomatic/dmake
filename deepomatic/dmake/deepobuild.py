@@ -615,14 +615,15 @@ class DMakeFile(DMakeFileSerializer):
         except ValidationError as e:
             raise DMakeException(("Error in %s:\n" % file) + str(e))
 
-        if self.env.has_value() and not common.is_string(self.env):
+        if self.env is not None and not common.is_string(self.env):
             env = self.env.default
             if common.branch in self.env.branches:
                 env_branch = self.env.branches[common.branch]
-                env.source = env_branch.source
+                variables = copy.deepcopy(env.variables)
                 for var, value in env_branch.variables.items():
-                    env.variables[var] = value
-
+                    variables[var] = value
+                env.__fields__['source'].value = env_branch.source
+                env.__fields__['variables'].value = variables
             self.__fields__['env'] = env
 
         self.env_file = None
