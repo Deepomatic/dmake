@@ -46,6 +46,40 @@ def join_without_slash(*args):
 
 ###############################################################################
 
+def find_repo_root(root_dir):
+    sub_dir = ''
+    while True:
+        if os.path.isdir(os.path.join(root_dir, '.git')):
+            break
+        else:
+            sub_dir = os.path.join(os.path.basename(root_dir), sub_dir)
+            root_dir = os.path.normpath(os.path.join(root_dir, '..'))
+            if root_dir.startswith('..'):
+                return None, None
+    sub_dir = os.path.normpath(sub_dir)
+    if sub_dir == '.':
+        sub_dir = '' # IMPORTANT: Need to get rid of the leading '.' to unify behaviour
+    return root_dir, sub_dir
+
+###############################################################################
+
+pulled_config_dirs = {}
+def pull_config_dir(root_dir):
+    global pulled_config_dirs
+
+    root_dir, _ = find_repo_root(root_dir)
+    if root_dir is None:
+        return
+
+    if root_dir in pulled_config_dirs:
+        return
+
+    logger.info("Pulling config from: %s" % root_dir)
+    os.system("cd %s && git pull origin master" % root_dir)
+    pulled_config_dirs[root_dir] = True
+
+###############################################################################
+
 if sys.version_info >= (3,0):
     from deepomatic.dmake.python_3x import is_string, read_input
 else:
@@ -56,7 +90,7 @@ else:
 def init(_command, _root_dir, _options):
     global root_dir, tmp_dir, cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
-    global repo_url, repo, env_type, use_pipeline, is_local
+    global repo_url, repo, use_pipeline, is_local
     global build_description
     global command, options, uname
     root_dir = os.path.join(_root_dir, '')
@@ -115,14 +149,6 @@ def init(_command, _root_dir, _options):
     if repo_github_owner is not None:
         repo_github_owner = repo_github_owner.groups()[0]
 
-    # Set env_type
-    if branch == "master":
-        env_type = "prod"
-    elif branch == "stag" or branch == "stag2":
-        env_type = "stag"
-    else:
-        env_type = "dev"
-
     # Set Job description
     build_description = None
     if use_pipeline:
@@ -141,7 +167,6 @@ def init(_command, _root_dir, _options):
     os.environ["REPO"]        = repo
     os.environ["BRANCH"]      = str(branch)
     os.environ["COMMIT_ID"]   = commit_id
-    os.environ["ENV_TYPE"]    = env_type
 
     logger.info("===============")
     logger.info("REPO : %s" % repo)
@@ -152,26 +177,7 @@ def init(_command, _root_dir, _options):
     else:
         logger.info("BRANCH : %s" % branch)
     logger.info("COMMIT_ID : %s" % commit_id[:7])
-    logger.info("ENV_TYPE : %s" % env_type)
     logger.info("===============")
-
-    # Load configuration from env repository
-    config_dir = os.getenv('DMAKE_CONFIG_DIR', None)
-    if config_dir is None:
-        logger.warning("WARNING: DMAKE_CONFIG_DIR not defined, not sourcing environment variables")
-    else:
-        logger.info("Pulling config from: %s" % config_dir)
-        os.system("cd %s && git pull origin master" % config_dir)
-
-        # Source environment variables
-        output = run_shell_command('source %s/%s.sh && env' % (config_dir, env_type))
-        output = output.split('\n')
-        for line in output:
-            line = line.strip()
-            if len(line) == 0:
-                continue
-            (key, _, value) = line.partition("=")
-            os.environ[key] = value
 
     # Check the SSH Key for cloning private repositories is correctly set up
     key_file = os.getenv('DMAKE_SSH_KEY', None)

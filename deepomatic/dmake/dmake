@@ -43,21 +43,11 @@ if not check_is_git_repo():
 
 # Find root
 root_dir = os.getenv('PWD')
-sub_dir = ''
-while True:
-    if os.path.isdir('.git'):
-        break
-    else:
-        sub_dir = os.path.join(os.path.basename(root_dir), sub_dir)
-        root_dir = os.path.normpath(os.path.join(root_dir, '..'))
-        if root_dir.startswith('..'):
-            common.logger.error("Could no find '.git' directory.")
-            sys.exit(1)
-        os.chdir('..')
-sub_dir = os.path.normpath(sub_dir)
-assert(os.path.isdir(sub_dir))
-if sub_dir == '.':
-    sub_dir = '' # Need to get rid of the leading '.' to unify behaviour
+root_dir, sub_dir = common.find_repo_root(root_dir)
+if root_dir is None:
+    common.logger.error("Could no find '.git' directory.")
+    sys.exit(1)
+os.chdir(root_dir)
 
 # Parse command args
 try:

@@ -201,35 +201,44 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
 
     # Load appropriate version (TODO: versionning)
     if version == '0.1':
-        dmake = DMakeFile(file, data)
-    loaded_files[file] = dmake
+        dmake_file = DMakeFile(file, data)
+    loaded_files[file] = dmake_file
 
     # Blacklist should be on child file because they are loaded this way
-    for bl in dmake.blacklist:
+    for bl in dmake_file.blacklist:
         blacklist.append(bl)
 
-    for link in dmake.docker_links:
-        add_service_provider(service_providers, 'links/%s/%s' % (dmake.get_app_name(), link.link_name), file)
+    for link in dmake_file.docker_links:
+        add_service_provider(service_providers, 'links/%s/%s' % (dmake_file.get_app_name(), link.link_name), file)
 
     # Unroll docker image references
-    if common.is_string(dmake.docker):
-        ref = dmake.docker
+    if common.is_string(dmake_file.docker):
+        ref = dmake_file.docker
         load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
-        dmake.__fields__['docker'] = loaded_files[ref].docker
+        if common.is_string(loaded_files[ref].docker):
+            raise DMakeException('Circular references: trying to load %s which is already loaded.' % loaded_files[ref].docker)
+        dmake_file.__fields__['docker'] = loaded_files[ref].docker
     else:
-        if common.is_string(dmake.docker.root_image):
-            ref = dmake.docker.root_image
+        if common.is_string(dmake_file.docker.root_image):
+            ref = dmake_file.docker.root_image
             load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
-            dmake.docker.__fields__['root_image'] = loaded_files[ref].docker.get_docker_base_image_name_tag()
+            dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.get_docker_base_image_name_tag()
         else:
-            dmake.docker.__fields__['root_image'] = dmake.docker.root_image.full_name()
+            dmake_file.docker.__fields__['root_image'] = dmake_file.docker.root_image.full_name()
 
         # If a base image is declared
-        root_image = dmake.docker.root_image
-        base_image = dmake.docker.get_docker_base_image_name_tag()
+        root_image = dmake_file.docker.root_image
+        base_image = dmake_file.docker.get_docker_base_image_name_tag()
         if root_image != base_image:
             add_service_provider(service_providers, base_image, file)
             service_dependencies[('base', base_image)] = [('base', root_image)]
+
+    if common.is_string(dmake_file.env):
+        ref = dmake_file.env
+        load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
+        if common.is_string(loaded_files[ref].env):
+            raise DMakeException('Circular references: trying to load %s which is already loaded.' % ref)
+        dmake_file.__fields__['env'] = loaded_files[ref].env
 
 ###############################################################################
 
@@ -469,8 +478,28 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     # Register all apps and services in the repo
     docker_links = {}
     services = {}
-    for file, dmake in loaded_files.items():
-        app_name = dmake.get_app_name()
+    for file, dmake_file in loaded_files.items():
+        env = {}
+        if dmake_file.env.has_value():
+            cmd = []
+            if dmake_file.env.source is not None:
+                source = common.eval_str_in_env(dmake_file.env.source)
+                common.pull_config_dir(os.path.dirname(source))
+                cmd.append('source %s' % source)
+
+            for value in dmake_file.env.variables.values():
+                cmd.append('echo "%s"' % value.replace('"', '\\"'))
+
+            if len(cmd) > 0:
+                cmd = ' && '.join(cmd)
+                output = common.run_shell_command(cmd)
+                output = output.split('\n')
+                assert(len(output) == len(dmake_file.env.variables))
+                for var, value in zip(dmake_file.env.variables.keys(), output):
+                    env[var] = value.strip()
+        dmake_file.__fields__['env'] = env
+
+        app_name = dmake_file.get_app_name()
         if app_name not in docker_links:
             docker_links[app_name] = {}
         if app_name not in services:
@@ -481,7 +510,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                 auto_completed_app = app
 
         app_services = services[app_name]
-        for service in dmake.get_services():
+        for service in dmake_file.get_services():
             needs = ["%s/%s" % (app_name, sa) for sa in service.needed_services]
             full_service_name = "%s/%s" % (app_name, service.service_name)
             if service.service_name in app_services:
@@ -497,7 +526,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                     raise DMakeException("Ambigous app name '%s' is matching sub-app '%s' and %sapp '%s'" % (app, full_service_name, "" if auto_complete_is_app else "sub-", auto_completed_app))
 
         app_links = docker_links[app_name]
-        for link in dmake.get_docker_links():
+        for link in dmake_file.get_docker_links():
             if link.link_name in app_links:
                 raise DMakeException("Duplicate link name '%s' for application '%s'. Link names must be unique inside each app." % (link.link_name, app_name))
             app_links[link.link_name] = link
@@ -578,7 +607,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     append_command(all_commands, 'env', var = "REPO", value = common.repo)
     append_command(all_commands, 'env', var = "COMMIT", value = common.commit_id)
     append_command(all_commands, 'env', var = "BRANCH", value = common.branch)
-    append_command(all_commands, 'env', var = "ENV_TYPE", value = common.env_type)
     append_command(all_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
 
     for stage, commands in ordered_build_files:
@@ -587,30 +615,30 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         for (command, service), order in commands:
             append_command(all_commands, 'sh', shell = 'echo "Running %s @ %s"' % (command, service))
             if command == 'build':
-                dmake = loaded_files[service]
+                dmake_file = loaded_files[service]
             else:
                 file, _ = service_providers[service]
-                dmake = loaded_files[file]
-            app_name = dmake.get_app_name()
+                dmake_file = loaded_files[file]
+            app_name = dmake_file.get_app_name()
             links = docker_links[app_name]
 
             try:
                 if command == "base":
-                    dmake.generate_base(all_commands)
+                    dmake_file.generate_base(all_commands)
                 elif command == "shell":
-                    dmake.generate_shell(all_commands, service, links)
+                    dmake_file.generate_shell(all_commands, service, links)
                 elif command == "test":
-                    dmake.generate_test(all_commands, service, links)
+                    dmake_file.generate_test(all_commands, service, links)
                 elif command == "run":
-                    dmake.generate_run(all_commands, service, links)
+                    dmake_file.generate_run(all_commands, service, links)
                 elif command == "run_link":
-                    dmake.generate_run_link(all_commands, service, links)
+                    dmake_file.generate_run_link(all_commands, service, links)
                 elif command == "build":
-                    dmake.generate_build(all_commands)
+                    dmake_file.generate_build(all_commands)
                 elif command == "build_docker":
-                    dmake.generate_build_docker(all_commands, service)
+                    dmake_file.generate_build_docker(all_commands, service)
                 elif command == "deploy":
-                    dmake.generate_deploy(all_commands, service, links)
+                    dmake_file.generate_deploy(all_commands, service, links)
                 else:
                    raise Exception("Unkown command '%s'" % command)
             except DMakeException as e:
@@ -649,6 +677,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         if result != 0 or dmake_command != 'run':
-            os.system('dmake_clean')
+            pass
+            #os.system('dmake_clean')
 
 
