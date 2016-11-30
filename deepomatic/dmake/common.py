@@ -118,7 +118,7 @@ def init(_command, _root_dir, _options):
     # Set env_type
     if branch == "master":
         env_type = "prod"
-    elif branch == "stag":
+    elif branch == "stag" or branch == "stag2":
         env_type = "stag"
     else:
         env_type = "dev"
