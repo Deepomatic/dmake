@@ -390,9 +390,9 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         image_name = name + ":" + tag
         return image_name
 
-    def generate_build_docker(self, commands, path_dir, app_name, service_name, docker_base, env, build, config):
+    def generate_build_docker(self, commands, path_dir, service_name, docker_base, env, build, config):
         if common.command == "deploy" and self.name is None:
-            raise DMakeException('You need to specify an image name for %s/%s in order to deploy the service.' % (app_name, service_name))
+            raise DMakeException('You need to specify an image name for %s in order to deploy the service.' % service_name)
 
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
         common.run_shell_command('mkdir %s' % os.path.join(tmp_dir, 'app'))
@@ -491,9 +491,9 @@ class DeploySerializer(YAML2PipelineSerializer):
     deploy_name  = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to \"db-app_name-service_name\" if not specified")
     stages       = FieldSerializer("array", child = DeployStageSerializer(), help_text = "Deployment possibilities")
 
-    def generate_build_docker(self, commands, path_dir, app_name, service_name, docker_base, env, build, config):
+    def generate_build_docker(self, commands, path_dir, service_name, docker_base, env, build, config):
         if config.docker_image.has_value():
-            config.docker_image.generate_build_docker(commands, path_dir, app_name, service_name, docker_base, env, build, config)
+            config.docker_image.generate_build_docker(commands, path_dir, service_name, docker_base, env, build, config)
 
     def generate_deploy(self, commands, app_name, service_name, docker_links, env, config):
         if self.deploy_name is not None:
@@ -747,7 +747,7 @@ class DMakeFile(DMakeFileSerializer):
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
         docker_base = self.docker.get_docker_base_image_name_tag()
-        service.deploy.generate_build_docker(commands, self.__path__, self.app_name, service_name, docker_base, self.env, self.build, service.config)
+        service.deploy.generate_build_docker(commands, self.__path__, service_name, docker_base, self.env, self.build, service.config)
 
     def generate_test(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
