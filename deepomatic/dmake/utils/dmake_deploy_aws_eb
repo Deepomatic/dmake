@@ -38,7 +38,7 @@ function aws_wait_env_in_state() {
     AWS_ENV=$4
     COUNTER=0
     while :; do
-        STATE=`aws elasticbeanstalk describe-environments --region ${AWS_REGION} --environment-names ${AWS_ENV} --no-include-deleted | grep "Status" | sed "s/.*\"Status\": \"\([^\"]*\)\".*/\1/"`
+        STATE=`aws elasticbeanstalk describe-environments --region ${AWS_REGION} --environment-names ${AWS_ENV} --no-include-deleted | grep "\"Status\"" | sed "s/.*\"Status\": \"\([^\"]*\)\".*/\1/"`
         if [ -z "$STATE" ]; then
             break
         fi
