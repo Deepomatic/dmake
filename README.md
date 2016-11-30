@@ -6,6 +6,7 @@ Table of content:
 - [Installation](#installation)
 - [Tutorial](#tutorial)
 - [Using DMake with Jenkins](#using-dmake-with-jenkins)
+- [Configuring Docker](#configuring-docker)
 - [Documentation](#documentation)
 - [Example](#example)
 
