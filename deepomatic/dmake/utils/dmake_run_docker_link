@@ -44,7 +44,7 @@ done
 
 if [ -z "${CONTAINER_ID}" ]; then
     docker pull ${IMAGE_NAME} 2> /dev/null || :
-    CONTAINER_ID=$(dmake_run_docker_daemon "" "${CONTAINER_NAME}" ${OPTIONS} ${VOLUMES} -i ${IMAGE_NAME})
+    CONTAINER_ID=$(dmake_run_docker_daemon "" "${CONTAINER_NAME}" --userns=host ${OPTIONS} ${VOLUMES} -i ${IMAGE_NAME})
     while [ 1 = 1 ]; do
         if [ `docker ps -f id=$CONTAINER_ID -f status=running | wc -l` -gt "0" ]; then
             break

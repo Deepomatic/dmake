@@ -19,7 +19,7 @@ shift 1
 
 for FILTER in "$@"; do
     if [ `docker ps --filter ${FILTER_TYPE}=${FILTER} | sed '1d' | wc -l` = 0 ]; then
-        echo "Daemon ${FILTER} quit unexpectedly. Here are the logs:"
+        >&2 echo -e "Daemon ${FILTER} quit unexpectedly. Here are the logs:"
         docker logs ${FILTER}
         exit 1
     fi
