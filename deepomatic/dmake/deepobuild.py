@@ -485,7 +485,10 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
 
         opts = []
         for ports in self.ports:
-            opts.append("-p 0.0.0.0:%s:%s" % (ports.host_port, ports.container_port))
+            if testing_mode:
+                opts.append("-p %s" % ports.container_port)
+            else:
+                opts.append("-p 0.0.0.0:%s:%s" % (ports.host_port, ports.container_port))
 
         for volumes in self.volumes:
             if testing_mode:
@@ -506,8 +509,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
 
         docker_opts = self.docker_opts
         if testing_mode:
-            if docker_opts.find('--privileged') >= 0:
-                docker_opts += ' --userns=host'
+            docker_opts = docker_opts.replace('--privileged', '')
         opts = docker_opts + " " + (" ".join(opts))
         return opts
 
