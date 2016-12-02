@@ -167,6 +167,7 @@ def init(_command, _root_dir, _options):
     os.environ["REPO"]        = repo
     os.environ["BRANCH"]      = str(branch)
     os.environ["COMMIT_ID"]   = commit_id
+    os.environ["BUILD"]       = build_id
 
     logger.info("===============")
     logger.info("REPO : %s" % repo)
