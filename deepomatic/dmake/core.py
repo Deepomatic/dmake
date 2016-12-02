@@ -332,13 +332,9 @@ def generate_command_pipeline(file, cmds):
         elif cmd == "env":
             file.write('env.%s = "%s"\n' % (kwargs['var'], kwargs['value']))
         elif cmd == "git_tag":
-            url = common.repo_url
-            i = url.find(':')
-            prefix = url[:i]
-            host = url[(i + 3):]
             file.write("sh('git tag --force %s')\n" % kwargs['tag'])
             file.write('try {\n')
-            file.write("sh('git push --force origin refs/tags/%s')\n" % (prefix, host, kwargs['tag']))
+            file.write("sh('git push --force origin refs/tags/%s')\n" % kwargs['tag'])
             file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
             # if url is not None and (url.startswith('https://') or url.startswith('http://')):
             #     i = url.find(':')
