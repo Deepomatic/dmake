@@ -28,8 +28,8 @@ def look_for_changed_directories():
             common.logger.error("Error: " + str(e))
             return None
 
-    #common.logger.info("Changed files:")
-    #common.logger.info(output)
+    common.logger.info("Changed files:")
+    common.logger.info(output)
 
     changed_dirs = set()
     for file in [file.strip() for file in output.split('\n')]:
