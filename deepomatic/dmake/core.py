@@ -299,10 +299,6 @@ def generate_command_pipeline(file, cmds):
         file.write("currentBuild.description = '%s'\n" % common.build_description.replace("'", "\\'"))
     file.write('try {\n')
 
-    # Check crendentials
-    file.write("try {withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'dmake-http', usernameVariable: '_', passwordVariable: '__']]) {}}\n")
-    file.write("""catch(error) {\nsh('echo "WARNING: Jenkins credentials \\'dmake-http\\' are not defined: you won\\'t be able to deploy only the part of your app that have changed."')\n}\n""")
-
     for cmd, kwargs in cmds:
         if cmd == "stage":
             name = kwargs['name'].replace("'", "\\'")
@@ -342,14 +338,14 @@ def generate_command_pipeline(file, cmds):
                 prefix = url[:i]
                 host = url[(i + 3):]
                 file.write("sh('git tag --force %s')\n" % kwargs['tag'])
-                file.write('try {\n')
-                file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'dmake-http', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
-                file.write("sh('env')\n")
+                #file.write('try {\n')
+                #file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'dmake-http', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
+                #file.write("sh('env')\n")
                 file.write('try {\n')
                 file.write("sh('git push %s://${GIT_USERNAME}:${GIT_PASSWORD}@%s --force origin refs/tags/%s')\n" % (prefix, host, kwargs['tag']))
                 file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
-                file.write("}\n")
-                file.write("""} catch(error) {\nsh('echo "Credentials \\'dmake-http\\' are not defined, skipping tag pushing."')\n}\n""")
+                #file.write("}\n")
+                #file.write("""} catch(error) {\nsh('echo "Credentials \\'dmake-http\\' are not defined, skipping tag pushing."')\n}\n""")
         elif cmd == "junit":
             file.write("junit '%s'\n" % kwargs['report'])
         elif cmd == "cobertura":
