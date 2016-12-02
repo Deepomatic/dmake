@@ -333,19 +333,26 @@ def generate_command_pipeline(file, cmds):
             file.write('env.%s = "%s"\n' % (kwargs['var'], kwargs['value']))
         elif cmd == "git_tag":
             url = common.repo_url
-            if url is not None and (url.startswith('https://') or url.startswith('http://')):
-                i = url.find(':')
-                prefix = url[:i]
-                host = url[(i + 3):]
-                file.write("sh('git tag --force %s')\n" % kwargs['tag'])
-                #file.write('try {\n')
-                #file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'dmake-http', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
-                #file.write("sh('env')\n")
-                file.write('try {\n')
-                file.write("sh('git push %s://${GIT_USERNAME}:${GIT_PASSWORD}@%s --force origin refs/tags/%s')\n" % (prefix, host, kwargs['tag']))
-                file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
-                #file.write("}\n")
-                #file.write("""} catch(error) {\nsh('echo "Credentials \\'dmake-http\\' are not defined, skipping tag pushing."')\n}\n""")
+            i = url.find(':')
+            prefix = url[:i]
+            host = url[(i + 3):]
+            file.write("sh('git tag --force %s')\n" % kwargs['tag'])
+            file.write('try {\n')
+            file.write("sh('git push %s://${GIT_USERNAME}:${GIT_PASSWORD}@%s --force origin refs/tags/%s')\n" % (prefix, host, kwargs['tag']))
+            file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
+            # if url is not None and (url.startswith('https://') or url.startswith('http://')):
+            #     i = url.find(':')
+            #     prefix = url[:i]
+            #     host = url[(i + 3):]
+            #     file.write("sh('git tag --force %s')\n" % kwargs['tag'])
+            #     file.write('try {\n')
+            #     file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'dmake-http', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
+            #     file.write("sh('env')\n")
+            #     file.write('try {\n')
+            #     file.write("sh('git push %s://${GIT_USERNAME}:${GIT_PASSWORD}@%s --force origin refs/tags/%s')\n" % (prefix, host, kwargs['tag']))
+            #     file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
+            #     file.write("}\n")
+            #     file.write("""} catch(error) {\nsh('echo "Credentials \\'dmake-http\\' are not defined, skipping tag pushing."')\n}\n""")
         elif cmd == "junit":
             file.write("junit '%s'\n" % kwargs['report'])
         elif cmd == "cobertura":
