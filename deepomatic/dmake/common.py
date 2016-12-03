@@ -90,7 +90,7 @@ else:
 def init(_command, _root_dir, _options):
     global root_dir, tmp_dir, cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
-    global repo_url, repo, use_pipeline, is_local
+    global repo_url, repo, use_pipeline, is_local, skip_tests
     global build_description
     global command, options, uname
     root_dir = os.path.join(_root_dir, '')
@@ -111,6 +111,9 @@ def init(_command, _root_dir, _options):
 
     # Make sure DMAKE_ON_BUILD_SERVER is correctly configured
     is_local = os.getenv('DMAKE_ON_BUILD_SERVER', 0) != "1"
+
+    # Set skip test variable
+    skip_tests = os.getenv('DMAKE_SKIP_TESTS', "false") == "true"
 
     use_pipeline = True
     branch   = os.getenv('BRANCH_NAME', None)

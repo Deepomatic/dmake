@@ -1,6 +1,15 @@
-properties([[$class: 'ParametersDefinitionProperty', parameterDefinitions: [
-    [$class: 'StringParameterDefinition', defaultValue: '', description: '(option) Application to deploy. If empty, it will build all the applications. Use * to force the deployment of all applications.', name : 'DMAKE_APP']
-]]])
+properties([
+    parameters([
+        string(name: 'DMAKE_APP',
+               defaultValue: '',
+               description: '(optional) Application to deploy. You can also specify a service name if there is no ambiguity. Use * to force the deployment of all applications. Leave empty for default behaviour.'),
+        booleanParam(name: 'DMAKE_SKIP_TESTS',
+                     defaultValue: false,
+                     description: 'Skip tests if true')
+    ]),
+    pipelineTriggers([])
+])
+
 
 sshagent (credentials: env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS.tokenize(',')) {
     checkout scm

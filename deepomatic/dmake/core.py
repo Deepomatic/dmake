@@ -582,10 +582,13 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         n = len(ordered_build_files)
         base   = list(filter(lambda a_b__c: a_b__c[0][0] in ['base'], ordered_build_files))
         build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build', 'build_docker'], ordered_build_files))
-        test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['test', 'shell', 'run_link', 'run'], ordered_build_files))
-        deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['deploy'], ordered_build_files))
+        test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['test', 'run_link', 'run'], ordered_build_files))
+        deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['shell', 'deploy'], ordered_build_files))
         if len(base) + len(build) + len(test) + len(deploy) != len(ordered_build_files):
             raise Exception('Something went wrong when reorganizing build steps. One of the commands is probably missing.')
+
+        if common.skip_tests:
+            test = []
 
         ordered_build_files = [('Building Docker', base),
                                ('Building App', build),
