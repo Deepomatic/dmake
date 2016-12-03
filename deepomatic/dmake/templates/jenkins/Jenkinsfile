@@ -2,7 +2,7 @@ properties([[$class: 'ParametersDefinitionProperty', parameterDefinitions: [
     [$class: 'StringParameterDefinition', defaultValue: '', description: '(option) Application to deploy. If empty, it will build all the applications. Use * to force the deployment of all applications.', name : 'DMAKE_APP']
 ]]])
 
-sshagent (credentials: env.DMAKE_SSH_AGENT_CREDENTIALS.tokenize(',')) {
+sshagent (credentials: env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS.tokenize(',')) {
     checkout scm
     sh 'dmake deploy "${DMAKE_APP}"'
     load 'DMakefile'

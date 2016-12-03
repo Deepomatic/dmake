@@ -332,23 +332,22 @@ def generate_command_pipeline(file, cmds):
         elif cmd == "env":
             file.write('env.%s = "%s"\n' % (kwargs['var'], kwargs['value']))
         elif cmd == "git_tag":
-            file.write("sh('git tag --force %s')\n" % kwargs['tag'])
-            file.write('try {\n')
-            file.write("sh('git push --force origin refs/tags/%s')\n" % kwargs['tag'])
-            file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
-            # if url is not None and (url.startswith('https://') or url.startswith('http://')):
-            #     i = url.find(':')
-            #     prefix = url[:i]
-            #     host = url[(i + 3):]
-            #     file.write("sh('git tag --force %s')\n" % kwargs['tag'])
-            #     file.write('try {\n')
-            #     file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'dmake-http', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
-            #     file.write("sh('env')\n")
-            #     file.write('try {\n')
-            #     file.write("sh('git push %s://${GIT_USERNAME}:${GIT_PASSWORD}@%s --force origin refs/tags/%s')\n" % (prefix, host, kwargs['tag']))
-            #     file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
-            #     file.write("}\n")
-            #     file.write("""} catch(error) {\nsh('echo "Credentials \\'dmake-http\\' are not defined, skipping tag pushing."')\n}\n""")
+            if common.repo_url is not None:
+                file.write("sh('git tag --force %s')\n" % kwargs['tag'])
+                file.write('try {\n')
+                if common.repo_url.startswith('https://') or common.repo_url.startswith('http://'):
+                    i = common.repo_url.find(':')
+                    prefix = common.repo_url[:i]
+                    host = common.repo_url[(i + 3):]
+                    file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: env.DMAKE_JENKINS_HTTP_CREDENTIALS, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
+                    file.write('try {\n')
+                    file.write("sh('git push %s://${GIT_USERNAME}:${GIT_PASSWORD}@%s --force origin refs/tags/%s')\n" % (prefix, host, kwargs['tag']))
+                    file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
+                    file.write("}\n")
+                    file.write("""} catch(error) {\nsh('echo "Define \'User/Password\' credentials and set their ID in the \'DMAKE_JENKINS_HTTP_CREDENTIALS\' environment variable to be able to build and deploy only changed parts of the app."')\n}\n""")
+                else:
+                    file.write("sh('git push --force origin refs/tags/%s')\n" % kwargs['tag'])
+                    file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
         elif cmd == "junit":
             file.write("junit '%s'\n" % kwargs['report'])
         elif cmd == "cobertura":
