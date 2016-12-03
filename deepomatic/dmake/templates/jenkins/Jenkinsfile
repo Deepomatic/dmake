@@ -5,7 +5,7 @@ properties([
                description: '(optional) Application to deploy. You can also specify a service name if there is no ambiguity. Use * to force the deployment of all applications. Leave empty for default behaviour.'),
         booleanParam(name: 'DMAKE_SKIP_TESTS',
                      defaultValue: false,
-                     description: 'Skip tests if true')
+                     description: 'Skip tests if checked')
     ]),
     pipelineTriggers([])
 ])
