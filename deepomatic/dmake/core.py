@@ -576,35 +576,35 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     ordered_build_files = sorted(build_files_order.items(), key = lambda file_order: file_order[1])
 
     # Separate into base / build / tests / deploy
-    n = len(ordered_build_files)
-    base   = list(filter(lambda a_b__c: a_b__c[0][0] in ['base'], ordered_build_files))
-    build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build', 'build_docker'], ordered_build_files))
-    test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['test', 'shell', 'run_link', 'run'], ordered_build_files))
-    deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['deploy'], ordered_build_files))
-    if len(base) + len(build) + len(test) + len(deploy) != len(ordered_build_files):
-        raise Exception('Something went wrong when reorganizing build steps. One of the commands is probably missing.')
-
-    ordered_build_files = [('Building Docker', base),
-                           ('Building App', build),
-                           ('Testing App', test)]
-
-    if not common.is_pr:
-        ordered_build_files.append(('Deploying', list(deploy)))
-
-    # Display commands
     if len(ordered_build_files) == 0:
         common.logger.info("Nothing to do:")
     else:
+        n = len(ordered_build_files)
+        base   = list(filter(lambda a_b__c: a_b__c[0][0] in ['base'], ordered_build_files))
+        build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build', 'build_docker'], ordered_build_files))
+        test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['test', 'shell', 'run_link', 'run'], ordered_build_files))
+        deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['deploy'], ordered_build_files))
+        if len(base) + len(build) + len(test) + len(deploy) != len(ordered_build_files):
+            raise Exception('Something went wrong when reorganizing build steps. One of the commands is probably missing.')
+
+        ordered_build_files = [('Building Docker', base),
+                               ('Building App', build),
+                               ('Testing App', test)]
+
+        if not common.is_pr:
+            ordered_build_files.append(('Deploying', list(deploy)))
+
+        # Display commands
         common.logger.info("Here is the plan:")
-    for stage, commands in ordered_build_files:
-        if len(commands) > 0:
-            common.logger.info("## %s ##" % (stage))
-        for (command, service), order in commands:
-            # Sanity check
-            sub_task_orders = [build_files_order[a] for a in service_dependencies[(command, service)]]
-            if any(map(lambda o: order <= o, sub_task_orders)):
-                raise DMakeException('Bad ordering')
-            common.logger.info("- %s @ %s" % (command, service))
+        for stage, commands in ordered_build_files:
+            if len(commands) > 0:
+                common.logger.info("## %s ##" % (stage))
+            for (command, service), order in commands:
+                # Sanity check
+                sub_task_orders = [build_files_order[a] for a in service_dependencies[(command, service)]]
+                if any(map(lambda o: order <= o, sub_task_orders)):
+                    raise DMakeException('Bad ordering')
+                common.logger.info("- %s @ %s" % (command, service))
 
     # Generate the list of command to run
     all_commands = []
