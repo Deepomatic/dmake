@@ -5,7 +5,7 @@ import deepomatic.dmake.common as common
 from   deepomatic.dmake.common import DMakeException
 from   deepomatic.dmake.deepobuild import DMakeFile, append_command
 
-tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that you have declared a SSH credentials named 'dmake'"
+tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that the credentials declared in the DMAKE_JENKINS_SSH_AGENT_CREDENTIALS and DMAKE_JENKINS_HTTP_CREDENTIALS allow you to write to the repository."
 
 ###############################################################################
 
@@ -341,7 +341,7 @@ def generate_command_pipeline(file, cmds):
                     host = common.repo_url[(i + 3):]
                     file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: env.DMAKE_JENKINS_HTTP_CREDENTIALS, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
                     file.write('try {\n')
-                    file.write("sh('git push %s://${GIT_USERNAME}:${GIT_PASSWORD}@%s --force origin refs/tags/%s')\n" % (prefix, host, kwargs['tag']))
+                    file.write("sh(\"git push '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' --force origin refs/tags/%s\")\n" % (prefix, host, kwargs['tag']))
                     file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
                     file.write("}\n")
                     file.write("""} catch(error) {\nsh('echo "Define \\'User/Password\\' credentials and set their ID in the \\'DMAKE_JENKINS_HTTP_CREDENTIALS\\' environment variable to be able to build and deploy only changed parts of the app."')\n}\n""")
