@@ -344,7 +344,7 @@ def generate_command_pipeline(file, cmds):
                     file.write("sh('git push %s://${GIT_USERNAME}:${GIT_PASSWORD}@%s --force origin refs/tags/%s')\n" % (prefix, host, kwargs['tag']))
                     file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
                     file.write("}\n")
-                    file.write("""} catch(error) {\nsh('echo "Define \'User/Password\' credentials and set their ID in the \'DMAKE_JENKINS_HTTP_CREDENTIALS\' environment variable to be able to build and deploy only changed parts of the app."')\n}\n""")
+                    file.write("""} catch(error) {\nsh('echo "Define \\'User/Password\\' credentials and set their ID in the \\'DMAKE_JENKINS_HTTP_CREDENTIALS\\' environment variable to be able to build and deploy only changed parts of the app."')\n}\n""")
                 else:
                     file.write("sh('git push --force origin refs/tags/%s')\n" % kwargs['tag'])
                     file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
