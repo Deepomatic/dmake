@@ -28,6 +28,9 @@ def look_for_changed_directories():
             common.logger.error("Error: " + str(e))
             return None
 
+    if len(output) == 0:
+        return []
+
     common.logger.info("Changed files:")
     common.logger.info(output)
 
@@ -341,7 +344,7 @@ def generate_command_pipeline(file, cmds):
                     host = common.repo_url[(i + 3):]
                     file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: env.DMAKE_JENKINS_HTTP_CREDENTIALS, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
                     file.write('try {\n')
-                    file.write("sh(\"git push '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' --force origin refs/tags/%s\")\n" % (prefix, host, kwargs['tag']))
+                    file.write("sh(\"git push --force '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' refs/tags/%s\")\n" % (prefix, host, kwargs['tag']))
                     file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
                     file.write("}\n")
                     file.write("""} catch(error) {\nsh('echo "Define \\'User/Password\\' credentials and set their ID in the \\'DMAKE_JENKINS_HTTP_CREDENTIALS\\' environment variable to be able to build and deploy only changed parts of the app."')\n}\n""")
@@ -589,7 +592,10 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         ordered_build_files.append(('Deploying', list(deploy)))
 
     # Display commands
-    common.logger.info("Here is the plan:")
+    if len(ordered_build_files) == 0:
+        common.logger.info("Nothing to do:")
+    else:
+        common.logger.info("Here is the plan:")
     for stage, commands in ordered_build_files:
         if len(commands) > 0:
             common.logger.info("## %s ##" % (stage))
