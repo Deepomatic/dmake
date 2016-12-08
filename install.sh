@@ -1,18 +1,13 @@
 #!/bin/bash
 
-if [ ! -z "`which dmake`" ] && [ ! -z "${DMAKE_VERSION}" ] && (( $(echo "$DMAKE_VERSION == 0.1" | bc -l) )); then
-    echo "Looks like dmake is configured"
-    exit 0
-fi
-
 pushd `dirname $0` > /dev/null
 DMAKE_PATH=`pwd -P`
 popd > /dev/null
 
 echo "export DMAKE_VERSION=0.1" > ${DMAKE_PATH}/config.sh
+echo "export DMAKE_UID=$(id -u)" >> ${DMAKE_PATH}/config.sh
 echo "export DMAKE_PATH=${DMAKE_PATH}" >> ${DMAKE_PATH}/config.sh
 echo "export DMAKE_SSH_KEY=${DMAKE_SSH_KEY}" >> ${DMAKE_PATH}/config.sh
-echo "export DMAKE_AWS_DOCKER_CREDENTIALS=${DMAKE_AWS_DOCKER_CREDENTIALS}" >> ${DMAKE_PATH}/config.sh
 echo "export PYTHONPATH=\$PYTHONPATH:${DMAKE_PATH}" >> ${DMAKE_PATH}/config.sh
 echo "export PATH=\$PATH:${DMAKE_PATH}/deepomatic/dmake/:${DMAKE_PATH}/deepomatic/dmake/utils" >> ${DMAKE_PATH}/config.sh
 

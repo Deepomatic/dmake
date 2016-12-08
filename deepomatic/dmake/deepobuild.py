@@ -224,9 +224,10 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
 
 class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
-    region   = FieldSerializer("string", default = "eu-west-1", help_text = "The AWS region where to deploy.")
-    stack    = FieldSerializer("string", default = "64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2")
-    options  = FieldSerializer("path", example = "path/to/options.txt", help_text = "AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html")
+    region      = FieldSerializer("string", default = "eu-west-1", help_text = "The AWS region where to deploy.")
+    stack       = FieldSerializer("string", default = "64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2")
+    options     = FieldSerializer("path", example = "path/to/options.txt", help_text = "AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html")
+    credentials = FieldSerializer("string", default = "S3 path to the credential file to aurthenticate a private docker repository.")
 
     def _serialize_(self, commands, app_name, docker_links, config, image_name, env):
         if not self.has_value():
@@ -253,18 +254,16 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
             raise DMakeException("Docker options for AWS is not supported yet.")
 
         # Generate Dockerrun.aws.json
-        bucket = os.environ.get('DMAKE_AWS_DOCKER_CREDENTIALS', None)
-        if bucket is not None:
-            if bucket.startswith('s3://'):
-                bucket = bucket[len('s3://'):]
-            elif bucket.find('//') >= 0:
-                bucket = None
-        if bucket is None:
-            raise DMakeException('Please specify the S3 path to the docker credential file by defining the environment variable DMAKE_AWS_DOCKER_CREDENTIALS. See http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/create_deploy_docker.container.console.html')
+        credentials = self.credentials
+        if credentials is not None:
+            if credentials.startswith('s3://'):
+                credentials = credentials[len('s3://'):]
+            elif credentials.find('//') >= 0:
+                credentials = None
 
-        bucket = bucket.split('/')
-        key = '/'.join(bucket[1:])
-        bucket = bucket[0]
+        credentials = credentials.split('/')
+        key = '/'.join(credentials[1:])
+        bucket = credentials[0]
         data = {
             "AWSEBDockerrunVersion": "1",
             "Authentication": {
