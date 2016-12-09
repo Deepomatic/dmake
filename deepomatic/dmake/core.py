@@ -120,6 +120,9 @@ def activate_link(loaded_files, service_providers, service_dependencies, service
 
 def activate_service(loaded_files, service_providers, service_dependencies, command, service):
     node = (command, service)
+    if command == 'test' and common.skip_tests:
+        return []
+
     if node not in service_dependencies:
         file, needs = service_providers[service]
         if command == 'base':
@@ -586,9 +589,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['shell', 'deploy'], ordered_build_files))
         if len(base) + len(build) + len(test) + len(deploy) != len(ordered_build_files):
             raise Exception('Something went wrong when reorganizing build steps. One of the commands is probably missing.')
-
-        if common.skip_tests:
-            test = []
 
         ordered_build_files = [('Building Docker', base),
                                ('Building App', build),

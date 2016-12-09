@@ -121,7 +121,7 @@ def init(_command, _root_dir, _options):
         use_pipeline = False
         target = os.getenv('ghprbTargetBranch', None)
         pr_id  = os.getenv('ghprbPullId', None)
-        build_id = os.getenv('BUILD_NUMBER', 0)
+        build_id = os.getenv('BUILD_NUMBER', '0')
         if target is None:
             branch = os.getenv('GIT_BRANCH')
         else:
@@ -137,7 +137,7 @@ def init(_command, _root_dir, _options):
     else:
         target   = os.getenv('CHANGE_TARGET', None)
         pr_id    = os.getenv('CHANGE_ID')
-        build_id = os.getenv('BUILD_ID', 0)
+        build_id = os.getenv('BUILD_ID', '0')
     is_pr = target is not None
     force_full_deploy = False
 
