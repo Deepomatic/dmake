@@ -791,6 +791,7 @@ class DMakeFile(DMakeFileSerializer):
            service.config.docker_image.has_value() and \
            service.config.docker_image.entrypoint:
            docker_cmd = (' --entrypoint %s ' % os.path.join('/app', self.__path__, service.config.docker_image.entrypoint)) + docker_cmd
+        docker_cmd = ' -e DMAKE_TESTING=1 ' + docker_cmd
 
         if common.build_id is None:
             build_id = 0
