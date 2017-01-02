@@ -67,12 +67,6 @@ def append_command(commands, cmd, prepend = False, **args):
 
 ###############################################################################
 
-# def generate_copy_command(commands, path_dir, tmp_dir, file_or_dir, recursive = False):
-#     src = os.path.join(path_dir, file_or_dir)
-#     dst = os.path.join(tmp_dir, file_or_dir)
-#     d = os.path.dirname(dst)
-#     append_command(commands, 'sh', shell = 'mkdir -p %s && cp %s %s %s' % (d, '-r' if recursive else '', src, dst))
-
 def generate_copy_command(commands, tmp_dir, src):
     src = common.join_without_slash(src)
     if src == '':

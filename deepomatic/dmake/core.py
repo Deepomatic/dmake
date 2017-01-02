@@ -9,6 +9,21 @@ tag_push_error_msg = "Unauthorized to push the current state of deployment to gi
 
 ###############################################################################
 
+def find_symlinked_directories():
+    symlinks = []
+    for line in common.run_shell_command("for f in $(find . -type l); do echo \"$f $(ls -l $f | sed -e 's/.* -> //')\"; done").split('\n'):
+        l = line.split(' ')
+        if len(l) != 2:
+            continue
+        link_path = os.path.normpath(l[0])
+        if not os.path.isdir(link_path):
+            continue
+        linked_dir = os.path.normpath(os.path.join(os.path.dirname(link_path), l[1]))
+        if not os.path.isdir(linked_dir) or linked_dir[0] == '/':
+            continue
+        symlinks.append((link_path, linked_dir))
+    return symlinks
+
 def look_for_changed_directories():
     if common.force_full_deploy:
         return None
@@ -31,11 +46,22 @@ def look_for_changed_directories():
     if len(output) == 0:
         return []
 
+    output = [file.strip() for file in output.split('\n')]
+    symlinks = find_symlinked_directories()
+    to_append = []
+    for file in output:
+        if len(file) == 0:
+            continue
+        for sl in symlinks:
+            if file.startswith(sl[1]):
+                to_append.append(os.path.join(sl[0], file[len(sl[1]):]))
+    output += to_append
+
     common.logger.info("Changed files:")
     common.logger.info(output)
 
     changed_dirs = set()
-    for file in [file.strip() for file in output.split('\n')]:
+    for file in output:
         if len(file) == 0:
             continue
         d = os.path.dirname(file)
