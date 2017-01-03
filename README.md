@@ -214,7 +214,7 @@ A convenient way to achieve this is to create a new ```jenkins``` user on our ma
 $ groupadd -g 2000 jenkins
 $ useradd -u 2000 -g 2000 -d ${DMAKE_PATH}/jenkins/jenkins_home -s /bin/bash jenkins
 $ chown jenkins:jenkins -R ${DMAKE_PATH}/jenkins/jenkins_home
-```    
+```
 
 ## Documentation
 
@@ -223,11 +223,15 @@ This Documentation was generated automatically.
 - **dmake_version** *(string)*: The dmake version.
 - **app_name** *(string)*: The application name.
 - **blacklist** *(array\<file path\>, default = [])*: List of dmake files to blacklist.
-- **env** *(object)*: Environment variables to embed in built docker images. It must be an object with the following fields:
-    - **default** *(mixed, default = {})*: List of environment variables that will be set by default. It can be one of the followings:
-        - a file path to another dmake file that declares a default environment.
-        - a dictionnary of strings
-    - **branches** *(free style object, default = {})*: If the branch matches one of the following fields, those variables will be defined as well, eventually replacing the default.
+- **env** *(mixed)*: Environment variables to embed in built docker images. It can be one of the followings:
+    - a file path
+    - an object with the following fields:
+        - **default** *(object, optional)*: List of environment variables that will be set by default. It must be an object with the following fields:
+            - **source** *(string)*: Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field.
+            - **variables** *(free style object, default = {})*: Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).
+        - **branches** *(free style object, default = {})*: If the branch matches one of the following fields, those variables will be defined as well, eventually replacing the default.
+            - **source** *(string)*: Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field.
+            - **variables** *(free style object, default = {})*: Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).
 - **docker** *(mixed)*: The environment in which to build and deploy. It can be one of the followings:
     - a file path to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field.
     - an object with the following fields:
@@ -267,10 +271,10 @@ This Documentation was generated automatically.
         - a file path
         - a directory
     - **config** *(object, optional)*: Deployment configuration. It must be an object with the following fields:
-        - **docker_image** *(object)*: Docker to build for running and deploying. It must be an object with the following fields:
+        - **docker_image** *(object, optional)*: Docker to build for running and deploying. It must be an object with the following fields:
+            - **name** *(string)*: Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.
             - **check_private** *(boolean, default = true
 ...)*: Check that the docker repository is private before pushing the image.
-            - **name** *(string)*: Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry.
             - **tag** *(string)*: Tag of the docker image to build. By default it will be {:branch_name}-{:build_id}.
             - **workdir** *(directory path)*: Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.
             - **copy_directories** *(array\<directory path\>, default = [])*: Directories to copy in the docker image.
@@ -290,7 +294,6 @@ This Documentation was generated automatically.
         - **post_deploy_script** *(string, default = '')*: Scripts to run after stopping old version.
     - **tests** *(object, optional)*: Unit tests list. It must be an object with the following fields:
         - **docker_links_names** *(array\<string\>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
-        - **docker_opts** *(string, default = '')*: Docker options to add when testing or launching.
         - **commands** *(array\<string\>)*: The commands to run for integration tests.
         - **junit_report** *(string)*: Uses JUnit plugin to generate unit test report.
         - **cobertura_report** *(string)*: Publish a Cobertura report (not working for now).
@@ -301,7 +304,7 @@ This Documentation was generated automatically.
             - **title** *(string, default = HTML Report
 ...)*: Main page title.
     - **deploy** *(object, optional)*: Deploy stage. It must be an object with the following fields:
-        - **deploy_name** *(string)*: The name used for deployment. Will default to "db-app_name-service_name" if not specified.
+        - **deploy_name** *(string)*: The name used for deployment. Will default to "${DMAKE_DEPLOY_PREFIX}-app_name-service_name" if not specified.
         - **stages** *(array\<object\>)*: Deployment possibilities.
             - **description** *(string)*: Deploy stage description.
             - **branches** *(mixed, default = [stag])*: Branch list for which this stag is active, '*' can be used to match any branch. Can also be a simple string. It can be one of the followings:
@@ -314,6 +317,8 @@ This Documentation was generated automatically.
                 - **stack** *(string, default = 64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2
 ...)*:
                 - **options** *(file path)*: AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html.
+                - **credentials** *(string, default = S3 path to the credential file to aurthenticate a private docker repository.
+...)*:
             - **ssh** *(object, optional)*: Deploy via SSH. It must be an object with the following fields:
                 - **user** *(string)*: User name.
                 - **host** *(string)*: Host address.
@@ -330,8 +335,9 @@ blacklist:
 - some/sub/dmake.yml
 env:
     default:
-        ENV_TYPE: dev
-        MY_ENV_VARIABLE: '1'
+        source: Some string
+        variables:
+            ENV_TYPE: dev
     branches:
         master:
             ENV_TYPE: prod
@@ -363,8 +369,8 @@ services:
     sources: path/to/app
     config:
         docker_image:
-            check_private: true
             name: Some string
+            check_private: true
             tag: Some string
             workdir: some/directory/example
             copy_directories:
@@ -387,7 +393,6 @@ services:
     tests:
         docker_links_names:
         - mongo
-        docker_opts: --privileged
         commands:
         - python manage.py test
         junit_report: test-reports/*.xml
@@ -407,6 +412,8 @@ services:
                 region: eu-west-1
                 stack: 64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2
                 options: path/to/options.txt
+                credentials: S3 path to the credential file to aurthenticate a private
+                    docker repository.
             ssh:
                 user: ubuntu
                 host: 192.168.0.1

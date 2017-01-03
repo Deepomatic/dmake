@@ -5,8 +5,9 @@ blacklist:
 - some/sub/dmake.yml
 env:
     default:
-        ENV_TYPE: dev
-        MY_ENV_VARIABLE: '1'
+        source: Some string
+        variables:
+            ENV_TYPE: dev
     branches:
         master:
             ENV_TYPE: prod
@@ -38,8 +39,8 @@ services:
     sources: path/to/app
     config:
         docker_image:
-            check_private: true
             name: Some string
+            check_private: true
             tag: Some string
             workdir: some/directory/example
             copy_directories:
@@ -62,7 +63,6 @@ services:
     tests:
         docker_links_names:
         - mongo
-        docker_opts: --privileged
         commands:
         - python manage.py test
         junit_report: test-reports/*.xml
@@ -82,6 +82,8 @@ services:
                 region: eu-west-1
                 stack: 64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2
                 options: path/to/options.txt
+                credentials: S3 path to the credential file to aurthenticate a private
+                    docker repository.
             ssh:
                 user: ubuntu
                 host: 192.168.0.1

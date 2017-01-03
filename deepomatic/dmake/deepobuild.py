@@ -387,7 +387,7 @@ class DeployStageSerializer(YAML2PipelineSerializer):
 #                              common.join_without_slash('/dmake', 'volumes' + self.dir_dst))
 
 class ServiceDockerSerializer(YAML2PipelineSerializer):
-    name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry.")
+    name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.")
     check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be {:branch_name}-{:build_id}")
     workdir          = FieldSerializer("dir", optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
@@ -401,7 +401,7 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         if self.name is None:
             name = service_name.replace('/', '-')
         else:
-            name = self.name
+            name = common.eval_str_in_env(self.name)
         if self.tag is None:
             tag = common.branch.lower()
             if common.build_id is not None:
@@ -467,7 +467,7 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         return tmp_dir
 
 class DeployConfigSerializer(YAML2PipelineSerializer):
-    docker_image       = ServiceDockerSerializer(optional = True, help_text = "Docker to build for running and deploying")
+    docker_image       = ServiceDockerSerializer(optional = True, help_text = "Docker to build for running and deploying.")
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add.")
     ports              = FieldSerializer("array", child = DeployConfigPortsSerializer(), default = [], help_text = "Ports to open.")
