@@ -54,11 +54,16 @@ def look_for_changed_directories():
             continue
         for sl in symlinks:
             if file.startswith(sl[1]):
-                to_append.append(os.path.join(sl[0], file[len(sl[1]):]))
+                f = file[len(sl[1]):]
+                if len(f) == 0:
+                    continue
+                if f[0] == '/':
+                    f = f[1:]
+                to_append.append(os.path.join(sl[0], f))
     output += to_append
 
-    common.logger.info("Changed files:")
-    common.logger.info(output)
+    #common.logger.info("Changed files:")
+    #common.logger.info(output)
 
     changed_dirs = set()
     for file in output:
