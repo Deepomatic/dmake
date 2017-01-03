@@ -73,7 +73,7 @@ def generate_copy_command(commands, tmp_dir, src):
         src = '.'
     dst = os.path.join(tmp_dir, 'app', src)
     sub_dir = os.path.dirname(common.join_without_slash(dst))
-    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -r %s %s' % (sub_dir, src, sub_dir))
+    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -Lr %s %s' % (sub_dir, src, sub_dir))
 
 ###############################################################################
 
