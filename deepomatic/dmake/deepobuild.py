@@ -73,7 +73,7 @@ def generate_copy_command(commands, tmp_dir, src):
         src = '.'
     dst = os.path.join(tmp_dir, 'app', src)
     sub_dir = os.path.dirname(common.join_without_slash(dst))
-    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -Lr %s %s' % (sub_dir, src, sub_dir))
+    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -LR %s %s' % (sub_dir, src, sub_dir))
 
 ###############################################################################
 
@@ -218,10 +218,11 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
 
 class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
-    region      = FieldSerializer("string", default = "eu-west-1", help_text = "The AWS region where to deploy.")
-    stack       = FieldSerializer("string", default = "64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2")
-    options     = FieldSerializer("path", example = "path/to/options.txt", help_text = "AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html")
-    credentials = FieldSerializer("string", default = "S3 path to the credential file to aurthenticate a private docker repository.")
+    region       = FieldSerializer("string", default = "eu-west-1", help_text = "The AWS region where to deploy.")
+    stack        = FieldSerializer("string", default = "64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2")
+    options      = FieldSerializer("path", example = "path/to/options.txt", help_text = "AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html")
+    credentials  = FieldSerializer("string", default = "S3 path to the credential file to aurthenticate a private docker repository.")
+    ebextensions = FieldSerializer("dir", optional = True, default = "Path to the ebextension directory. See http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ebextensions.html")
 
     def _serialize_(self, commands, app_name, docker_links, config, image_name, env):
         if not self.has_value():
@@ -296,6 +297,10 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
         with open(option_file, 'w') as f:
             json.dump(options, f)
 
+        if self.ebextensions is not None:
+            common.run_shell_command('cp -LR %s %s' % (self.ebextensions, os.path.join(tmp_dir, ".ebextensions")))
+            print tmp_dir
+
         append_command(commands, 'sh', shell = 'dmake_deploy_aws_eb "%s" "%s" "%s" "%s"' % (
             tmp_dir,
             app_name,
@@ -322,7 +327,8 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
             launch_links += 'if [ \\`docker ps -f name=%s | wc -l\\` = "1" ]; then set +e; docker rm -f %s 2> /dev/null ; set -e; docker run -d --name %s %s -i %s; fi\n' % (link.link_name, link.link_name, link.link_name, link.deployed_options, link.image_name)
             opts += " --link %s" % link.link_name
 
-        common.run_shell_command('cp -r ${HOME}/.docker* %s/ || :' % tmp_dir)
+        # TODO: find a proper way to login on docker when deploying via SSH
+        common.run_shell_command('cp -R ${HOME}/.docker* %s/ || :' % tmp_dir)
 
         start_file = os.path.join(tmp_dir, "start_app.sh")
         common.run_shell_command(
