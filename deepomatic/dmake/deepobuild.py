@@ -222,7 +222,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
     stack        = FieldSerializer("string", default = "64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2")
     options      = FieldSerializer("path", example = "path/to/options.txt", help_text = "AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html")
     credentials  = FieldSerializer("string", default = "S3 path to the credential file to aurthenticate a private docker repository.")
-    ebextensions = FieldSerializer("dir", optional = True, default = "Path to the ebextension directory. See http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ebextensions.html")
+    ebextensions = FieldSerializer("dir", optional = True, help_text = "Path to the ebextension directory. See http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ebextensions.html")
 
     def _serialize_(self, commands, app_name, docker_links, config, image_name, env):
         if not self.has_value():
