@@ -462,7 +462,7 @@ def get_tag_name():
 def make(root_dir, sub_dir, dmake_command, app, options):
     if 'DMAKE_TMP_DIR' in os.environ:
         del os.environ['DMAKE_TMP_DIR']
-    common.init(dmake_command, root_dir, options)
+    common.init(dmake_command, root_dir, app, options)
 
     if app == "":
         app = None

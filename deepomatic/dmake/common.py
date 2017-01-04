@@ -87,7 +87,7 @@ else:
 
 ###############################################################################
 
-def init(_command, _root_dir, _options):
+def init(_command, _root_dir, _app, _options):
     global root_dir, tmp_dir, cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
     global repo_url, repo, use_pipeline, is_local, skip_tests
@@ -153,6 +153,8 @@ def init(_command, _root_dir, _options):
         repo_github_owner = repo_github_owner.groups()[0]
 
     # Set Job description
+    if _app == "" or _app == "*":
+        _app = "All targets"
     build_description = None
     if use_pipeline:
         run_shell_command('git submodule update --init', ignore_error = True)
@@ -163,9 +165,9 @@ def init(_command, _root_dir, _options):
                 os.getenv('CHANGE_TITLE'))
         else:
             if repo_github_owner is not None:
-                build_description = "Branch <a href=%s>%s</a>" % (
+                build_description = "Branch <a href=%s>%s</a> - %s" % (
                     "https://github.com/%s/%s/tree/%s" % (repo_github_owner, repo, branch),
-                    branch)
+                    branch, _app)
 
     os.environ["REPO"]        = repo
     os.environ["BRANCH"]      = str(branch)
