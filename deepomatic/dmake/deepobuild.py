@@ -739,7 +739,7 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_shell(self, commands, service, docker_links):
         opts, image_opts = self.launch_options(commands, service, docker_links)
-        append_command(commands, 'sh', shell = "dmake_run_docker '' '' --rm -t %s %s" % (opts + image_opts, self.docker.command))
+        append_command(commands, 'sh', shell = "dmake_run_docker_command %s %s" % (opts + image_opts, self.docker.command))
 
     def generate_run(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)

@@ -6,8 +6,13 @@
 # Result:
 # Run a docker command.
 
+USER_FLAG=""
+if [ ! -z ${DMAKE_UID} ]; then
+    USER_FLAG="-u ${DMAKE_UID}"
+fi
+
 if [ "${DMAKE_ON_BUILD_SERVER}" = "1" ]; then
-    dmake_run_docker "" "" -u ${DMAKE_UID} --rm "$@"
+    dmake_run_docker "" "" ${USER_FLAG} --rm "$@"
 else
-    dmake_run_docker "" "" -u ${DMAKE_UID} --rm -t "$@"
+    dmake_run_docker "" "" ${USER_FLAG} --rm -t "$@"
 fi

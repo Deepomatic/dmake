@@ -5,7 +5,7 @@ DMAKE_PATH=`pwd -P`
 popd > /dev/null
 
 echo "export DMAKE_VERSION=0.1" > ${DMAKE_PATH}/config.sh
-echo "export DMAKE_UID=$(id -u)" >> ${DMAKE_PATH}/config.sh
+echo "export DMAKE_UID=${DMAKE_UID}" >> ${DMAKE_PATH}/config.sh
 echo "export DMAKE_PATH=${DMAKE_PATH}" >> ${DMAKE_PATH}/config.sh
 echo "export DMAKE_SSH_KEY=${DMAKE_SSH_KEY}" >> ${DMAKE_PATH}/config.sh
 echo "export PYTHONPATH=\$PYTHONPATH:${DMAKE_PATH}" >> ${DMAKE_PATH}/config.sh
