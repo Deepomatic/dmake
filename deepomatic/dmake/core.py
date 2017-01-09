@@ -519,7 +519,10 @@ def make(root_dir, sub_dir, dmake_command, app, options):
             cmd = []
             if dmake_file.env.source is not None:
                 source = common.eval_str_in_env(dmake_file.env.source)
-                common.pull_config_dir(os.path.dirname(source))
+                try:
+                    common.pull_config_dir(os.path.dirname(source))
+                except common.NotGitRepositoryException as e:
+                    common.logger.warning('Not a Git repository: %s (evaluate in: %s)' % (dmake_file.env.source, source))
                 cmd.append('source %s' % source)
 
             for value in dmake_file.env.variables.values():

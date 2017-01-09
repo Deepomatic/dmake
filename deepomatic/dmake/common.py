@@ -19,6 +19,10 @@ class DMakeException(Exception):
     def __init__(self, msg):
         super(DMakeException, self).__init__(msg)
 
+class NotGitRepositoryException(DMakeException):
+    def __init__(self):
+        super(NotGitRepositoryException, self).__init__('Not a GIT repository')
+
 ###############################################################################
 
 def run_shell_command(cmd, ignore_error = False):
@@ -52,6 +56,8 @@ def find_repo_root(root_dir):
         if os.path.isdir(os.path.join(root_dir, '.git')):
             break
         else:
+            if root_dir == '/':
+                raise NotGitRepositoryException()
             sub_dir = os.path.join(os.path.basename(root_dir), sub_dir)
             root_dir = os.path.normpath(os.path.join(root_dir, '..'))
             if root_dir.startswith('..'):
@@ -66,6 +72,9 @@ def find_repo_root(root_dir):
 pulled_config_dirs = {}
 def pull_config_dir(root_dir):
     global pulled_config_dirs
+
+    if not os.path.isdir(root_dir):
+        raise DMakeException('Could not find directory: ' % root_dir)
 
     root_dir, _ = find_repo_root(root_dir)
     if root_dir is None:
