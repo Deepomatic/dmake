@@ -594,7 +594,7 @@ class ServicesSerializer(YAML2PipelineSerializer):
 
 class BuildEnvSerializer(YAML2PipelineSerializer):
     testing    = FieldSerializer("dict", child = "string", default = {}, post_validation = load_env, help_text = "List of environment variables that will be set when building for testing.", example = {'MY_ENV_VARIABLE': '1', 'ENV_TYPE': 'dev'})
-    production = FieldSerializer("dict", child = "string", default = {}, post_validation = load_env, help_text = "List of environment variables that will be set when building for production.", example = {'MY_ENV_VARIABLE': '1', 'ENV_TYPE': 'dev'})
+    production = FieldSerializer("dict", child = "string", default = {}, post_validation = load_env, help_text = "List of environment variables that will be set when building for production.", example = {'MY_ENV_VARIABLE': '1', 'ENV_TYPE': 'prod'})
 
 class BuildSerializer(YAML2PipelineSerializer):
     env      = BuildEnvSerializer(optional = True, help_text = "Environment variable to define when building.")
@@ -774,6 +774,8 @@ class DMakeFile(DMakeFileSerializer):
             for var, value in self.build.env.testing.items():
                 env[var] = common.eval_str_in_env(value)
         docker_cmd = self._generate_docker_cmd_(commands, self.app_name, env)
+        docker_cmd = ' -e DMAKE_TESTING=1 ' + docker_cmd
+
         for cmds in self.build.commands:
             append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + '%s' % cmd for cmd in cmds])
 
