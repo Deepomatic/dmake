@@ -299,7 +299,6 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
 
         if self.ebextensions is not None:
             common.run_shell_command('cp -LR %s %s' % (self.ebextensions, os.path.join(tmp_dir, ".ebextensions")))
-            print tmp_dir
 
         append_command(commands, 'sh', shell = 'dmake_deploy_aws_eb "%s" "%s" "%s" "%s"' % (
             tmp_dir,
