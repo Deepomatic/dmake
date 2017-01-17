@@ -73,7 +73,7 @@ def generate_copy_command(commands, tmp_dir, src):
         src = '.'
     dst = os.path.join(tmp_dir, 'app', src)
     sub_dir = os.path.dirname(common.join_without_slash(dst))
-    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -LR %s %s' % (sub_dir, src, sub_dir))
+    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -LRf %s %s' % (sub_dir, src, sub_dir))
 
 ###############################################################################
 
@@ -358,39 +358,6 @@ class DeployStageSerializer(YAML2PipelineSerializer):
     env           = FieldSerializer("dict", child = "string", default = {}, example = {'AWS_ACCESS_KEY_ID': '1234', 'AWS_SECRET_ACCESS_KEY': 'abcd'}, help_text = "Additionnal environment variables for deployment.")
     aws_beanstalk = AWSBeanStalkDeploySerializer(optional = True, help_text = "Deploy via Elastic Beanstalk")
     ssh           = SSHDeploySerializer(optional = True, help_text = "Deploy via SSH")
-
-# class InstallExeSerializer(YAML2PipelineSerializer):
-#     exe = FieldSerializer("path", child_path_only = True, check_path = False, example = "some/relative/binary", help_text = "Path to the executable to copy (will be copied in /usr/bin).")
-
-#     def docker_cmd(self, commands, path_dir, tmp_dir):
-#         generate_copy_command(commands, path_dir, tmp_dir, self.exe)
-#         return "COPY %s /usr/bin/" % os.path.basename(self.exe)
-
-#     def docker_opt(self, path_dir):
-#         return "-v %s:/usr/bin/%s" % (os.path.join(path_dir, self.exe), os.path.basename(self.exe))
-
-# class InstallLibSerializer(YAML2PipelineSerializer):
-#     lib = FieldSerializer("path", child_path_only = True, check_path = False, example = "some/relative/libexample.so", help_text = "Path to the executable to copy (will be copied in /usr/lib).")
-
-#     def docker_cmd(self, commands, path_dir, tmp_dir):
-#         generate_copy_command(commands, path_dir, tmp_dir, self.lib)
-#         return "COPY %s /usr/lib/" % os.path.basename(self.lib)
-
-#     def docker_opt(self, path_dir):
-#         return "-v %s:/usr/lib/%s" % (os.path.join(path_dir, self.lib), os.path.basename(self.lib))
-
-# class InstallDirSerializer(YAML2PipelineSerializer):
-#     dir_src = FieldSerializer("dir", child_path_only = True, check_path = False, example = "some/relative/directory/", help_text = "Path to the source directory (relative to this dmake file) to copy.")
-#     dir_dst = FieldSerializer("string", check_path = False, help_text = "Path to the install directory (in the docker).")
-
-#     def docker_cmd(self, commands, path_dir, tmp_dir):
-#         generate_copy_command(commands, path_dir, tmp_dir, self.dir_src, recursive = True)
-#         return "ADD %s %s" % (self.dir_src, self.dir_dst)
-
-#     def docker_opt(self, path_dir):
-#         #self.dir_dst start with / and os.path.join would ignore /dmake/volumes if not putting the '+'
-#         return '-v %s:%s' % (common.join_without_slash(path_dir, self.dir_src),
-#                              common.join_without_slash('/dmake', 'volumes' + self.dir_dst))
 
 class ServiceDockerSerializer(YAML2PipelineSerializer):
     name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.")

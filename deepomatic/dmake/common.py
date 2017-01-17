@@ -150,7 +150,8 @@ def init(_command, _root_dir, _app, _options):
     is_pr = target is not None
     force_full_deploy = False
 
-    branch = branch.replace('#', 'X')
+    if 'branch' in options and options.branch:
+        branch = options.branch
 
     # Find repo
     repo_url = run_shell_command('git config --get remote.origin.url')
