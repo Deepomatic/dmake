@@ -605,6 +605,9 @@ class DMakeFile(DMakeFileSerializer):
         self.docker_services_image = None
         self.app_package_dirs = {}
 
+    def get_path(self):
+        return self.__path__
+
     def get_app_name(self):
         return self.app_name
 

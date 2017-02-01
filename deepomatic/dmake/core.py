@@ -467,10 +467,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if app == "":
         app = None
 
-    if dmake_command == "deploy" and app == "*":
-        app = None
-        common.force_full_deploy = True
-
     if dmake_command == "stop":
         common.run_shell_command("docker rm -f `docker ps -q -f name=%s.%s.%s`" % (app, common.branch, common.build_id))
         return
@@ -483,11 +479,14 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         if n > 2:
             raise DMakeException('Cannot have more than one slash in the app name')
         auto_complete = n == 1
-        if auto_complete:
-            auto_completed_app = None
-            auto_complete_is_app = None
-        else:
+        if not auto_complete:
             auto_completed_app = app
+    else:
+        auto_complete = True
+
+    if app == "*":
+        app = None
+        common.force_full_deploy = True
 
     # Load build files
     build_files = load_dmake_files_list()
@@ -543,10 +542,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         if app_name not in services:
             services[app_name] = {}
 
-        if auto_complete and app_name == app:
-            if auto_completed_app is None:
-                auto_completed_app = app
-
         app_services = services[app_name]
         for service in dmake_file.get_services():
             needs = ["%s/%s" % (app_name, sa) for sa in service.needed_services]
@@ -556,12 +551,19 @@ def make(root_dir, sub_dir, dmake_command, app, options):
             add_service_provider(service_providers, full_service_name, file, needs)
             app_services[service.service_name] = service
 
-            if auto_complete and service.service_name == app:
-                if auto_completed_app is None:
-                    auto_completed_app = full_service_name
-                    auto_complete_is_app = False
+            if auto_complete:
+                if app is None:
+                    if dmake_file.get_path().startswith(sub_dir):
+                        if auto_completed_app is None:
+                            auto_completed_app = full_service_name
+                        else:
+                            raise DMakeException("Ambigous service name: both services '%s' and '%s' are matching the current path." % (full_service_name, auto_completed_app))
                 else:
-                    raise DMakeException("Ambigous app name '%s' is matching sub-app '%s' and %sapp '%s'" % (app, full_service_name, "" if auto_complete_is_app else "sub-", auto_completed_app))
+                    if service.service_name == app:
+                        if auto_completed_app is None:
+                            auto_completed_app = full_service_name
+                        else:
+                            raise DMakeException("Ambigous service name '%s' is matching '%s' and '%s'" % (app, full_service_name, auto_completed_app))
 
         app_links = docker_links[app_name]
         for link in dmake_file.get_docker_links():

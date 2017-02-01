@@ -60,7 +60,7 @@ try:
         parser.add_argument("app", help="Run an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
         app_args = 'app'
     elif command in ["shell"]:
-        parser.add_argument("service", help="Run a shell session withing the docker base image for the given service. You may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
+        parser.add_argument("service", nargs='?', help="Run a shell session withing the docker base image for the given service. You may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
         app_args = 'service'
     if command in ["shell", "run", "test"]:
         parser.add_argument("-d", "--dependencies", required = False, default = False, action="store_true", help="By default, the service is launched as a standalone. If this flag is specified, the dependancies of the service and links specified in the test config as run as well.")
