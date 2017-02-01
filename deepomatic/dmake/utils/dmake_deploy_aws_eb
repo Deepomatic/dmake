@@ -131,7 +131,7 @@ else
 fi
 
 # Clean version
-for LABEL in `aws elasticbeanstalk describe-application-versions --region ${AWS_REGION} --application-name ${APP_NAME} | grep "VersionLabel" | grep "${ENV_TYPE}-" | sed "s/.*\"VersionLabel\": \"\([^\"]*\)\".*/\1/" | sed "1,10d"`; do
+for LABEL in `aws elasticbeanstalk describe-application-versions --region ${AWS_REGION} --application-name ${APP_NAME} | grep "VersionLabel" | grep "${BRANCH}-" | sed "s/.*\"VersionLabel\": \"\([^\"]*\)\".*/\1/" | sed "1,10d"`; do
     echo "removing image ${LABEL}"
     aws elasticbeanstalk delete-application-version --region ${AWS_REGION} --application-name ${APP_NAME} --version-label ${LABEL} --delete-source-bundle
 done
