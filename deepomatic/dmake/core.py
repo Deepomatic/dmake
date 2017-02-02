@@ -556,6 +556,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                     if dmake_file.get_path().startswith(sub_dir):
                         if auto_completed_app is None:
                             auto_completed_app = full_service_name
+                            break # A bit hacky: we actually do not care about the full service name: we just want to select the proper dmake file.
                         else:
                             raise DMakeException("Ambigous service name: both services '%s' and '%s' are matching the current path." % (full_service_name, auto_completed_app))
                 else:

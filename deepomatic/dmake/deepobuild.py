@@ -221,7 +221,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
     region       = FieldSerializer("string", default = "eu-west-1", help_text = "The AWS region where to deploy.")
     stack        = FieldSerializer("string", default = "64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2")
     options      = FieldSerializer("path", example = "path/to/options.txt", help_text = "AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html")
-    credentials  = FieldSerializer("string", default = "", help_text = "S3 path to the credential file to authenticate a private docker repository.")
+    credentials  = FieldSerializer("string", optional = True, help_text = "S3 path to the credential file to authenticate a private docker repository.")
     ebextensions = FieldSerializer("dir", optional = True, help_text = "Path to the ebextension directory. See http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ebextensions.html")
 
     def _serialize_(self, commands, app_name, docker_links, config, image_name, env):
@@ -248,23 +248,9 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
         if len(config.docker_opts) > 0:
             raise DMakeException("Docker options for AWS is not supported yet.")
 
-        # Generate Dockerrun.aws.json
-        credentials = self.credentials
-        if credentials:
-            if credentials.startswith('s3://'):
-                credentials = credentials[len('s3://'):]
-            elif credentials.find('//') >= 0:
-                credentials = None
-
-        credentials = credentials.split('/')
-        key = '/'.join(credentials[1:])
-        bucket = credentials[0]
+        # Default Dockerrun.aws.json
         data = {
             "AWSEBDockerrunVersion": "1",
-            "Authentication": {
-                "Bucket": bucket,
-                "Key": key
-            },
             "Image": {
                 "Name": image_name,
                 "Update": "true"
@@ -273,6 +259,23 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
             "Volumes": volumes,
             "Logging": "/var/log/deepomatic"
         }
+
+        # Generate Dockerrun.aws.json
+        if self.credentials is not None:
+            if self.credentials.startswith('s3://'):
+                credentials = self.credentials[len('s3://'):]
+            else:
+                raise DMakeException("Credentials should start with 's3://'")
+
+            credentials = credentials.split('/')
+            key = '/'.join(credentials[1:])
+            bucket = credentials[0]
+
+            data["Authentication"] = {
+                "Bucket": bucket,
+                "Key": key
+            }
+
         with open(os.path.join(tmp_dir, "Dockerrun.aws.json"), 'w') as dockerrun:
             json.dump(data, dockerrun)
 
@@ -673,7 +676,7 @@ class DMakeFile(DMakeFileSerializer):
     def launch_options(self, commands, service, docker_links):
         service = self._get_service_(service)
         workdir = common.join_without_slash('/app', self.__path__)
-        if service.config is None:
+        if not service.config.has_value() or not service.config.docker_image.has_value():
             entrypoint = None
         else:
             if service.config.docker_image.workdir is not None:
