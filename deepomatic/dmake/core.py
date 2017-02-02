@@ -474,7 +474,10 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     # Format args
     auto_complete = False
     auto_completed_app = None
-    if app is not None:
+    if app == "*":
+        app = None
+        common.force_full_deploy = True
+    elif app is not None:
         n = len(app.split('/'))
         if n > 2:
             raise DMakeException('Cannot have more than one slash in the app name')
@@ -483,10 +486,6 @@ def make(root_dir, sub_dir, dmake_command, app, options):
             auto_completed_app = app
     else:
         auto_complete = True
-
-    if app == "*":
-        app = None
-        common.force_full_deploy = True
 
     # Load build files
     build_files = load_dmake_files_list()
