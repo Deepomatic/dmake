@@ -484,7 +484,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         auto_complete = n == 1
         if not auto_complete:
             auto_completed_app = app
-    else:
+    elif dmake_command in ['shell']:
         auto_complete = True
 
     # Load build files
