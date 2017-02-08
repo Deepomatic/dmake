@@ -720,7 +720,12 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     # If on local, run the commands
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
-        if result != 0 or dmake_command != 'run':
+        do_clean = True
+        if result != 0 and dmake_command in ['run', 'shell']:
+            r = common.read_input("An error was detected. DMake will stop. The script directory is : %s.\nDo you want to stop all the running containers? [Y/n] " % common.tmp_dir)
+            if r.lower() != 'y' and r != "":
+                do_clean = False
+        if do_clean:
             os.system('dmake_clean')
 
 

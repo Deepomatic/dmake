@@ -13,15 +13,17 @@ fi
 
 set -e
 
-IDS=""
 for SERVICE in "$@"; do
     LINE=`cat ${DMAKE_TMP_DIR}/daemon_ids.txt | grep " ${SERVICE}\$"`
     if [ -z "${LINE}" ]; then
         dmake_fail "Unexpected error: unknown service ${SERVICE}"
         exit 1
     fi
-    ID=`echo ${LINE} | cut -d\  -f 1`
-    IDS="${IDS} ${ID}"
+    ID=`echo ${LINE} | cut -d\  -f 1`    
+    if [ `docker ps --filter id=${ID} | sed '1d' | wc -l` = 0 ]; then
+        >&2 echo -e "Daemon ${SERVICE} quit unexpectedly. Here are the logs:"
+        docker logs ${ID}
+        exit 1
+    fi
 done
 
-dmake_check_daemons id $IDS
