@@ -513,9 +513,9 @@ class DeploySerializer(YAML2PipelineSerializer):
             if common.branch not in branches and '*' not in branches:
                 continue
 
-            env = env.get_replaced_variables(stage.env)
-            stage.aws_beanstalk._serialize_(commands, app_name, links, config, image_name, env)
-            stage.ssh._serialize_(commands, app_name, links, config, image_name, env)
+            branch_env = env.get_replaced_variables(stage.env)
+            stage.aws_beanstalk._serialize_(commands, app_name, links, config, image_name, branch_env)
+            stage.ssh._serialize_(commands, app_name, links, config, image_name, branch_env)
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
