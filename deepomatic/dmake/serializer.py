@@ -189,93 +189,6 @@ class FieldSerializer(object):
         else:
             raise DMakeException("Do not known how to serialize non array field")
 
-    # # Returns a list of tuple (padded_yaml, comment)
-    # def generate_doc(self):
-    #     comment = "%s" % self.help_text
-
-    #     value = None
-    #     if self.example:
-    #         value = self.example
-    #     elif self.default:
-    #         value = self.default
-
-    #     if self.default is not None:
-    #         if comment:
-    #             comment += " "
-    #         default = self.default
-    #         if isinstance(default, bool):
-    #             default = "true" if default else "false"
-    #         if common.is_string(default):
-    #             default = "'%s'" % default
-    #         comment += "(defaults to %s)" % str(default)
-
-    #     options = []
-    #     for t in self.data_type:
-    #         v = value
-    #         if isinstance(t, YAML2PipelineSerializer):
-    #             _, lines = t.generate_doc()
-    #             options.append(lines)
-    #         elif t == "dict":
-    #             _, sub_lines = self.child.generate_doc()
-    #             first = sub_lines[0]
-    #             rest = sub_lines[1:]
-    #             lines = [("", comment), ("any_key: " + first[0], "")] + rest
-    #             options.append(lines)
-    #         elif t == "array":
-    #             _, sub_lines = self.child.generate_doc()
-    #             first = sub_lines[0]
-    #             rest = sub_lines[1:]
-    #             lines = [("", comment), ("- " + first[0], first[1])]
-    #             for l, c in rest:
-    #                 if l[0] == '!':
-    #                     l = '|' + l[1:]
-    #                     padding = 0
-    #                 else:
-    #                     padding = 4
-    #                 lines.append((" " * padding + l, c))
-    #             options.append(lines)
-    #         elif t == "int":
-    #             if v is None:
-    #                 v = "1"
-    #             lines = [(v, comment)]
-    #             options.append(lines)
-    #         elif t == "path" or t == "dir":
-    #             path_str = "path" if t == "path" else "directory"
-    #             if self.child_path_only:
-    #                 if comment:
-    #                     comment += " "
-    #                 comment += "(relative %s only)" % path_str
-    #             if v is None:
-    #                 if self.child_path_only:
-    #                     v = "some/relative/%s/example" % path_str
-    #                 else:
-    #                     v = "some/%s/example" % path_str
-    #             lines = [(v, comment)]
-    #             options.append(lines)
-    #         elif t == "string":
-    #             if v is None or not common.is_string(v):
-    #                 v = "Some string"
-    #             lines = [(v, comment)]
-    #             options.append(lines)
-    #         elif t == "bool":
-    #             if v is None or not (common.is_string(v) or isinstance(v, bool)):
-    #                 v = "false"
-    #             elif isinstance(v, bool):
-    #                 v = "true" if v else "false"
-    #             lines = [(v, comment)]
-    #             options.append(lines)
-    #         else:
-    #             raise Exception("Unknown type: %s" % str(t))
-
-    #     lines = options[0]
-    #     if len(options) > 1:
-    #         for opt in options[1:]:
-    #             first = opt[0]
-    #             rest  = opt[1:]
-    #             lines.append(('!   ' + first[0], "-OR- " + first[1]))
-    #             lines += rest
-    #     return self.optional, lines
-
     def get_type_name(self, obj, padding, is_plural = False):
         if isinstance(obj, FieldSerializer) and len(obj.data_type) == 1:
             return obj.get_type_name(obj.data_type[0], padding, is_plural)
@@ -449,25 +362,6 @@ class YAML2PipelineSerializer(BaseYAML2PipelineSerializer):
             except ValidationError as e:
                 raise DMakeException("Field '%s': %s" % (k, str(e)))
         return value
-
-    # # Returns a tuple (optional, [(padded_yaml, comment)])
-    # def generate_doc(self):
-    #     comment = "%s" % self.__help_text__
-    #     lines = [("", comment)]
-    #     for key, field in self.__fields__.items():
-    #         optional, sub_lines = field.generate_doc()
-    #         first = sub_lines[0]
-    #         rest = sub_lines[1:]
-    #         k = key if not optional else "[%s]" % key
-    #         lines.append((k + ": " + str(first[0]), first[1]))
-    #         for l, c in rest:
-    #             if l[0] == '!': # little hack: otherwise no padding at all for lines starting with |
-    #                 l = '|' + l[1:]
-    #                 padding = 0
-    #             else:
-    #                 padding = 4
-    #             lines.append((" " * padding + l, c))
-    #     return self.__optional__, lines
 
     # Returns a tuple (optional, infos, help_text, doc_string)
     def generate_doc(self, padding = 0):
