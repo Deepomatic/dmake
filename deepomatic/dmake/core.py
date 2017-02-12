@@ -512,28 +512,11 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     docker_links = {}
     services = {}
     for file, dmake_file in loaded_files.items():
-        env = {}
-        if dmake_file.env is not None:
-            cmd = []
-            if dmake_file.env.source is not None:
-                source = common.eval_str_in_env(dmake_file.env.source)
-                try:
-                    common.pull_config_dir(os.path.dirname(source))
-                except common.NotGitRepositoryException as e:
-                    common.logger.warning('Not a Git repository: %s (evaluate in: %s)' % (dmake_file.env.source, source))
-                cmd.append('source %s' % source)
-
-            for value in dmake_file.env.variables.values():
-                cmd.append('echo "%s"' % value.replace('"', '\\"'))
-
-            if len(cmd) > 0:
-                cmd = ' && '.join(cmd)
-                output = common.run_shell_command(cmd)
-                output = output.split('\n')
-                assert(len(output) == len(dmake_file.env.variables))
-                for var, value in zip(dmake_file.env.variables.keys(), output):
-                    env[var] = value.strip()
-        dmake_file.__fields__['env'] = env
+        if dmake_file.env is not None and dmake_file.env.source is not None:
+            try:
+                common.pull_config_dir(os.path.dirname(dmake_file.env.source))
+            except common.NotGitRepositoryException as e:
+                common.logger.warning('Not a Git repository: %s' % (dmake_file.env.source))
 
         app_name = dmake_file.get_app_name()
         if app_name not in docker_links:

@@ -8,26 +8,6 @@ from deepomatic.dmake.common import DMakeException
 
 ###############################################################################
 
-def load_env(env):
-    if isinstance(env, dict):
-        return env
-
-    parsed_env = {}
-    with open(env, 'r') as f:
-        for line in f.readlines():
-            line = line.strip()
-            if len(line) == 0 or line[0] == '#':
-                continue
-            line = line.split("=")
-            if len(line) == 1:
-                raise ValidationError("Error when parsing %s: expecting VARIABLE=VALUE format" % env)
-            var = line[0]
-            value = "=".join(line[1:])
-            parsed_env[var] = value
-    return parsed_env
-
-###############################################################################
-
 def append_command(commands, cmd, prepend = False, **args):
     def check_cmd(args, required, optional = []):
         for a in required:
@@ -101,8 +81,31 @@ def generate_dockerfile(commands, tmp_dir, env):
 # ###############################################################################
 
 class EnvBranchSerializer(YAML2PipelineSerializer):
-    source    = FieldSerializer('string', optional = True, help_text = 'Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field.')
+    source    = FieldSerializer('string', optional = True, help_text = 'Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.')
     variables = FieldSerializer('dict', child = "string", default = {}, help_text = "Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).", example = {'ENV_TYPE': 'dev'})
+
+    def get_replaced_variables(self, additional_variables = {}):
+        env = {}
+        if self.has_value():
+            cmd = []
+            if self.source is not None:
+                cmd.append('source %s' % self.source)
+
+            variables = copy.deepcopy(self.variables)
+            for k, v in additional_variables:
+                 variables[k] = v
+
+            for value in variables.values():
+                cmd.append('echo "%s"' % value.replace('"', '\\"'))
+
+            if len(cmd) > 0:
+                cmd = ' && '.join(cmd)
+                output = common.run_shell_command(cmd)
+                output = output.split('\n')
+                assert(len(output) == len(variables))
+                for var, value in zip(variables.keys(), output):
+                    env[var] = value.strip()
+        return env
 
 class EnvSerializer(YAML2PipelineSerializer):
     default  = EnvBranchSerializer(optional = True, help_text = "List of environment variables that will be set by default.")
@@ -430,11 +433,7 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
             if self.entrypoint is not None:
                 f.write('ENTRYPOINT ["/app/%s"]\n' % os.path.join(path_dir, self.entrypoint))
 
-        env = copy.deepcopy(env)
-        if build.has_value() and build.env.has_value():
-            for var, value in build.env.production:
-                env[var] = value
-        generate_dockerfile(commands, tmp_dir, env)
+        generate_dockerfile(commands, tmp_dir, env.get_replaced_variables(build.env.production if build.env.has_value() else {}))
 
         image_name = self.get_image_name(service_name)
         append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
@@ -514,12 +513,9 @@ class DeploySerializer(YAML2PipelineSerializer):
             if common.branch not in branches and '*' not in branches:
                 continue
 
-            branch_env = copy.deepcopy(env)
-            for var, value in stage.env.items():
-                branch_env[var] = value
-
-            stage.aws_beanstalk._serialize_(commands, app_name, links, config, image_name, branch_env)
-            stage.ssh._serialize_(commands, app_name, links, config, image_name, branch_env)
+            env = env.get_replaced_variables(stage.env)
+            stage.aws_beanstalk._serialize_(commands, app_name, links, config, image_name, env)
+            stage.ssh._serialize_(commands, app_name, links, config, image_name, env)
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
@@ -562,8 +558,8 @@ class ServicesSerializer(YAML2PipelineSerializer):
     deploy          = DeploySerializer(optional = True, help_text = "Deploy stage")
 
 class BuildEnvSerializer(YAML2PipelineSerializer):
-    testing    = FieldSerializer("dict", child = "string", default = {}, post_validation = load_env, help_text = "List of environment variables that will be set when building for testing.", example = {'MY_ENV_VARIABLE': '1', 'ENV_TYPE': 'dev'})
-    production = FieldSerializer("dict", child = "string", default = {}, post_validation = load_env, help_text = "List of environment variables that will be set when building for production.", example = {'MY_ENV_VARIABLE': '1', 'ENV_TYPE': 'prod'})
+    testing    = FieldSerializer("dict", child = "string", default = {}, help_text = "List of environment variables that will be set when building for testing.", example = {'MY_ENV_VARIABLE': '1', 'ENV_TYPE': 'dev'})
+    production = FieldSerializer("dict", child = "string", default = {}, help_text = "List of environment variables that will be set when building for production.", example = {'MY_ENV_VARIABLE': '1', 'ENV_TYPE': 'prod'})
 
 class BuildSerializer(YAML2PipelineSerializer):
     env      = BuildEnvSerializer(optional = True, help_text = "Environment variable to define when building.")
@@ -593,18 +589,21 @@ class DMakeFile(DMakeFileSerializer):
         except ValidationError as e:
             raise DMakeException(("Error in %s:\n" % file) + str(e))
 
-        if self.env is not None and not common.is_string(self.env):
-            env = self.env.default
-            if common.branch in self.env.branches:
-                env_branch = self.env.branches[common.branch]
-                variables = copy.deepcopy(env.variables)
-                for var, value in env_branch.variables.items():
-                    variables[var] = value
-                env.__fields__['source'].value = env_branch.source
-                env.__fields__['variables'].value = variables
+        if self.env is None:
+            env = EnvBranchSerializer()
+            env._validate_(self.__path__, {'variables': {}})
             self.__fields__['env'] = env
+        else:
+            if isinstance(self.env, EnvSerializer):
+                env = copy.deepcopy(self.env.default)
+                if common.branch in self.env.branches:
+                    env_branch = self.env.branches[common.branch]
+                    for var, value in env_branch.variables.items():
+                        env.variables[var] = value
+                    env.__fields__['source'].value = env_branch.source
+                env.__fields__['source'].value = common.eval_str_in_env(env.source)
+                self.__fields__['env'] = env
 
-        self.env_file = None
         self.docker_services_image = None
         self.app_package_dirs = {}
 
@@ -620,28 +619,18 @@ class DMakeFile(DMakeFileSerializer):
     def get_docker_links(self):
         return self.docker_links
 
-    def _generate_env_file_(self):
-        if self.env_file is None:
-            tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
-            env_file = os.path.join(tmp_dir, 'env.txt')
-
-            with open(env_file, 'w') as f:
-                for key, value in self.env.items():
-                    f.write('%s=%s\n' % (key, value))
-            self.env_file = env_file
-        return self.env_file
+    def _generate_env_flags_(self, additional_variables = {}):
+        flags = []
+        for key, value in self.env.get_replaced_variables(additional_variables).items():
+            flags += '-e %s="%s"' % (key, value.replace('"', '\\"'))
+        return " ".join(flags)
 
     def _generate_docker_cmd_(self, commands, app_name, env = {}):
         # Set environment variables
-        env_file = self._generate_env_file_()
-
-        env_str = []
-        for var_value in env.items():
-            env_str.append('-e %s=%s' % var_value)
-        env_str = " ".join(env_str)
+        env_str = self._generate_env_flags_(env)
 
         # Docker command line to run
-        docker_cmd = "-v %s:/app -w /app/%s --env-file %s %s -i %s " % (common.join_without_slash(common.root_dir), self.__path__, env_file, env_str, self.docker.get_docker_base_image_name_tag())
+        docker_cmd = "-v %s:/app -w /app/%s %s -i %s " % (common.join_without_slash(common.root_dir), self.__path__, env_str, self.docker.get_docker_base_image_name_tag())
 
         return docker_cmd
 
@@ -690,13 +679,8 @@ class DMakeFile(DMakeFileSerializer):
 
         self._get_check_needed_services_(commands, service)
 
-        env_file = self._generate_env_file_()
-
-        env_str = []
-        if self.build.has_value() and self.build.env.has_value():
-            for var, value in self.build.env.testing.items():
-                env_str.append('-e %s=%s' % (var, common.eval_str_in_env(value)))
-        env_str = " ".join(env_str)
+        env_str = self._generate_env_flags_(self.build.env.testing if self.build.has_value() and \
+                                                                      self.build.env.has_value() else {})
 
         if common.build_id is None:
             build_id = 0
@@ -706,7 +690,7 @@ class DMakeFile(DMakeFileSerializer):
         self._get_link_opts_(commands, service)
         image_name = self.docker.get_docker_base_image_name_tag()
         opts = docker_opts + " " + service.config.full_docker_opts(True)
-        opts = " ${DOCKER_LINK_OPTS} %s --env-file %s -e BUILD=%s %s" % (opts, env_file, build_id, env_str)
+        opts = " ${DOCKER_LINK_OPTS} %s -e BUILD=%s %s" % (opts, build_id, env_str)
         return opts, " -i %s" % image_name
 
     def generate_shell(self, commands, service, docker_links):

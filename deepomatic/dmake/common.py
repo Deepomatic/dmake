@@ -74,7 +74,7 @@ def pull_config_dir(root_dir):
     global pulled_config_dirs
 
     if not os.path.isdir(root_dir):
-        raise DMakeException('Could not find directory: ' % root_dir)
+        raise DMakeException('Could not find directory: %s' % root_dir)
 
     root_dir, _ = find_repo_root(root_dir)
     if root_dir is None:
