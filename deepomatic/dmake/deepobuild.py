@@ -622,7 +622,7 @@ class DMakeFile(DMakeFileSerializer):
     def _generate_env_flags_(self, additional_variables = {}):
         flags = []
         for key, value in self.env.get_replaced_variables(additional_variables).items():
-            flags += '-e %s="%s"' % (key, value.replace('"', '\\"'))
+            flags.append('-e %s="%s"' % (key, value.replace('"', '\\"')))
         return " ".join(flags)
 
     def _generate_docker_cmd_(self, commands, app_name, env = {}):
