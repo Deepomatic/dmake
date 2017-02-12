@@ -92,7 +92,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                 cmd.append('source %s' % self.source)
 
             variables = copy.deepcopy(self.variables)
-            for k, v in additional_variables:
+            for k, v in additional_variables.items():
                  variables[k] = v
 
             for value in variables.values():
