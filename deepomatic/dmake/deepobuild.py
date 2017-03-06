@@ -244,10 +244,12 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
             } for volume in config.volumes if volume.host_volume != "/var/log/deepomatic" # Cannot specify a volume both in logging and mounting
         ]
 
-        # if config.pre_deploy_script  != "" or \
-        #    config.mid_deploy_script  != "" or \
-        #    config.post_deploy_script != "":
-        #     raise DMakeException("Pre/Mid/Post-Deploy scripts for AWS is not supported yet.")
+        if config.pre_deploy_script  != "" or \
+           config.mid_deploy_script  != "" or \
+           config.post_deploy_script != "":
+            raise DMakeException("Pre/Mid/Post-Deploy scripts for AWS is not supported yet.")
+        if config.readiness_probe.get_cmd() != "":
+            raise DMakeException("Readiness probe for AWS is not supported yet.")
         if len(config.docker_opts) > 0:
             raise DMakeException("Docker options for AWS is not supported yet.")
 
@@ -340,6 +342,9 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
               ('export APP_NAME="%s" && ' % app_name) + \
               ('export DOCKER_OPTS="%s" && ' % opts) + \
               ('export LAUNCH_LINK="%s" && ' % launch_links) + \
+              ('export PRE_DEPLOY_HOOKS="%s" && ' % config.pre_deploy_script) + \
+              ('export MID_DEPLOY_HOOKS="%s" && ' % config.mid_deploy_script) + \
+              ('export POST_DEPLOY_HOOKS="%s" && ' % config.post_deploy_script) + \
               ('export READYNESS_PROBE=%s && ' % common.wrap_cmd(config.readiness_probe.get_cmd())) + \
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
         print cmd
@@ -729,12 +734,30 @@ class DMakeFile(DMakeFileSerializer):
         opts, _ = self.launch_options(commands, service_name, docker_links)
         image_name = service.config.docker_image.get_image_name(service_name)
 
+        # <DEPRECATED>
+        if service.config.pre_deploy_script:
+            cmd = service.config.pre_deploy_script
+            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
+        # </DEPRECATED>
+
         daemon_opts = "${DOCKER_LINK_OPTS} %s" % service.config.full_docker_opts(True)
         append_command(commands, 'read_sh', var = "DAEMON_ID", shell = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (service_name, daemon_opts, image_name))
 
         cmd = service.config.readiness_probe.get_cmd()
         if cmd:
             append_command(commands, 'sh', shell = 'dmake_exec_docker "$DAEMON_ID" %s' % cmd)
+
+        # <DEPRECATED>
+        cmd = []
+        if service.config.mid_deploy_script:
+            cmd.append(service.config.mid_deploy_script)
+        if service.config.post_deploy_script:
+            cmd.append(service.config.post_deploy_script)
+        cmd = " && ".join(cmd)
+        if cmd:
+            cmd = 'bash -c %s' % common.wrap_cmd(cmd)
+            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
+        # </DEPRECATED>
 
     def generate_build(self, commands):
         if not self.build.has_value():
