@@ -96,7 +96,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                  variables[k] = v
 
             for value in variables.values():
-                cmd.append('echo "%s"' % value.replace('"', '\\"'))
+                cmd.append('echo %s' % common.wrap_cmd(value))
 
             if len(cmd) > 0:
                 cmd = ' && '.join(cmd)
@@ -244,10 +244,10 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
             } for volume in config.volumes if volume.host_volume != "/var/log/deepomatic" # Cannot specify a volume both in logging and mounting
         ]
 
-        if config.pre_deploy_script  != "" or \
-           config.mid_deploy_script  != "" or \
-           config.post_deploy_script != "":
-            raise DMakeException("Pre/Mid/Post-Deploy scripts for AWS is not supported yet.")
+        # if config.pre_deploy_script  != "" or \
+        #    config.mid_deploy_script  != "" or \
+        #    config.post_deploy_script != "":
+        #     raise DMakeException("Pre/Mid/Post-Deploy scripts for AWS is not supported yet.")
         if len(config.docker_opts) > 0:
             raise DMakeException("Docker options for AWS is not supported yet.")
 
@@ -336,15 +336,14 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         common.run_shell_command('cp -R ${HOME}/.docker* %s/ || :' % tmp_dir)
 
         start_file = os.path.join(tmp_dir, "start_app.sh")
-        common.run_shell_command(
-            ('export IMAGE_NAME="%s" && ' % image_name) +
-            ('export APP_NAME="%s" && ' % app_name) +
-            ('export DOCKER_OPTS="%s" && ' % opts) +
-            ('export LAUNCH_LINK="%s" && ' % launch_links) +
-            ('export PRE_DEPLOY_HOOKS="%s" && ' % config.pre_deploy_script) +
-            ('export MID_DEPLOY_HOOKS="%s" && ' % config.mid_deploy_script) +
-            ('export POST_DEPLOY_HOOKS="%s" && ' % config.post_deploy_script) +
-             'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file)
+        cmd = ('export IMAGE_NAME="%s" && ' % image_name) + \
+              ('export APP_NAME="%s" && ' % app_name) + \
+              ('export DOCKER_OPTS="%s" && ' % opts) + \
+              ('export LAUNCH_LINK="%s" && ' % launch_links) + \
+              ('export READYNESS_PROBE=%s && ' % common.wrap_cmd(config.readiness_probe.get_cmd())) + \
+               'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
+        print cmd
+        common.run_shell_command(cmd)
 
         cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%s"' % (tmp_dir, app_name, self.user, self.host, self.port)
         append_command(commands, 'sh', shell = cmd)
@@ -440,12 +439,37 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
 
         return tmp_dir
 
+class ReadinessProbeSerializer(YAML2PipelineSerializer):
+    command               = FieldSerializer("array", child = "string", default = [], example = ['cat', '/tmp/worker_ready'], help_text = "The command to run to check if the container is ready. The command should fail with a non-zero code if not ready.")
+    initial_delay_seconds = FieldSerializer("int", default = 5, example = "5", help_text = "The delay before the first probe is launched")
+    period_seconds        = FieldSerializer("int", default = 5, example = "5", help_text = "The delay between two first probes")
+    max_seconds           = FieldSerializer("int", default = 0, example = "40", help_text = "The maximum delay after failure")
+
+    def get_cmd(self):
+        if not self.has_value() or len(self.command) == 0:
+            return ""
+
+        if self.max_seconds > 0:
+            condition = "$T -le %s" % self.max_seconds
+        else:
+            condition = "1"
+
+        period = max(int(self.period_seconds), 1)
+
+        # Make the command with "" around parameters
+        cmd = self.command[0] + ' ' + (' '.join([common.wrap_cmd(c) for c in self.command[1:]]))
+        cmd = "T=0; sleep %s; while [ %s ]; do %s; if [ '$?' == '0' ]; then exit 0; fi; T=$((T+%d)); sleep %d; done; exit 1;" % (self.initial_delay_seconds, condition, cmd, period, period)
+        return 'bash -c %s' % common.wrap_cmd(cmd).replace('$', '\$')
+
 class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_image       = ServiceDockerSerializer(optional = True, help_text = "Docker to build for running and deploying.")
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add.")
     ports              = FieldSerializer("array", child = DeployConfigPortsSerializer(), default = [], help_text = "Ports to open.")
     volumes            = FieldSerializer("array", child = DeployConfigVolumesSerializer(), default = [], help_text = "Volumes to open.")
+    readiness_probe    = ReadinessProbeSerializer(optional = True, help_text = "A probe that waits until the container is ready.")
+
+    # Deprecated
     pre_deploy_script  = FieldSerializer("string", default = "", child_path_only = True, example = "my/pre_deploy/script", help_text = "Scripts to run before launching new version.")
     mid_deploy_script  = FieldSerializer("string", default = "", child_path_only = True, example = "my/mid_deploy/script", help_text = "Scripts to run after launching new version and before stopping the old one.")
     post_deploy_script = FieldSerializer("string", default = "", child_path_only = True, example = "my/post_deploy/script", help_text = "Scripts to run after stopping old version.")
@@ -622,7 +646,7 @@ class DMakeFile(DMakeFileSerializer):
     def _generate_env_flags_(self, additional_variables = {}):
         flags = []
         for key, value in self.env.get_replaced_variables(additional_variables).items():
-            flags.append('-e %s="%s"' % (key, value.replace('"', '\\"')))
+            flags.append('-e %s=%s' % (key, common.wrap_cmd(value)))
         return " ".join(flags)
 
     def _generate_docker_cmd_(self, commands, app_name, env = {}):
@@ -705,22 +729,12 @@ class DMakeFile(DMakeFileSerializer):
         opts, _ = self.launch_options(commands, service_name, docker_links)
         image_name = service.config.docker_image.get_image_name(service_name)
 
-        if service.config.pre_deploy_script:
-            cmd = service.config.pre_deploy_script
-            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
-
         daemon_opts = "${DOCKER_LINK_OPTS} %s" % service.config.full_docker_opts(True)
-        append_command(commands, 'sh', shell = "dmake_run_docker_daemon \"%s\" \"\" %s -i %s" % (service_name, daemon_opts, image_name))
+        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (service_name, daemon_opts, image_name))
 
-        cmd = []
-        if service.config.mid_deploy_script:
-            cmd.append(service.config.mid_deploy_script)
-        if service.config.post_deploy_script:
-            cmd.append(service.config.post_deploy_script)
-        cmd = " && ".join(cmd)
+        cmd = service.config.readiness_probe.get_cmd()
         if cmd:
-            cmd = 'bash -c "%s"' % cmd
-            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
+            append_command(commands, 'sh', shell = 'dmake_exec_docker "$DAEMON_ID" %s' % cmd)
 
     def generate_build(self, commands):
         if not self.build.has_value():
