@@ -31,7 +31,7 @@ def run_shell_command(cmd, ignore_error = False):
     stdout, stderr = p.communicate()
     if len(stderr) > 0 and not ignore_error:
         raise ShellError(stderr.decode())
-    return stdout.decode()
+    return stdout.strip().decode()
 
 def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])

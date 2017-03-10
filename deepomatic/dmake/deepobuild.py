@@ -86,8 +86,12 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
 
     def get_replaced_variables(self, additional_variables = {}):
         env = {}
-        if self.has_value():
-            cmd = []
+        if self.has_value() and (len(self.variables) or len(additional_variables)):
+            # HACK
+            # If the first varaible is empty, if is stripped out
+            # So we make sure the first line is non-empty
+            cmd = ['echo "-"']
+
             if self.source is not None:
                 cmd.append('source %s' % self.source)
 
@@ -98,13 +102,12 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
             for value in variables.values():
                 cmd.append('echo "%s"' % value.replace('"', '\\"'))
 
-            if len(cmd) > 0:
-                cmd = ' && '.join(cmd)
-                output = common.run_shell_command(cmd)
-                output = output.split('\n')
-                assert(len(output) == len(variables))
-                for var, value in zip(variables.keys(), output):
-                    env[var] = value.strip()
+            cmd = ' && '.join(cmd)
+            output = common.run_shell_command(cmd)
+            output = output.split('\n')[1:]
+            assert(len(output) == len(variables))
+            for var, value in zip(variables.keys(), output):
+                env[var] = value.strip()
         return env
 
 class EnvSerializer(YAML2PipelineSerializer):
