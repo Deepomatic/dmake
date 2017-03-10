@@ -93,6 +93,8 @@ def load_dmake_files_list():
     build_files = common.run_shell_command("find . -name dmake.yml").split("\n")
     build_files = filter(lambda f: len(f.strip()) > 0, build_files)
     build_files = [file[2:] for file in build_files]
+    # Important: for black listed files: we load file in order from root to deepest file
+    build_files = sorted(build_files, key = lambda path: len(os.path.dirname(path)))
     return build_files
 
 ###############################################################################
@@ -492,9 +494,6 @@ def make(root_dir, sub_dir, command, app, options):
     if len(build_files) == 0:
         raise DMakeException('No dmake.yml file found !')
 
-    # Sort by increasing length to make sure we load parent files first
-    sorted(build_files, key = lambda file: len(file))
-
     # Load all dmake.yml files (except those blacklisted)
     blacklist = []
     loaded_files = {}
@@ -502,17 +501,6 @@ def make(root_dir, sub_dir, command, app, options):
     service_dependencies = {}
     for file in build_files:
         load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, file)
-
-    # Remove black listed files
-    services_to_remove = []
-    for f in blacklist:
-        if f in loaded_files:
-            del loaded_files[f]
-        for services_provider, file in service_providers.items():
-            if file[0] == f:
-                services_to_remove.append(services_provider)
-    for s in services_to_remove:
-        del service_providers[s]
 
     # Register all apps and services in the repo
     docker_links = {}
