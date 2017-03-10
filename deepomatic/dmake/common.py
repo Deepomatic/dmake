@@ -153,6 +153,11 @@ def init(_command, _root_dir, _app, _options):
     if 'branch' in options and options.branch:
         branch = options.branch
 
+    # Modify command if (is_pr && !is_local)
+    if is_pr and not is_local:
+        assert(command == "deploy")
+        command = "test"
+
     # Find repo
     repo_url = run_shell_command('git config --get remote.origin.url')
     repo = re.search('/([^/]*)\.git', repo_url).groups()[0]

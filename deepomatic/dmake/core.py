@@ -459,15 +459,15 @@ def get_tag_name():
 
 ###############################################################################
 
-def make(root_dir, sub_dir, dmake_command, app, options):
+def make(root_dir, sub_dir, command, app, options):
     if 'DMAKE_TMP_DIR' in os.environ:
         del os.environ['DMAKE_TMP_DIR']
-    common.init(dmake_command, root_dir, app, options)
+    common.init(command, root_dir, app, options)
 
     if app == "":
         app = None
 
-    if dmake_command == "stop":
+    if common.command == "stop":
         common.run_shell_command("docker rm -f `docker ps -q -f name=%s.%s.%s`" % (app, common.branch, common.build_id))
         return
 
@@ -484,7 +484,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         auto_complete = n == 1
         if not auto_complete:
             auto_completed_app = app
-    elif dmake_command in ['shell']:
+    elif common.command in ['shell']:
         auto_complete = True
 
     # Load build files
@@ -504,9 +504,15 @@ def make(root_dir, sub_dir, dmake_command, app, options):
         load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, file)
 
     # Remove black listed files
+    services_to_remove = []
     for f in blacklist:
         if f in loaded_files:
             del loaded_files[f]
+        for services_provider, file in service_providers.items():
+            if file[0] == f:
+                services_to_remove.append(services_provider)
+    for s in services_to_remove:
+        del service_providers[s]
 
     # Register all apps and services in the repo
     docker_links = {}
@@ -568,15 +574,15 @@ def make(root_dir, sub_dir, dmake_command, app, options):
             del deps[i]
 
     is_app_only = auto_completed_app is None or auto_completed_app.find('/') < 0
-    if dmake_command == "run" and is_app_only:
+    if common.command == "run" and is_app_only:
         common.options.dependencies = True
 
     if auto_completed_app is None:
         # Find file where changes have happened
-        find_active_files(loaded_files, service_providers, service_dependencies, sub_dir, dmake_command)
+        find_active_files(loaded_files, service_providers, service_dependencies, sub_dir, common.command)
     else:
         if is_app_only: # app only
-            if dmake_command == 'shell':
+            if common.command == 'shell':
                 raise DMakeException("Could not find sub-app '%s'" % app)
             active_file = set()
             app_services = services[auto_completed_app]
@@ -585,13 +591,13 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                 file, _ = service_providers[full_service_name]
                 active_file.add(file)
             for file in active_file:
-                activate_file(loaded_files, service_providers, service_dependencies, dmake_command, file)
+                activate_file(loaded_files, service_providers, service_dependencies, common.command, file)
         else:
-            activate_service(loaded_files, service_providers, service_dependencies, dmake_command, auto_completed_app)
+            activate_service(loaded_files, service_providers, service_dependencies, common.command, auto_completed_app)
 
     # check services circularity
     sorted_leaves = check_no_circular_dependencies(service_dependencies)
-    sorted_leaves = filter(lambda a_b__c: a_b__c[0][0] == dmake_command, sorted_leaves)
+    sorted_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, sorted_leaves)
     build_files_order = order_dependencies(service_dependencies, sorted_leaves)
 
     # Sort by order
@@ -683,7 +689,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
                 stage_names.add(name)
 
     # If not on Pull Request, tag the commit as deployed
-    if dmake_command == "deploy" and not common.is_pr:
+    if common.command == "deploy" and not common.is_pr:
         append_command(all_commands, 'git_tag', tag = get_tag_name())
 
     # Generate output
@@ -694,7 +700,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     generate_command(file_to_generate, all_commands)
     common.logger.info("Output has been written to %s" % file_to_generate)
 
-    if dmake_command == "deploy" and common.is_local:
+    if common.command == "deploy" and common.is_local:
         r = common.read_input("Careful ! Are you sure you want to deploy ? [Y/n] ")
         if r.lower() != 'y' and r != "":
             print('Aborting')
@@ -704,7 +710,7 @@ def make(root_dir, sub_dir, dmake_command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         do_clean = True
-        if result != 0 and dmake_command in ['run', 'shell']:
+        if result != 0 and common.command in ['run', 'shell']:
             r = common.read_input("An error was detected. DMake will stop. The script directory is : %s.\nDo you want to stop all the running containers? [Y/n] " % common.tmp_dir)
             if r.lower() != 'y' and r != "":
                 do_clean = False
