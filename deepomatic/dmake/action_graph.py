@@ -61,6 +61,7 @@ class ActionTemplate(object):
 class ActionManager(object):
     def __init__(self):
         self.action_templates = {}
+        self.action_nodes = {}
 
     """
         name: name of the action
@@ -76,4 +77,12 @@ class ActionManager(object):
     def new_action_node(self, action, file, service = None):
         if action not in self.actions:
             raise Exception("Un-registered action: '%s'" % action)
-        return self.action_templates[action].create_action_node(self, file, service)
+
+        key = (action, file, service)
+        if key not in self.action_nodes:
+            return self.action_nodes[key]
+
+        node = self.action_templates[action].create_action_node(self, file, service)
+        self.action_nodes[key] = node
+
+        return node
