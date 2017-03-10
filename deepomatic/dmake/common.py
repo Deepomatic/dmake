@@ -10,6 +10,47 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 ###############################################################################
+# Compatibility
+
+if sys.version_info >= (3,0):
+    def is_string(x):
+        return isinstance(x, str)
+
+    def read_input(msg):
+        return input(msg + ' ')
+else:
+    def is_string(x):
+        return isinstance(x, basestring)
+
+    def read_input(msg):
+        return raw_input(msg + ' ')
+
+###############################################################################
+# Set by init: TODO some things could be set directly
+
+root_dir = None
+tmp_dir = None
+cache_dir = None
+key_file  = None
+branch = None
+target = None
+is_pr = None
+pr_id = None
+build_id = None
+commit_id = None
+force_full_deploy = None
+repo_url = None
+repo = None
+use_pipeline = None
+is_local = None
+skip_tests = None
+build_description = None
+command = None
+options = None
+uname = None
+
+###############################################################################
+# Exceptions
 
 class ShellError(Exception):
     def __init__(self, msg):
@@ -24,6 +65,7 @@ class NotGitRepositoryException(DMakeException):
         super(NotGitRepositoryException, self).__init__('Not a GIT repository')
 
 ###############################################################################
+# Shell utilities
 
 def run_shell_command(cmd, ignore_error = False):
     command = ['bash', '-c', cmd]
@@ -48,8 +90,6 @@ def join_without_slash(*args):
         path = path[:-1]
     return path
 
-###############################################################################
-
 def find_repo_root(root_dir):
     sub_dir = ''
     while True:
@@ -66,8 +106,6 @@ def find_repo_root(root_dir):
     if sub_dir == '.':
         sub_dir = '' # IMPORTANT: Need to get rid of the leading '.' to unify behaviour
     return root_dir, sub_dir
-
-###############################################################################
 
 pulled_config_dirs = {}
 def pull_config_dir(root_dir):
@@ -86,13 +124,6 @@ def pull_config_dir(root_dir):
     logger.info("Pulling config from: %s" % root_dir)
     os.system("cd %s && git pull origin master" % root_dir)
     pulled_config_dirs[root_dir] = True
-
-###############################################################################
-
-if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import is_string, read_input
-else:
-    from deepomatic.dmake.python_2x import is_string, read_input
 
 ###############################################################################
 
@@ -153,11 +184,6 @@ def init(_command, _root_dir, _app, _options):
     if 'branch' in options and options.branch:
         branch = options.branch
 
-    # Modify command if (is_pr && !is_local)
-    if is_pr and not is_local:
-        assert(command == "deploy")
-        command = "test"
-
     # Find repo
     repo_url = run_shell_command('git config --get remote.origin.url')
     repo = re.search('/([^/]*)\.git', repo_url).groups()[0]
@@ -215,3 +241,49 @@ def init(_command, _root_dir, _app, _options):
         else:
             logger.warning("WARNING: DMAKE_SSH_KEY does not point to a valid file. You won't be able to clone private repositories.")
             key_file = None
+
+###############################################################################
+
+def get_tag_name():
+    global branch
+    return 'deployed_version_%s' % branch
+
+###############################################################################
+
+def append_command(commands, cmd, prepend = False, **args):
+    def check_cmd(args, required, optional = []):
+        for a in required:
+            if a not in args:
+                raise DMakeException("%s is required for command %s" % (a, cmd))
+        for a in args:
+            if a not in required and a not in optional:
+                raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
+    if cmd == "stage":
+        check_cmd(args, ['name', 'concurrency'])
+    elif cmd == "sh":
+        check_cmd(args, ['shell'])
+    elif cmd == "read_sh":
+        check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
+        args['id'] = len(commands)
+        if 'fail_if_empty' not in args:
+            args['fail_if_empty'] = False
+    elif cmd == "env":
+        check_cmd(args, ['var', 'value'])
+    elif cmd == "git_tag":
+        check_cmd(args, ['tag'])
+    elif cmd == "junit":
+        check_cmd(args, ['report'])
+    elif cmd == "cobertura":
+        check_cmd(args, ['report'])
+    elif cmd == "publishHTML":
+        check_cmd(args, ['directory', 'index', 'title'])
+    elif cmd == "build":
+        check_cmd(args, ['job', 'parameters', 'propagate', 'wait'])
+    else:
+        raise DMakeException("Unknow command %s" %cmd)
+    cmd = (cmd, args)
+    if prepend:
+        commands.insert(0, cmd)
+    else:
+        commands.append(cmd)
+

@@ -5,20 +5,35 @@ from collections import OrderedDict
 from deepomatic.dmake.common import DMakeException
 import deepomatic.dmake.common as common
 
-# Define the base class for YAML2PipelineSerializer
-# If using Python3, we can keep track of the order of the field
-# in order to generate a proper doc.
-if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import BaseYAML2PipelineSerializer
-else:
-    from deepomatic.dmake.python_2x import BaseYAML2PipelineSerializer
-
 # Custom Exceptions
 class ValidationError(Exception):
     pass
 
 class WrongType(ValidationError):
     pass
+
+# Define the base class for YAML2PipelineSerializer
+# If using Python3, we can keep track of the order of the field
+# in order to generate a proper doc.
+if sys.version_info >= (3,0):
+    class MetaYAML2PipelineSerialize(type):
+        @classmethod
+        def __prepare__(metacls, name, bases, **kwargs):
+            return OrderedDict()
+        def __new__(cls, name, bases, namespace, **kwargs):
+            result = type.__new__(cls, name, bases, dict(namespace))
+            ns = []
+            for b in bases:
+                if isinstance(b, MetaYAML2PipelineSerialize):
+                    ns += b.__fields_order__
+            result.__fields_order__ = tuple(ns) + tuple(namespace)
+            return result
+
+    class BaseYAML2PipelineSerializer(object, metaclass = MetaYAML2PipelineSerialize):
+        pass
+else:
+    class BaseYAML2PipelineSerializer(object):
+        pass
 
 # Serializers
 class FieldSerializer(object):
