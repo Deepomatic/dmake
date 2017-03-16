@@ -90,7 +90,8 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
             # HACK
             # If the first varaible is empty, if is stripped out
             # So we make sure the first line is non-empty
-            cmd = ['echo "-"']
+            delimitor = 'echo "-"'
+            cmd = []
 
             if self.source is not None:
                 cmd.append('source %s' % self.source)
@@ -99,12 +100,14 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
             for k, v in additional_variables.items():
                  variables[k] = v
 
+            cmd.append(delimitor)
             for value in variables.values():
                 cmd.append('echo "%s"' % value.replace('"', '\\"'))
+            cmd.append(delimitor)
 
             cmd = ' && '.join(cmd)
             output = common.run_shell_command(cmd)
-            output = output.split('\n')[1:]
+            output = output.split('\n')[1:-1]
             assert(len(output) == len(variables))
             for var, value in zip(variables.keys(), output):
                 env[var] = value.strip()
