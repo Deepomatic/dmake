@@ -14,7 +14,7 @@ properties([
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                         env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
     checkout scm
-    sh 'git submodule update --init'
+    sh 'git submodule update --init -f'
     sh 'dmake deploy "${DMAKE_APP}"'
     load 'DMakefile'
 }
