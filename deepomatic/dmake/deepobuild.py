@@ -607,7 +607,10 @@ class DMakeFile(DMakeFileSerializer):
                     for var, value in env_branch.variables.items():
                         env.variables[var] = value
                     env.__fields__['source'].value = env_branch.source
-                env.__fields__['source'].value = common.eval_str_in_env(env.source)
+                if env.source is not None:
+                    env.__fields__['source'].value = common.eval_str_in_env(env.source)
+                else:
+                    env.__fields__['source'].value = None
                 self.__fields__['env'] = env
 
         self.docker_services_image = None
