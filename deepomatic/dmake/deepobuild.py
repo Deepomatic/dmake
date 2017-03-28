@@ -355,6 +355,18 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%s"' % (tmp_dir, app_name, self.user, self.host, self.port)
         append_command(commands, 'sh', shell = cmd)
 
+class K8SCDDeploySerializer(YAML2PipelineSerializer):
+    config    = FieldSerializer("string", optional = True, help_text = "Path to kubectl config.", env_eval = True)
+    namespace = FieldSerializer("string", default = "default", help_text = "Kubernetes namespace to target", env_eval = True)
+
+    def _serialize_(self, commands, app_name, image_name):
+        if not self.has_value():
+            return
+
+        cmd = 'dmake_deploy_k8s_cd "%s" "%s"' % (app_name, image_name)
+        append_command(commands, 'sh', shell = cmd)
+
+
 class DeployConfigPortsSerializer(YAML2PipelineSerializer):
     container_port    = FieldSerializer("int", example = 8000, help_text = "Port on the container")
     host_port         = FieldSerializer("int", example = 80, help_text = "Port on the host")
@@ -369,27 +381,33 @@ class DeployStageSerializer(YAML2PipelineSerializer):
     env           = FieldSerializer("dict", child = "string", default = {}, example = {'AWS_ACCESS_KEY_ID': '1234', 'AWS_SECRET_ACCESS_KEY': 'abcd'}, help_text = "Additionnal environment variables for deployment.")
     aws_beanstalk = AWSBeanStalkDeploySerializer(optional = True, help_text = "Deploy via Elastic Beanstalk")
     ssh           = SSHDeploySerializer(optional = True, help_text = "Deploy via SSH")
+    k8s_continuous_deployment = K8SCDDeploySerializer(optional = True, help_text = "Continuous deployment via Kubernetes. Look for all the deployments running this service.")
 
 class ServiceDockerSerializer(YAML2PipelineSerializer):
     name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.")
-    check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
+    check_private    = FieldSerializer("bool",   default = True,  help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be {:branch_name}-{:build_id}")
-    workdir          = FieldSerializer("dir", optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
+    workdir          = FieldSerializer("dir",    optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
     #install_targets = FieldSerializer("array", child = FieldSerializer([InstallExeSerializer(), InstallLibSerializer(), InstallDirSerializer()]), default = [], help_text = "Target files or directories to install.")
     copy_directories = FieldSerializer("array", child = "dir", default = [], help_text = "Directories to copy in the docker image.")
     install_script   = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "install.sh", help_text = "The install script (will be run in the docker). It has to be executable.")
     entrypoint       = FieldSerializer("path", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
     start_script     = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
 
-    def get_image_name(self, service_name):
+    def get_image_name(self, service_name, latest = False):
         if self.name is None:
             name = service_name.replace('/', '-')
         else:
             name = common.eval_str_in_env(self.name)
         if self.tag is None:
             tag = common.branch.lower()
-            if common.build_id is not None:
-                tag += "-%s" % common.build_id
+            if latest:
+                tag += "-latest"
+            else:
+                if common.build_id is not None:
+                    tag += "-%s" % common.build_id
+        else:
+            tag = self.tag
         image_name = name + ":" + tag
         return image_name
 
@@ -513,6 +531,8 @@ class DeploySerializer(YAML2PipelineSerializer):
 
         image_name = config.docker_image.get_image_name(service_name)
         append_command(commands, 'sh', shell = 'dmake_push_docker_image "%s" "%s"' % (image_name, "1" if config.docker_image.check_private else "0"))
+        image_latest = config.docker_image.get_image_name(service_name, latest = True)
+        append_command(commands, 'sh', shell = 'docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, "1" if config.docker_image.check_private else "0"))
 
         for stage in self.stages:
             branches = stage.branches
@@ -522,6 +542,7 @@ class DeploySerializer(YAML2PipelineSerializer):
             branch_env = env.get_replaced_variables(stage.env)
             stage.aws_beanstalk._serialize_(commands, app_name, links, config, image_name, branch_env)
             stage.ssh._serialize_(commands, app_name, links, config, image_name, branch_env)
+            stage.k8s_continuous_deployment._serialize_(commands, app_name, image_name)
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")

@@ -157,6 +157,8 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         return []
 
     if node not in service_dependencies:
+        if service not in service_providers:
+            raise DMakeException("Cannot find service: %s" % service)
         file, needs = service_providers[service]
         if command == 'base':
             children = activate_file(loaded_files, service_providers, service_dependencies, 'base', file)

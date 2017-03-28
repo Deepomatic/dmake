@@ -1,1 +1,2 @@
 PyYAML==3.12
+kubernetes>=1.0.0

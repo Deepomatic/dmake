@@ -30,6 +30,7 @@ class FieldSerializer(object):
             child = None,
             post_validation = lambda x: x,
             child_path_only = False,
+            env_eval = False,
             check_path = True,
             executable = False,
             no_slash_no_space = False,
@@ -56,6 +57,7 @@ class FieldSerializer(object):
         self.blank = blank
         self.post_validation = post_validation
         self.child_path_only = child_path_only
+        self.env_eval = env_eval
         self.check_path = check_path
         self.executable = executable
         self.no_slash_no_space = no_slash_no_space
@@ -84,6 +86,8 @@ class FieldSerializer(object):
                         err.append(str(e).replace('\n', '\n  '))
                         continue
                 else:
+                    if self.env_eval:
+                        data = common.eval_str_in_env(data)
                     try:
                         data = self._validate_type_(path, t, data)
                         ok = True
