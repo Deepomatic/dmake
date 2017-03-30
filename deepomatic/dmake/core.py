@@ -608,11 +608,10 @@ def make(root_dir, sub_dir, command, app, options):
 
         ordered_build_files = [('Building Docker', base),
                                ('Building App', build),
-                               ('Testing App', test),
-                               ('Deploying', list(deploy))]
-        # HACK: the Deploying tuple above should be append only for non PR
-        # if not common.is_pr:
-        #     ordered_build_files.append(('Deploying', list(deploy)))
+                               ('Testing App', test)]
+
+        if not common.is_pr:
+            ordered_build_files.append(('Deploying', list(deploy)))
 
         # Display commands
         common.logger.info("Here is the plan:")
