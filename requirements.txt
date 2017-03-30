@@ -1,2 +1,5 @@
 PyYAML==3.12
 kubernetes>=1.0.0
+urllib3>=1.20
+backports.ssl-match-hostname>=3.5.0.1
+ipaddress>=1.0.18

@@ -356,8 +356,8 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         append_command(commands, 'sh', shell = cmd)
 
 class K8SCDDeploySerializer(YAML2PipelineSerializer):
-    config    = FieldSerializer("string", optional = True, help_text = "Path to kubectl config.", env_eval = True)
-    namespace = FieldSerializer("string", default = "default", help_text = "Kubernetes namespace to target", env_eval = True)
+    config    = FieldSerializer("string", optional = True, help_text = "Path to kubectl config.")
+    namespace = FieldSerializer("string", default = "default", help_text = "Kubernetes namespace to target")
 
     def _serialize_(self, commands, app_name, image_name):
         if not self.has_value():
@@ -366,8 +366,10 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
         config = self.config
         if config is None:
             config = ""
+        else:
+            config = common.eval_str_in_env(config)
 
-        cmd = 'dmake_deploy_k8s_cd "%s" "%s" "%s" "%s" "%s"' % (common.tmp_dir, config, self.namespace, app_name, image_name)
+        cmd = 'dmake_deploy_k8s_cd "%s" "%s" "%s" "%s" "%s"' % (common.tmp_dir, config, common.eval_str_in_env(self.namespace), app_name, image_name)
         append_command(commands, 'sh', shell = cmd)
 
 
