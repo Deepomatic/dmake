@@ -363,7 +363,11 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
         if not self.has_value():
             return
 
-        cmd = 'dmake_deploy_k8s_cd "%s" "%s"' % (app_name, image_name)
+        config = self.config
+        if config is None:
+            config = ""
+
+        cmd = 'dmake_deploy_k8s_cd "%s" "%s" "%s" "%s" "%s"' % (common.tmp_dir, config, self.namespace, app_name, image_name)
         append_command(commands, 'sh', shell = cmd)
 
 
