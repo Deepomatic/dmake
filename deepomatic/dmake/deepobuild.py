@@ -359,9 +359,12 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
     config    = FieldSerializer("string", optional = True, help_text = "Path to kubectl config.")
     namespace = FieldSerializer("string", default = "default", help_text = "Kubernetes namespace to target")
 
-    def _serialize_(self, commands, app_name, image_name):
+    def _serialize_(self, commands, app_name, image_name, env):
         if not self.has_value():
             return
+
+        for var, value in env.items():
+            os.environ[var] = common.eval_str_in_env(value)
 
         config = self.config
         if config is None:
@@ -548,7 +551,7 @@ class DeploySerializer(YAML2PipelineSerializer):
             branch_env = env.get_replaced_variables(stage.env)
             stage.aws_beanstalk._serialize_(commands, app_name, links, config, image_name, branch_env)
             stage.ssh._serialize_(commands, app_name, links, config, image_name, branch_env)
-            stage.k8s_continuous_deployment._serialize_(commands, app_name, image_name)
+            stage.k8s_continuous_deployment._serialize_(commands, app_name, image_name, branch_env)
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
