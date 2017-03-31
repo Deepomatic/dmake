@@ -227,6 +227,7 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
 
 class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
+    name_prefix  = FieldSerializer("string", default = "${DMAKE_DEPLOY_PREFIX}", help_text = "The prefix to add to the 'deploy_name'. Can be useful as application name have to be unique across all users of Elastic BeanStalk.")
     region       = FieldSerializer("string", default = "eu-west-1", help_text = "The AWS region where to deploy.")
     stack        = FieldSerializer("string", default = "64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2")
     options      = FieldSerializer("path", example = "path/to/options.txt", help_text = "AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html")
@@ -312,6 +313,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
         if self.ebextensions is not None:
             common.run_shell_command('cp -LR %s %s' % (self.ebextensions, os.path.join(tmp_dir, ".ebextensions")))
 
+        app_name = common.eval_str_in_env(self.name_prefix) + app_name
         append_command(commands, 'sh', shell = 'dmake_deploy_aws_eb "%s" "%s" "%s" "%s"' % (
             tmp_dir,
             app_name,
@@ -512,8 +514,8 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
         return opts
 
 class DeploySerializer(YAML2PipelineSerializer):
-    deploy_name  = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to \"${DMAKE_DEPLOY_PREFIX}-app_name-service_name\" if not specified")
-    stages       = FieldSerializer("array", child = DeployStageSerializer(), help_text = "Deployment possibilities")
+    deploy_name = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to 'app_name-service_name' if not specified")
+    stages      = FieldSerializer("array", child = DeployStageSerializer(), help_text = "Deployment possibilities")
 
     def generate_build_docker(self, commands, path_dir, service_name, docker_base, env, build, config):
         if config.docker_image.has_value():
@@ -523,7 +525,7 @@ class DeploySerializer(YAML2PipelineSerializer):
         if self.deploy_name is not None:
             app_name = self.deploy_name
         else:
-            app_name = "${DMAKE_DEPLOY_PREFIX}%s-%s" % (app_name, service_name)
+            app_name = "%s-%s" % (app_name, service_name)
         app_name = common.eval_str_in_env(app_name)
 
         links = []
