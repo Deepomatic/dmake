@@ -157,6 +157,8 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         return []
 
     if node not in service_dependencies:
+        if service not in service_providers:
+            raise DMakeException("Cannot find service: %s" % service)
         file, needs = service_providers[service]
         if command == 'base':
             children = activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
@@ -486,6 +488,7 @@ def make(root_dir, sub_dir, command, app, options):
         auto_complete = n == 1
         if not auto_complete:
             auto_completed_app = app
+        common.force_full_deploy = True
     elif common.command in ['shell']:
         auto_complete = True
 

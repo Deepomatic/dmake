@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+#
+# Usage:
+# dmake_deploy_k8s_cd DMAKE_TMP_DIR CONFIG NAMESPACE SERVICE_NAME IMAGE_NAME
+#
+# Result:
+# Finds the k8s deployments running the image (those having label dmake_${SERVICE_NAME})
+# and update the image.
+
+import os, sys
+import kubernetes
+from pprint import pprint
+
+if len(sys.argv) < 6:
+    print("Missing args. Should be %s DMAKE_TMP_DIR CONFIG NAMESPACE SERVICE_NAME IMAGE_NAME" % sys.argv[0])
+    sys.exit(1)
+
+tmp_dir   = sys.argv[1]
+config    = sys.argv[2]
+namespace = sys.argv[3]
+service   = sys.argv[4]
+image     = sys.argv[5]
+
+if config == "":
+    kubernetes.config.load_kube_config()
+else:
+    kubernetes.config.load_kube_config(config)
+
+client = kubernetes.client.ExtensionsV1beta1Api()
+selector = "dmake_%s" % service
+ret = client.list_namespaced_deployment(namespace, label_selector=selector)
+if len(ret.items) == 0:
+    print("No deployments found for namespace '%s' and selector '%s'" % (namespace, selector))
+    sys.exit(0)
+
+deployments = []
+print("Deploying new image %s" % image)
+for i in ret.items:
+    name = i.metadata.name
+    container = i.metadata.labels[selector]
+    body = {"spec":{"template":{"spec":{"containers":[{"image":image,"name":container}]}}}}
+    print("- Pushing new image to %s" % name)
+    client.patch_namespaced_deployment(name, namespace, body)
+    deployments.append(name)
+
+with open(os.path.join(tmp_dir, 'k8s_deployments.txt'), 'a') as f:
+    for name in deployments:
+        f.write('"%s" deployment/%s\n' % (namespace, name))
+
+for name in deployments:
+    while True:
+        api_response = client.read_namespaced_deployment(name, namespace)
+        if api_response.status.available_replicas is None:
+            print("- Waiting for %s to be ready" % name)
+        else:
+            break
+
+
+
