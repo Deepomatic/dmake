@@ -9,6 +9,7 @@
 
 import os, sys
 import kubernetes
+import time
 
 if len(sys.argv) < 6:
     print("Missing args. Should be %s DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME IMAGE_NAME" % sys.argv[0])
@@ -48,6 +49,7 @@ for name in deployments:
         api_response = client.read_namespaced_deployment(name, namespace)
         if api_response.status.available_replicas is None:
             print("- Waiting for %s to be ready" % name)
+            time.sleep(5)
         else:
             break
 
