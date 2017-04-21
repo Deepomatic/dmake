@@ -658,7 +658,7 @@ def make(root_dir, sub_dir, command, app, options):
                 elif command == "run_link":
                     dmake_file.generate_run_link(all_commands, service, links)
                 elif command == "build":
-                    dmake_file.generate_build(all_commands)
+                    dmake_file.generate_build(all_commands, service)
                 elif command == "build_docker":
                     dmake_file.generate_build_docker(all_commands, service)
                 elif command == "deploy":

@@ -393,6 +393,7 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
     check_private    = FieldSerializer("bool",   default = True,  help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be {:branch_name}-{:build_id}")
     workdir          = FieldSerializer("dir",    optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
+    mount_point      = FieldSerializer("string", default = "/app", help_text = "Mount point of the app in the built docker image. Needs to be an absolute path.")
     #install_targets = FieldSerializer("array", child = FieldSerializer([InstallExeSerializer(), InstallLibSerializer(), InstallDirSerializer()]), default = [], help_text = "Target files or directories to install.")
     copy_directories = FieldSerializer("array", child = "dir", default = [], help_text = "Directories to copy in the docker image.")
     install_script   = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "install.sh", help_text = "The install script (will be run in the docker). It has to be executable.")
@@ -416,6 +417,9 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         image_name = name + ":" + tag
         return image_name
 
+    def get_mount_point(self):
+        return self.mount_point
+
     def generate_build_docker(self, commands, path_dir, service_name, docker_base, env, build, config):
         if common.command == "deploy" and self.name is None:
             raise DMakeException('You need to specify an image name for %s in order to deploy the service.' % service_name)
@@ -433,13 +437,13 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         with open(dockerfile_template, 'w') as f:
             f.write('FROM %s\n' % docker_base)
             f.write('${ENV_VARS}\n')
-            f.write("ADD app /app\n")
+            f.write("ADD app %s\n" % self.mount_point)
 
             if self.workdir is not None:
                 workdir = self.workdir
             else:
                 workdir = path_dir
-            workdir = '/app/' + workdir
+            workdir = os.path.join(self.mount_point, workdir)
             f.write('WORKDIR %s\n' % workdir)
 
             for port in config.ports:
@@ -454,13 +458,13 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
                     f.write('RUN cd %s && %s\n' % (workdir, cmd))
 
             if self.install_script is not None:
-                f.write('RUN cd %s && /app/%s\n' % (workdir, os.path.join(path_dir, self.install_script)))
+                f.write('RUN cd %s && %s\n' % (workdir, os.path.join(self.mount_point, path_dir, self.install_script)))
 
             if self.start_script is not None:
-                f.write('CMD ["/app/%s"]\n' % os.path.join(path_dir, self.start_script))
+                f.write('CMD ["%s"]\n' % os.path.join(self.mount_point, path_dir, self.start_script))
 
             if self.entrypoint is not None:
-                f.write('ENTRYPOINT ["/app/%s"]\n' % os.path.join(path_dir, self.entrypoint))
+                f.write('ENTRYPOINT ["%s"]\n' % os.path.join(self.mount_point, path_dir, self.entrypoint))
 
         generate_dockerfile(commands, tmp_dir, env.get_replaced_variables(build.env.production if build.env.has_value() else {}))
 
@@ -660,12 +664,17 @@ class DMakeFile(DMakeFileSerializer):
             flags.append('-e %s="%s"' % (key, value.replace('"', '\\"')))
         return " ".join(flags)
 
-    def _generate_docker_cmd_(self, commands, app_name, env = {}):
+    def _generate_docker_cmd_(self, commands, service, app_name, env = {}):
         # Set environment variables
         env_str = self._generate_env_flags_(env)
 
+        if service.config.has_value() and service.config.docker_image.has_value():
+            mount_point = service.config.docker_image.get_mount_point()
+        else:
+            mount_point = '/app'
+
         # Docker command line to run
-        docker_cmd = "-v %s:/app -w /app/%s %s -i %s " % (common.join_without_slash(common.root_dir), self.__path__, env_str, self.docker.get_docker_base_image_name_tag())
+        docker_cmd = "-v %s:%s -w %s %s -i %s " % (common.join_without_slash(common.root_dir), mount_point, os.path.join(mount_point, self.__path__), env_str, self.docker.get_docker_base_image_name_tag())
 
         return docker_cmd
 
@@ -699,17 +708,20 @@ class DMakeFile(DMakeFileSerializer):
 
     def launch_options(self, commands, service, docker_links):
         service = self._get_service_(service)
-        workdir = common.join_without_slash('/app', self.__path__)
         if not service.config.has_value() or not service.config.docker_image.has_value():
             entrypoint = None
+            mount_point = '/app'
+            workdir = common.join_without_slash(mount_point, self.__path__)
         else:
+            mount_point = service.config.docker_image.get_mount_point()
+            workdir = common.join_without_slash(mount_point, self.__path__)
             if service.config.docker_image.workdir is not None:
-                workdir = common.join_without_slash('/app', service.config.docker_image.workdir)
+                workdir = common.join_without_slash(mount_point, service.config.docker_image.workdir)
             entrypoint = service.config.docker_image.entrypoint
 
-        docker_opts = ' -v %s:/app -w %s' % (common.join_without_slash(common.root_dir), workdir)
+        docker_opts = ' -v %s:%s -w %s' % (common.join_without_slash(common.root_dir), mount_point, workdir)
         if entrypoint is not None:
-            full_path_container = os.path.join('/app', self.__path__, entrypoint)
+            full_path_container = os.path.join(mount_point, self.__path__, entrypoint)
             docker_opts += ' --entrypoint %s' % full_path_container
 
         self._get_check_needed_services_(commands, service)
@@ -757,14 +769,15 @@ class DMakeFile(DMakeFileSerializer):
             cmd = 'bash -c "%s"' % cmd
             append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
 
-    def generate_build(self, commands):
+    def generate_build(self, commands, service_name):
+        service = self._get_service_(service_name)
         if not self.build.has_value():
             return
         env = {}
         if self.build.env.has_value():
             for var, value in self.build.env.testing.items():
                 env[var] = common.eval_str_in_env(value)
-        docker_cmd = self._generate_docker_cmd_(commands, self.app_name, env)
+        docker_cmd = self._generate_docker_cmd_(commands, service, self.app_name, env)
         docker_cmd = ' -e DMAKE_TESTING=1 ' + docker_cmd
 
         for cmds in self.build.commands:
@@ -778,12 +791,12 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_test(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
-        docker_cmd = self._generate_docker_cmd_(commands, self.app_name)
+        docker_cmd = self._generate_docker_cmd_(commands, service, self.app_name)
         docker_cmd = service.config.full_docker_opts(True) + " " + docker_cmd
         if service.config.has_value() and \
            service.config.docker_image.has_value() and \
            service.config.docker_image.entrypoint:
-           docker_cmd = (' --entrypoint %s ' % os.path.join('/app', self.__path__, service.config.docker_image.entrypoint)) + docker_cmd
+           docker_cmd = (' --entrypoint %s ' % os.path.join(service.config.docker_image.mount_point, self.__path__, service.config.docker_image.entrypoint)) + docker_cmd
         docker_cmd = ' -e DMAKE_TESTING=1 ' + docker_cmd
 
         if common.build_id is None:
