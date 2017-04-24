@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Use this script to test if a given TCP host/port are available for a docker link
+#
+# Usage:
+# dmake_wait_for_it_wrapper LINK PORTS
+#
+# Result:
+# Wait for links
+
+if [ $# -ne 2 ]; then
+    dmake_fail "$0: Missing arguments"
+    exit 1
+fi
+
+set -e
+
+LINK=${1}
+PORTS=${2}
+
+LINK_NAME_UP=$(echo ${LINK} | tr '[:lower:]' '[:upper:]' | sed 's/-/_/g')
+
+for PORT in $(echo ${PORTS} | tr "," "\n"); do
+    case "$PORT" in
+        */tcp )
+        PORT=${PORT%/*}
+        HOST_VAR=${LINK_NAME_UP}_PORT_${PORT}_TCP_ADDR
+        HOST_PORT=${!HOST_VAR}:${PORT}
+        ;;
+        *)
+        echoerr "Unknown protocol: ${PORT}"
+        exit 1
+        ;;
+    esac
+    dmake_wait_for_it $HOST_PORT
+done
+

@@ -225,6 +225,34 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     link_name        = FieldSerializer("string", example = "mongo", help_text = "Link name.")
     deployed_options = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when deployed.")
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
+    probe_ports      = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
+
+    def probe_ports_list(self):
+        if isinstance(self.probe_ports, list):
+            good = True
+            for p in self.probe_ports:
+                i = p.find('/')
+                port = p[:i]
+                proto = p[(i + 1):]
+                if proto not in ['udp', 'tcp']:
+                    good = False
+                    break
+                if proto == 'udp':
+                    raise DMakeException("TODO: udp support in dmake_wait_for_it")
+                try:
+                    if int(port) < 0:
+                        good = False
+                        break
+                except:
+                    good = False
+                    break
+
+            if good:
+                return ','.join(self.probe_ports)
+        elif self.probe_ports in ['auto', 'none']:
+            return self.probe_ports
+
+        raise DMakeException("Badly formatted probe ports.")
 
 class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
     name_prefix  = FieldSerializer("string", default = "${DMAKE_DEPLOY_PREFIX}", help_text = "The prefix to add to the 'deploy_name'. Can be useful as application name have to be unique across all users of Elastic BeanStalk.")
@@ -377,8 +405,8 @@ class DeployConfigPortsSerializer(YAML2PipelineSerializer):
     host_port         = FieldSerializer("int", example = 80, help_text = "Port on the host")
 
 class DeployConfigVolumesSerializer(YAML2PipelineSerializer):
-    container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Volume on the container")
-    host_volume       = FieldSerializer("string", example = "/mnt", help_text = "Volume on the host")
+    container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
+    host_volume       = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume from the host")
 
 class DeployStageSerializer(YAML2PipelineSerializer):
     description   = FieldSerializer("string", example = "Deployment on AWS and via SSH", help_text = "Deploy stage description.")
@@ -549,8 +577,29 @@ class DeploySerializer(YAML2PipelineSerializer):
             stage.ssh._serialize_(commands, app_name, links, config, image_name, branch_env)
             stage.k8s_continuous_deployment._serialize_(commands, app_name, image_name, branch_env)
 
+class DataVolumeSerializer(YAML2PipelineSerializer):
+    container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
+    source            = FieldSerializer("string", example = "s3://my-bucket/some/folder", help_text = "Remote bucket to mount. Only s3 is supported for now and the path must start with 's3://'")
+
+    def get_mount_opt(self):
+        scheme = None
+        path = ""
+        i = self.source.find('://')
+        if i >= 0:
+            scheme = self.source[:i]
+            path = self.source[(i + 3):]
+
+        if scheme == "s3":
+            path = os.path.join(common.config_dir, 'data_volumes', 's3', path)
+            common.run_shell_command('aws s3 sync %s %s' % (self.source, path))
+        else:
+            raise DMakeException("Field source is expected to start with 's3://'")
+
+        return '-v %s:%s' % (path, self.container_volume)
+
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
+    data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     junit_report       = FieldSerializer("string", optional = True, example = "test-reports/*.xml", help_text = "Uses JUnit plugin to generate unit test report.")
     cobertura_report   = FieldSerializer("string", optional = True, example = "", help_text = "Publish a Cobertura report (not working for now).")
@@ -560,13 +609,8 @@ class TestSerializer(YAML2PipelineSerializer):
         if not self.has_value():
             return
 
-        if common.build_id is None:
-            build_id = 0
-        else:
-            build_id = common.build_id
         for cmd in self.commands:
-            d_cmd = "${DOCKER_LINK_OPTS} -e BUILD=%s " % build_id + docker_cmd
-            append_command(commands, 'sh', shell = "dmake_run_docker_command " + d_cmd + cmd)
+            append_command(commands, 'sh', shell = docker_cmd + cmd)
 
         if self.junit_report is not None:
             append_command(commands, 'junit', report = self.junit_report)
@@ -660,13 +704,11 @@ class DMakeFile(DMakeFileSerializer):
             flags.append('-e %s="%s"' % (key, value.replace('"', '\\"')))
         return " ".join(flags)
 
-    def _generate_docker_cmd_(self, commands, app_name, env = {}):
-        # Set environment variables
-        env_str = self._generate_env_flags_(env)
-
-        # Docker command line to run
-        docker_cmd = "-v %s:/app -w /app/%s %s -i %s " % (common.join_without_slash(common.root_dir), self.__path__, env_str, self.docker.get_docker_base_image_name_tag())
-
+    def _generate_docker_cmd_(self, env = {}, workdir = None):
+        if workdir is None:
+            workdir = os.path.join('/app/', self.__path__)
+        docker_cmd = "-v %s:/app -w %s " % (common.join_without_slash(common.root_dir), workdir)
+        docker_cmd += self._generate_env_flags_(env)
         return docker_cmd
 
     def _get_service_(self, service):
@@ -697,47 +739,12 @@ class DMakeFile(DMakeFileSerializer):
     def generate_base(self, commands):
         self.docker._serialize_(commands, self.__path__)
 
-    def launch_options(self, commands, service, docker_links):
-        service = self._get_service_(service)
-        workdir = common.join_without_slash('/app', self.__path__)
-        if not service.config.has_value() or not service.config.docker_image.has_value():
-            entrypoint = None
-        else:
-            if service.config.docker_image.workdir is not None:
-                workdir = common.join_without_slash('/app', service.config.docker_image.workdir)
-            entrypoint = service.config.docker_image.entrypoint
-
-        docker_opts = ' -v %s:/app -w %s' % (common.join_without_slash(common.root_dir), workdir)
-        if entrypoint is not None:
-            full_path_container = os.path.join('/app', self.__path__, entrypoint)
-            docker_opts += ' --entrypoint %s' % full_path_container
-
-        self._get_check_needed_services_(commands, service)
-
-        env_str = self._generate_env_flags_(self.build.env.testing if self.build.has_value() and \
-                                                                      self.build.env.has_value() else {})
-
-        if common.build_id is None:
-            build_id = 0
-        else:
-            build_id = common.build_id
-
-        self._get_link_opts_(commands, service)
-        image_name = self.docker.get_docker_base_image_name_tag()
-        opts = docker_opts + " " + service.config.full_docker_opts(True)
-        opts = " ${DOCKER_LINK_OPTS} %s -e BUILD=%s %s" % (opts, build_id, env_str)
-        return opts, " -i %s" % image_name
-
-    def generate_shell(self, commands, service, docker_links):
-        opts, image_opts = self.launch_options(commands, service, docker_links)
-        append_command(commands, 'sh', shell = "dmake_run_docker_command %s %s" % (opts + image_opts, self.docker.command))
-
     def generate_run(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
         if service.config is None or service.config.docker_image.start_script is None:
             return
 
-        opts, _ = self.launch_options(commands, service_name, docker_links)
+        opts = self._launch_options_(commands, service, docker_links)
         image_name = service.config.docker_image.get_image_name(service_name)
 
         if service.config.pre_deploy_script:
@@ -764,8 +771,9 @@ class DMakeFile(DMakeFileSerializer):
         if self.build.env.has_value():
             for var, value in self.build.env.testing.items():
                 env[var] = common.eval_str_in_env(value)
-        docker_cmd = self._generate_docker_cmd_(commands, self.app_name, env)
-        docker_cmd = ' -e DMAKE_TESTING=1 ' + docker_cmd
+        docker_cmd = self._generate_docker_cmd_(env)
+        docker_cmd += ' -e DMAKE_TESTING=1 '
+        docker_cmd += " -i " + self.docker.get_docker_base_image_name_tag()
 
         for cmds in self.build.commands:
             append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + '%s' % cmd for cmd in cmds])
@@ -776,33 +784,60 @@ class DMakeFile(DMakeFileSerializer):
         tmp_dir = service.deploy.generate_build_docker(commands, self.__path__, service_name, docker_base, self.env, self.build, service.config)
         self.app_package_dirs[service.service_name] = tmp_dir
 
-    def generate_test(self, commands, service_name, docker_links):
-        service = self._get_service_(service_name)
-        docker_cmd = self._generate_docker_cmd_(commands, self.app_name)
-        docker_cmd = service.config.full_docker_opts(True) + " " + docker_cmd
-        if service.config.has_value() and \
-           service.config.docker_image.has_value() and \
-           service.config.docker_image.entrypoint:
-           docker_cmd = (' --entrypoint %s ' % os.path.join('/app', self.__path__, service.config.docker_image.entrypoint)) + docker_cmd
-        docker_cmd = ' -e DMAKE_TESTING=1 ' + docker_cmd
-
-        if common.build_id is None:
-            build_id = 0
+    def _launch_options_(self, commands, service, docker_links, env = {}):
+        workdir = common.join_without_slash('/app', self.__path__)
+        if not service.config.has_value() or not service.config.docker_image.has_value():
+            entrypoint = None
         else:
-            build_id = common.build_id
+            if service.config.docker_image.workdir is not None:
+                workdir = common.join_without_slash('/app', service.config.docker_image.workdir)
+            entrypoint = service.config.docker_image.entrypoint
 
+        docker_opts = self._generate_docker_cmd_(env, workdir)
+        if entrypoint is not None:
+            full_path_container = os.path.join('/app', self.__path__, entrypoint)
+            docker_opts += ' --entrypoint %s' % full_path_container
+
+        build_id = common.build_id if common.build_id else "0"
         self._get_check_needed_services_(commands, service)
         self._get_link_opts_(commands, service)
-        d_cmd = "dmake_run_docker_command ${DOCKER_LINK_OPTS} -e BUILD=%s " % build_id + docker_cmd
+        docker_opts += " " + service.config.full_docker_opts(True)
+        docker_opts += " ${DOCKER_LINK_OPTS} -e BUILD=%s" % build_id
+
+        return docker_opts
+
+    def _generate_test_docker_cmd_(self, commands, service, docker_links):
+        env = self.build.env.testing if self.build.has_value() and \
+                                        self.build.env.has_value() else {}
+        docker_opts  = self._launch_options_(commands, service, docker_links, env)
+
+        if service.tests.has_value():
+            opts=[]
+            for data_volume in service.tests.data_volumes:
+                opts.append(data_volume.get_mount_opt())
+            docker_opts += " " + (" ".join(opts))
+
+        docker_opts += " -e DMAKE_TESTING=1 -i %s" % self.docker.get_docker_base_image_name_tag()
+
+        return "dmake_run_docker_command %s " % docker_opts
+
+    def generate_shell(self, commands, service_name, docker_links):
+        service = self._get_service_(service_name)
+        docker_cmd = self._generate_test_docker_cmd_(commands, service, docker_links)
+        append_command(commands, 'sh', shell = docker_cmd + self.docker.command)
+
+    def generate_test(self, commands, service_name, docker_links):
+        service = self._get_service_(service_name)
+        docker_cmd = self._generate_test_docker_cmd_(commands, service_name, docker_links)
 
         # Run pre-test commands
         for cmd in self.pre_test_commands:
-            append_command(commands, 'sh', shell = d_cmd + cmd)
+            append_command(commands, 'sh', shell = docker_cmd + cmd)
         # Run test commands
         service.tests.generate_test(commands, self.app_name, docker_cmd, docker_links)
         # Run post-test commands
         for cmd in self.post_test_commands:
-            append_command(commands, 'sh', shell = d_cmd + cmd)
+            append_command(commands, 'sh', shell = docker_cmd + cmd)
 
     def generate_run_link(self, commands, service, docker_links):
         service = service.split('/')
@@ -812,9 +847,7 @@ class DMakeFile(DMakeFileSerializer):
         if link_name not in docker_links:
             raise Exception("Unexpected link '%s'" % link_name)
         link = docker_links[link_name]
-        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s"' % (self.app_name, link.image_name, link.link_name, link.testing_options))
-        if common.command in ['test']:
-            append_command(commands, 'sh', shell = 'sleep 20')
+        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, link.image_name, link.link_name, link.testing_options, link.probe_ports_list()))
 
     def generate_deploy(self, commands, service, docker_links):
         service = self._get_service_(service)
