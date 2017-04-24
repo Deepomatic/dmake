@@ -20,20 +20,26 @@ PORTS=${2}
 LINK_NAME_UP=$(echo ${LINK} | tr '[:lower:]' '[:upper:]' | sed 's/-/_/g')
 
 for PORT_RANGE in $(echo ${PORTS} | tr "," "\n"); do
-    case "$PORT" in
+    case "$PORT_RANGE" in
         */tcp )
         PORT_RANGE=${PORT_RANGE%/*}
         PROTO=TCP
         ;;
         *)
-        echoerr "Unknown protocol: ${PORT_RANGE}"
+        echo "Unknown protocol: ${PORT_RANGE}"
         exit 1
         ;;
     esac
-    for PORT in $(eval echo "{$(echo ${PORT_RANGE} | sed "s/-/\.\./")}"); do
-        HOST_VAR=${LINK_NAME_UP}_PORT_${PORT}_${PROTO}_ADDR
-        HOST_PORT=${!HOST_VAR}:${PORT}
+    if [ $(echo ${PORT_RANGE} | grep "-" | wc -l) -eq "0" ]; then
+        HOST_VAR=${LINK_NAME_UP}_PORT_${PORT_RANGE}_${PROTO}_ADDR
+        HOST_PORT=${!HOST_VAR}:${PORT_RANGE}
         dmake_wait_for_it $HOST_PORT
-    done
+    else
+        for PORT in $(eval echo "{$(echo ${PORT_RANGE} | sed "s/-/\.\./")}"); do
+            HOST_VAR=${LINK_NAME_UP}_PORT_${PORT}_${PROTO}_ADDR
+            HOST_PORT=${!HOST_VAR}:${PORT}
+            dmake_wait_for_it $HOST_PORT
+        done
+    fi
 done
 
