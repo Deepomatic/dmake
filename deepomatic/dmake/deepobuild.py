@@ -773,10 +773,10 @@ class DMakeFile(DMakeFileSerializer):
                 env[var] = common.eval_str_in_env(value)
         docker_cmd = self._generate_docker_cmd_(env)
         docker_cmd += ' -e DMAKE_TESTING=1 '
-        docker_cmd += " -i " + self.docker.get_docker_base_image_name_tag()
+        docker_cmd += " -i %s " % self.docker.get_docker_base_image_name_tag()
 
         for cmds in self.build.commands:
-            append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + '%s' % cmd for cmd in cmds])
+            append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + ' %s' % cmd for cmd in cmds])
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
