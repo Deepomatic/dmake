@@ -388,6 +388,7 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
 class K8SCDDeploySerializer(YAML2PipelineSerializer):
     context   = FieldSerializer("string", help_text = "kubectl context to use.")
     namespace = FieldSerializer("string", default = "default", help_text = "Kubernetes namespace to target")
+    selectors = FieldSerializer("dict", default = {}, child = "string", help_text = "Selectors to restrict the deployment.")
 
     def _serialize_(self, commands, app_name, image_name, env):
         if not self.has_value():
@@ -396,7 +397,14 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
         for var, value in env.items():
             os.environ[var] = common.eval_str_in_env(value)
 
-        cmd = 'dmake_deploy_k8s_cd "%s" "%s" "%s" "%s" "%s"' % (common.tmp_dir, common.eval_str_in_env(self.context), common.eval_str_in_env(self.namespace), app_name, image_name)
+        selectors = []
+        for key, value in self.selectors.items():
+            if value.find(','):
+                raise DMakeException("Cannot have ',' in selector value")
+            selectors.append("%s=%s" % (key, value))
+        selectors = ",".join(selectors)
+
+        cmd = 'dmake_deploy_k8s_cd "%s" "%s" "%s" "%s" "%s" "%s"' % (common.tmp_dir, common.eval_str_in_env(self.context), common.eval_str_in_env(self.namespace), app_name, image_name, selectors)
         append_command(commands, 'sh', shell = cmd)
 
 
