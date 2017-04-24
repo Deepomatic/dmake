@@ -38,7 +38,9 @@ for PORT_RANGE in $(echo ${PORTS} | tr "," "\n"); do
         for PORT in $(eval echo "{$(echo ${PORT_RANGE} | sed "s/-/\.\./")}"); do
             HOST_VAR=${LINK_NAME_UP}_PORT_${PORT}_${PROTO}_ADDR
             HOST_PORT=${!HOST_VAR}:${PORT}
+            set +e
             dmake_wait_for_it $HOST_PORT
+            set -e
         done
     fi
 done
