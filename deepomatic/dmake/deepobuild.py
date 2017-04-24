@@ -828,7 +828,7 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_test(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
-        docker_cmd = self._generate_test_docker_cmd_(commands, service_name, docker_links)
+        docker_cmd = self._generate_test_docker_cmd_(commands, service, docker_links)
 
         # Run pre-test commands
         for cmd in self.pre_test_commands:
