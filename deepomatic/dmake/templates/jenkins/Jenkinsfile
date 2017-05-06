@@ -14,6 +14,15 @@ properties([
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                         env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
     checkout scm
-    sh 'if [ -z "${CHANGE_TARGET}" ] then ACTION="deploy"; else ACTION="test"; fi dmake ${ACTION} "${DMAKE_APP}"'
+    try {
+        sh 'git submodule update --init'
+    } catch(error) {
+        deleteDir()
+        checkout scm
+        sh 'git submodule update --init'
+    }
+
+    sh 'if [ -z "${CHANGE_TARGET}" ] then ACTION="deploy"; else ACTION="test"; fi; dmake ${ACTION} "${DMAKE_APP}"'
+
     load 'DMakefile'
 }

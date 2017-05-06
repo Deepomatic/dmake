@@ -218,6 +218,7 @@ def make(root_dir, sub_dir, command, app, options):
         auto_complete = n == 1
         if not auto_complete:
             auto_completed_app = app
+        common.force_full_deploy = True
     elif common.command in ['shell']:
         auto_complete = True
 
@@ -430,7 +431,7 @@ def make(root_dir, sub_dir, command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         do_clean = True
-        if result != 0 and common.command in ['run', 'shell']:
+        if result != 0 and common.command in ['run', 'shell', 'test']:
             r = common.read_input("An error was detected. DMake will stop. The script directory is : %s.\nDo you want to stop all the running containers? [Y/n] " % common.tmp_dir)
             if r.lower() != 'y' and r != "":
                 do_clean = False

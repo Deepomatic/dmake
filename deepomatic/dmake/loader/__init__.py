@@ -64,6 +64,8 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         return []
 
     if node not in service_dependencies:
+        if service not in service_providers:
+            raise DMakeException("Cannot find service: %s" % service)
         file, needs = service_providers[service]
 
         # Build base docker image of a dmake file

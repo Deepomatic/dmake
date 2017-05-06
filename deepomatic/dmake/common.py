@@ -128,7 +128,7 @@ def pull_config_dir(root_dir):
 ###############################################################################
 
 def init(_command, _root_dir, _app, _options):
-    global root_dir, tmp_dir, cache_dir, key_file
+    global root_dir, tmp_dir, config_dir, cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
     global repo_url, repo, use_pipeline, is_local, skip_tests
     global build_description
@@ -137,6 +137,9 @@ def init(_command, _root_dir, _app, _options):
     command = _command
     options = _options
 
+    config_dir = os.getenv('DMAKE_CONFIG_DIR', None)
+    if config_dir is None:
+        raise DMakeException("DMake seems to be badly configured: environment variable DMAKE_CONFIG_DIR is missing. Try to run %s again." % os.path.join(os.getenv('DMAKE_PATH', ""), 'install.sh'))
     cache_dir = os.path.join(root_dir, '.dmake')
     try:
         os.mkdir(cache_dir)
