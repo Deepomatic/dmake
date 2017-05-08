@@ -855,7 +855,10 @@ class DMakeFile(DMakeFileSerializer):
         if link_name not in docker_links:
             raise Exception("Unexpected link '%s'" % link_name)
         link = docker_links[link_name]
-        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, link.image_name, link.link_name, link.testing_options, link.probe_ports_list()))
+        for var, value in self.env.get_replaced_variables().items():
+            os.environ[var] = common.eval_str_in_env(value)
+        options = common.eval_str_in_env(link.testing_options)
+        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, link.image_name, link.link_name, options, link.probe_ports_list()))
 
     def generate_deploy(self, commands, service, docker_links):
         service = self._get_service_(service)
