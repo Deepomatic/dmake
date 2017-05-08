@@ -22,6 +22,7 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
         sh 'git submodule update --init'
     }
 
+    # CHANGE_TARGET is defined by Jenkins  GitHub Organization plugin for Pull Requests
     sh 'if [ -z "${CHANGE_TARGET}" ] then ACTION="deploy"; else ACTION="test"; fi; dmake ${ACTION} "${DMAKE_APP}"'
 
     load 'DMakefile'

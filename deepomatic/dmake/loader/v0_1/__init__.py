@@ -1,1 +1,1 @@
-from deepobuild import DMakeFile
+from .dmake_file import DMakeFile

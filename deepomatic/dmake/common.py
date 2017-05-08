@@ -1,29 +1,18 @@
 import os
-import sys
 import logging
 import subprocess
 import re
+import tempfile
+from datetime import date
+
+# Compatibility
+from deepomatic.dmake.compat import is_string
+from deepomatic.dmake.compat import read_input
 
 # Set logger
 logger = logging.getLogger("deepomatic.dmake")
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
-
-###############################################################################
-# Compatibility
-
-if sys.version_info >= (3,0):
-    def is_string(x):
-        return isinstance(x, str)
-
-    def read_input(msg):
-        return input(msg + ' ')
-else:
-    def is_string(x):
-        return isinstance(x, basestring)
-
-    def read_input(msg):
-        return raw_input(msg + ' ')
 
 ###############################################################################
 # Set by init: TODO some things could be set directly
@@ -38,7 +27,7 @@ is_pr = None
 pr_id = None
 build_id = None
 commit_id = None
-force_full_deploy = None
+#force_full_deploy = False
 repo_url = None
 repo = None
 use_pipeline = None
@@ -66,6 +55,9 @@ class NotGitRepositoryException(DMakeException):
 
 ###############################################################################
 # Shell utilities
+
+def run_dmake_script(module, cmd, *args):
+    raise Exception("TODO")
 
 def run_shell_command(cmd, ignore_error = False):
     command = ['bash', '-c', cmd]
@@ -129,7 +121,7 @@ def pull_config_dir(root_dir):
 
 def init(_command, _root_dir, _app, _options):
     global root_dir, tmp_dir, config_dir, cache_dir, key_file
-    global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
+    global branch, target, is_pr, pr_id, build_id, commit_id
     global repo_url, repo, use_pipeline, is_local, skip_tests
     global build_description
     global command, options, uname
@@ -146,7 +138,10 @@ def init(_command, _root_dir, _app, _options):
     except OSError:
         pass
 
-    tmp_dir = run_shell_command("dmake_make_tmp_dir")
+    # Create temporary directory for the build
+    today = date.today()
+    prefix = 'dmake_tmp_%d_%02d_%02d_' % (today.year, today.month, today.day)
+    tmp_dir = tempfile.mkdtemp(prefix=prefix)
     os.environ['DMAKE_TMP_DIR'] = tmp_dir
 
     # Get uname
@@ -182,7 +177,6 @@ def init(_command, _root_dir, _app, _options):
         pr_id    = os.getenv('CHANGE_ID')
         build_id = os.getenv('BUILD_ID', '0')
     is_pr = target is not None
-    force_full_deploy = False
 
     if 'branch' in options and options.branch:
         branch = options.branch

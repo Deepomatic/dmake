@@ -4,8 +4,7 @@ import json
 import random
 from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import deepomatic.dmake.common as common
-from deepomatic.dmake.common import DMakeException
-from deepomatic.dmake.common import append_command
+from deepomatic.dmake.common import DMakeException, append_command
 
 ###############################################################################
 
@@ -102,69 +101,73 @@ class DockerSerializer(YAML2PipelineSerializer):
     base_image   = DockerBaseSerializer(optional = True, help_text = "Base (intermediate) image to speed-up builds.")
     command      = FieldSerializer("string", default = "bash", help_text = "Only used when running 'dmake shell': set the command of the container")
 
-    def _serialize_(self, commands, path_dir):
+    def _serialize_(self, path_dir):
         if self.base_image.has_value():
-            # Make the temporary directory
-            tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+            return [], None
 
-            # Copy file and compute their md5
-            files_to_copy = []
-            for file in self.base_image.copy_files + self.base_image.install_scripts:
-                files_to_copy.append(file)
-            if self.base_image.python_requirements:
-                files_to_copy.append(self.base_image.python_requirements)
-            if self.base_image.python3_requirements:
-                files_to_copy.append(self.base_image.python3_requirements)
+        # Make the temporary directory
+        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
 
-            # Copy file and keep their md5
-            md5s = {}
-            for file in files_to_copy:
-                md5s[file] = common.run_shell_command('dmake_copy_file %s %s' % (os.path.join(path_dir, file), os.path.join(tmp_dir, 'user', file)))
+        # Copy file and compute their md5
+        files_to_copy = []
+        for file in self.base_image.copy_files + self.base_image.install_scripts:
+            files_to_copy.append(file)
+        if self.base_image.python_requirements:
+            files_to_copy.append(self.base_image.python_requirements)
+        if self.base_image.python3_requirements:
+            files_to_copy.append(self.base_image.python3_requirements)
 
-            # Set RUN command
-            run_cmd = "cd user"
-            for file in self.base_image.install_scripts:
-                run_cmd += " && ./%s" % file
+        # Copy file and keep their md5
+        md5s = {}
+        for file in files_to_copy:
+            md5s[file] = common.run_shell_command('dmake_copy_file %s %s' % (os.path.join(path_dir, file), os.path.join(tmp_dir, 'user', file)))
 
-            # Install pip if needed
-            if self.base_image.python_requirements:
-                run_cmd += " && bash ../install_pip.sh && pip install --process-dependency-links -r " + self.base_image.python_requirements
-            if self.base_image.python3_requirements:
-                run_cmd += " && bash ../install_pip3.sh && pip3 install --process-dependency-links -r " + self.base_image.python3_requirements
+        # Set RUN command
+        run_cmd = "cd user"
+        for file in self.base_image.install_scripts:
+            run_cmd += " && ./%s" % file
 
-            # Save the command in a bash file
-            file = 'run_cmd.sh'
-            with open(os.path.join(tmp_dir, file), 'w') as f:
-                f.write(run_cmd)
-            md5s[file] = common.run_shell_command('dmake_md5 %s' % os.path.join(tmp_dir, file))
+        # Install pip if needed
+        if self.base_image.python_requirements:
+            run_cmd += " && bash ../install_pip.sh && pip install --process-dependency-links -r " + self.base_image.python_requirements
+        if self.base_image.python3_requirements:
+            run_cmd += " && bash ../install_pip3.sh && pip3 install --process-dependency-links -r " + self.base_image.python3_requirements
 
-            # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
-            if common.key_file is not None:
-                common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
+        # Save the command in a bash file
+        file = 'run_cmd.sh'
+        with open(os.path.join(tmp_dir, file), 'w') as f:
+            f.write(run_cmd)
+        md5s[file] = common.run_shell_command('dmake_md5 %s' % os.path.join(tmp_dir, file))
 
-            # Local environment for temmplates
-            local_env = []
-            local_env.append("export ROOT_IMAGE=%s" % self.root_image)
-            local_env = ' && '.join(local_env)
-            if len(local_env) > 0:
-                local_env += ' && '
+        # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
+        if common.key_file is not None:
+            common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
 
-            # Copy templates
-            for file in ["make_base.sh", "config.logrotate", "load_credentials.sh", "install_pip.sh", "install_pip3.sh"]:
-                md5s[file] = common.run_shell_command('%s dmake_copy_template docker-base/%s %s' % (local_env, file, os.path.join(tmp_dir, file)))
+        # Local environment for temmplates
+        local_env = []
+        local_env.append("export ROOT_IMAGE=%s" % self.root_image)
+        local_env = ' && '.join(local_env)
+        if len(local_env) > 0:
+            local_env += ' && '
 
-            # Output md5s for comparison
-            with open(os.path.join(tmp_dir, 'md5s'), 'w') as f:
-                for md5 in md5s.items():
-                    f.write('%s %s\n' % md5)
+        # Copy templates
+        for file in ["make_base.sh", "config.logrotate", "load_credentials.sh", "install_pip.sh", "install_pip3.sh"]:
+            md5s[file] = common.run_shell_command('%s dmake_copy_template docker-base/%s %s' % (local_env, file, os.path.join(tmp_dir, file)))
 
-            # Append Docker Base build command
-            append_command(commands, 'sh', shell = 'dmake_build_base_docker "%s" "%s" "%s" "%s" "%s"' %
-                            (tmp_dir,
-                             self.root_image,
-                             self.base_image.name,
-                             self._get_tag_(),
-                             self.base_image.version))
+        # Output md5s for comparison
+        with open(os.path.join(tmp_dir, 'md5s'), 'w') as f:
+            for md5 in md5s.items():
+                f.write('%s %s\n' % md5)
+
+        # Append Docker Base build command
+        commands = []
+        append_command(commands, 'sh', shell = 'dmake_build_base_docker "%s" "%s" "%s" "%s" "%s"' %
+                        (tmp_dir,
+                         self.root_image,
+                         self.base_image.name,
+                         self._get_tag_(),
+                         self.base_image.version))
+        return commands
 
     def _get_tag_(self):
         if common.is_pr:
@@ -626,7 +629,7 @@ class TestSerializer(YAML2PipelineSerializer):
                 index     = html['index'],
                 title     = html['title'])
 
-class ServicesSerializer(YAML2PipelineSerializer):
+class ServiceSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", default = "", help_text = "The name of the application part.", example = "api", no_slash_no_space = True)
     needed_services = FieldSerializer("array", child = FieldSerializer("string", blank = False), default = [], help_text = "List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.", example = ["worker"])
     sources         = FieldSerializer("array", child = FieldSerializer(["path", "dir"]), optional = True, help_text = "If specified, this service will be considered as updated only when the content of those directories or files have changed.", example = 'path/to/app')
@@ -647,222 +650,63 @@ class DMakeFileSerializer(YAML2PipelineSerializer):
     app_name           = FieldSerializer("string", help_text = "The application name.", example = "my_app", no_slash_no_space = True)
     blacklist          = FieldSerializer("array", child = "path", default = [], help_text = "List of dmake files to blacklist.", child_path_only = True, example = ['some/sub/dmake.yml'])
     env                = FieldSerializer(["path", EnvSerializer()], optional = True, help_text = "Environment variables to embed in built docker images.")
-    docker             = FieldSerializer([FieldSerializer("path", help_text = "to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field."), DockerSerializer()], help_text = "The environment in which to build and deploy.")
+    docker             = FieldSerializer([DockerSerializer(), FieldSerializer("path", help_text = "to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field.")], help_text = "The environment in which to build and deploy.")
     docker_links       = FieldSerializer("array", child = DockerLinkSerializer(), default = [], help_text = "List of link to create, they are shared across the whole application, so potentially across multiple dmake files.")
     build              = BuildSerializer(optional = True, help_text = "Commands to run for building the application.")
     pre_test_commands  = FieldSerializer("array", default = [], child = "string", help_text = "Command list to run before running tests.")
     post_test_commands = FieldSerializer("array", default = [], child = "string", help_text = "Command list to run after running tests.")
-    services           = FieldSerializer("array", child = ServicesSerializer(), default = [], help_text = "Service list.")
+    services           = FieldSerializer("array", child = ServiceSerializer(), default = [], help_text = "Service list.")
 
-class DMakeFile(DMakeFileSerializer):
-    def __init__(self, file, data):
-        super(DMakeFile, self).__init__()
+    #def _validate_(self, path, data):
+    #    super(DMakeFileSerializer, self)._validate_(path, data)
 
-        self.__path__ = os.path.join(os.path.dirname(file), '')
+        # if self.env is None:
+        #     env = EnvBranchSerializer()
+        #     env._validate_(self.__path__, {'variables': {}})
+        #     self.__fields__['env'] = env
+        # else:
+        #     if isinstance(self.env, EnvSerializer):
+        #         env = copy.deepcopy(self.env.default)
+        #         if common.branch in self.env.branches:
+        #             env_branch = self.env.branches[common.branch]
+        #             for var, value in env_branch.variables.items():
+        #                 env.variables[var] = value
+        #             env.__fields__['source'].value = env_branch.source
+        #         if env.source is not None:
+        #             env.__fields__['source'].value = common.eval_str_in_env(env.source)
+        #         else:
+        #             env.__fields__['source'].value = None
+        #         self.__fields__['env'] = env
 
-        try:
-            path = os.path.join(os.path.dirname(file), '')
-            self._validate_(path, data)
-        except ValidationError as e:
-            raise DMakeException(("Error in %s:\n" % file) + str(e))
+        # TODO
+        # # Unroll docker image references
+        # if common.is_string(dmake_file.docker):
+        #     ref = dmake_file.docker
+        #     load_dmake_file(blacklist, loaded_files, service_managers, ref)
+        #     if common.is_string(loaded_files[ref].docker):
+        #         raise DMakeException('Circular references: trying to load %s which is already loaded.' % loaded_files[ref].docker)
+        #     dmake_file.__fields__['docker'] = loaded_files[ref].docker
+        # else:
+        #     if common.is_string(dmake_file.docker.root_image):
+        #         ref = dmake_file.docker.root_image
+        #         load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
+        #         dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.get_docker_base_image_name_tag()
+        #     else:
+        #         dmake_file.docker.__fields__['root_image'] = dmake_file.docker.root_image.full_name()
 
-        if self.env is None:
-            env = EnvBranchSerializer()
-            env._validate_(self.__path__, {'variables': {}})
-            self.__fields__['env'] = env
-        else:
-            if isinstance(self.env, EnvSerializer):
-                env = copy.deepcopy(self.env.default)
-                if common.branch in self.env.branches:
-                    env_branch = self.env.branches[common.branch]
-                    for var, value in env_branch.variables.items():
-                        env.variables[var] = value
-                    env.__fields__['source'].value = env_branch.source
-                if env.source is not None:
-                    env.__fields__['source'].value = common.eval_str_in_env(env.source)
-                else:
-                    env.__fields__['source'].value = None
-                self.__fields__['env'] = env
+        #     # If a base image is declared
+        #     root_image = dmake_file.docker.root_image
+        #     base_image = dmake_file.docker.get_docker_base_image_name_tag()
+        #     if root_image != base_image:
+        #         add_service_provider(service_providers, base_image, file)
+        #         service_dependencies[('base', base_image)] = [('base', root_image)]
 
-        self.docker_services_image = None
-        self.app_package_dirs = {}
+        # if common.is_string(dmake_file.env):
+        #     ref = dmake_file.env
+        #     load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
+        #     if common.is_string(loaded_files[ref].env):
+        #         raise DMakeException('Circular references: trying to load %s which is already loaded.' % ref)
+        #     dmake_file.__fields__['env'] = loaded_files[ref].env
 
-    def get_path(self):
-        return self.__path__
-
-    def get_app_name(self):
-        return self.app_name
-
-    def get_services(self):
-        return self.services
-
-    def get_docker_links(self):
-        return self.docker_links
-
-    def _generate_env_flags_(self, additional_variables = {}):
-        flags = []
-        for key, value in self.env.get_replaced_variables(additional_variables).items():
-            flags.append('-e %s=%s' % (key, common.wrap_cmd(value)))
-        return " ".join(flags)
-
-    def _generate_docker_cmd_(self, env = {}, workdir = None):
-        if workdir is None:
-            workdir = os.path.join('/app/', self.__path__)
-        docker_cmd = "-v %s:/app -w %s " % (common.join_without_slash(common.root_dir), workdir)
-        docker_cmd += self._generate_env_flags_(env)
-        return docker_cmd
-
-    def _get_service_(self, service):
-        for t in self.services:
-            t_name = "%s/%s" % (self.app_name, t.service_name)
-            if t_name == service:
-                return t
-        raise DMakeException("Could not find service '%s'" % service)
-
-    def _get_link_opts_(self, commands, service):
-        docker_links_names = []
-        if common.options.dependencies:
-            if service.tests.has_value():
-                docker_links_names = service.tests.docker_links_names
-        else:
-            if service.config.has_value():
-                docker_links_names = service.config.docker_links_names
-
-        if len(docker_links_names) > 0:
-            append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(docker_links_names)), fail_if_empty = True)
-
-    def _get_check_needed_services_(self, commands, service):
-        if common.options.dependencies and len(service.needed_services) > 0:
-            app_name = self.app_name
-            needed_services = map(lambda service_name: "%s/%s" % (app_name, service_name), service.needed_services)
-            append_command(commands, 'sh', shell = "dmake_check_services %s" % (' '.join(needed_services)))
-
-    def generate_base(self, commands):
-        self.docker._serialize_(commands, self.__path__)
-
-    def generate_run(self, commands, service_name, docker_links):
-        service = self._get_service_(service_name)
-        if service.config is None or service.config.docker_image.start_script is None:
-            return
-
-        opts = self._launch_options_(commands, service, docker_links)
-        image_name = service.config.docker_image.get_image_name(service_name)
-
-        # <DEPRECATED>
-        if service.config.pre_deploy_script:
-            cmd = service.config.pre_deploy_script
-            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
-        # </DEPRECATED>
-
-        daemon_opts = "${DOCKER_LINK_OPTS} %s" % service.config.full_docker_opts(True)
-        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (service_name, daemon_opts, image_name))
-
-        cmd = service.config.readiness_probe.get_cmd()
-        if cmd:
-            append_command(commands, 'sh', shell = 'dmake_exec_docker "$DAEMON_ID" %s' % cmd)
-
-        # <DEPRECATED>
-        cmd = []
-        if service.config.mid_deploy_script:
-            cmd.append(service.config.mid_deploy_script)
-        if service.config.post_deploy_script:
-            cmd.append(service.config.post_deploy_script)
-        cmd = " && ".join(cmd)
-        if cmd:
-            cmd = 'bash -c %s' % common.wrap_cmd(cmd)
-            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
-        # </DEPRECATED>
-
-    def generate_build(self, commands):
-        if not self.build.has_value():
-            return
-        env = {}
-        if self.build.env.has_value():
-            for var, value in self.build.env.testing.items():
-                env[var] = common.eval_str_in_env(value)
-        docker_cmd = self._generate_docker_cmd_(env)
-        docker_cmd += ' -e DMAKE_TESTING=1 '
-        docker_cmd += " -i %s " % self.docker.get_docker_base_image_name_tag()
-
-        for cmds in self.build.commands:
-            append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + ' %s' % cmd for cmd in cmds])
-
-    def generate_build_docker(self, commands, service_name):
-        service = self._get_service_(service_name)
-        docker_base = self.docker.get_docker_base_image_name_tag()
-        tmp_dir = service.deploy.generate_build_docker(commands, self.__path__, service_name, docker_base, self.env, self.build, service.config)
-        self.app_package_dirs[service.service_name] = tmp_dir
-
-    def _launch_options_(self, commands, service, docker_links, env = {}):
-        workdir = common.join_without_slash('/app', self.__path__)
-        if not service.config.has_value() or not service.config.docker_image.has_value():
-            entrypoint = None
-        else:
-            if service.config.docker_image.workdir is not None:
-                workdir = common.join_without_slash('/app', service.config.docker_image.workdir)
-            entrypoint = service.config.docker_image.entrypoint
-
-        docker_opts = self._generate_docker_cmd_(env, workdir)
-        if entrypoint is not None:
-            full_path_container = os.path.join('/app', self.__path__, entrypoint)
-            docker_opts += ' --entrypoint %s' % full_path_container
-
-        build_id = common.build_id if common.build_id else "0"
-        self._get_check_needed_services_(commands, service)
-        self._get_link_opts_(commands, service)
-        docker_opts += " " + service.config.full_docker_opts(True)
-        docker_opts += " ${DOCKER_LINK_OPTS} -e BUILD=%s" % build_id
-
-        return docker_opts
-
-    def _generate_test_docker_cmd_(self, commands, service, docker_links):
-        env = self.build.env.testing if self.build.has_value() and \
-                                        self.build.env.has_value() else {}
-        docker_opts  = self._launch_options_(commands, service, docker_links, env)
-
-        if service.tests.has_value():
-            opts=[]
-            for data_volume in service.tests.data_volumes:
-                opts.append(data_volume.get_mount_opt())
-            docker_opts += " " + (" ".join(opts))
-
-        docker_opts += " -e DMAKE_TESTING=1 -i %s" % self.docker.get_docker_base_image_name_tag()
-
-        return "dmake_run_docker_command %s " % docker_opts
-
-    def generate_shell(self, commands, service_name, docker_links):
-        service = self._get_service_(service_name)
-        docker_cmd = self._generate_test_docker_cmd_(commands, service, docker_links)
-        append_command(commands, 'sh', shell = docker_cmd + self.docker.command)
-
-    def generate_test(self, commands, service_name, docker_links):
-        service = self._get_service_(service_name)
-        docker_cmd = self._generate_test_docker_cmd_(commands, service, docker_links)
-
-        # Run pre-test commands
-        for cmd in self.pre_test_commands:
-            append_command(commands, 'sh', shell = docker_cmd + cmd)
-        # Run test commands
-        service.tests.generate_test(commands, self.app_name, docker_cmd, docker_links)
-        # Run post-test commands
-        for cmd in self.post_test_commands:
-            append_command(commands, 'sh', shell = docker_cmd + cmd)
-
-    def generate_run_link(self, commands, service, docker_links):
-        service = service.split('/')
-        if len(service) != 3:
-            raise Exception("Something went wrong: the service should be of the form 'links/:app_name/:link_name'")
-        link_name = service[2]
-        if link_name not in docker_links:
-            raise Exception("Unexpected link '%s'" % link_name)
-        link = docker_links[link_name]
-        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, link.image_name, link.link_name, link.testing_options, link.probe_ports_list()))
-
-    def generate_deploy(self, commands, service, docker_links):
-        service = self._get_service_(service)
-        if not service.deploy.has_value():
-            return
-        if not service.config.has_value():
-            raise DMakeException("You need to specify a 'config' when deploying.")
-        assert(service.service_name in self.app_package_dirs)
-        service.deploy.generate_deploy(commands, self.app_name, service.service_name, self.app_package_dirs[service.service_name], docker_links, self.env, service.config)
+        #self.docker_services_image = None
+        #self.app_package_dirs = {}

@@ -3,18 +3,8 @@ import os, sys
 import deepomatic.dmake.common as common
 import deepomatic.dmake.loader as loader
 from deepomatic.dmake.common import DMakeException, append_command
-
-tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that the credentials declared in the DMAKE_JENKINS_SSH_AGENT_CREDENTIALS and DMAKE_JENKINS_HTTP_CREDENTIALS allow you to write to the repository."
-
-###############################################################################
-
-def load_dmake_files_list():
-    build_files = common.run_shell_command("find . -name dmake.yml").split("\n")
-    build_files = filter(lambda f: len(f.strip()) > 0, build_files)
-    build_files = [file[2:] for file in build_files]
-    # Important: for black listed files: we load file in order from root to deepest file
-    build_files = sorted(build_files, key = lambda path: len(os.path.dirname(path)))
-    return build_files
+from deepomatic.dmake.action import ActionManager
+import generator
 
 ###############################################################################
 
@@ -70,140 +60,78 @@ def order_dependencies(dependencies, sorted_leaves):
 
 ###############################################################################
 
-def generate_command_pipeline(file, cmds):
-    if common.build_description is not None:
-        file.write("currentBuild.description = '%s'\n" % common.build_description.replace("'", "\\'"))
-    file.write('try {\n')
-
-    for cmd, kwargs in cmds:
-        if cmd == "stage":
-            name = kwargs['name'].replace("'", "\\'")
-            if kwargs['concurrency'] is not None:
-                file.write("stage concurrency: %s, name: '%s'\n" % (str(kwargs['concurrency']), name))
-            else:
-                file.write("stage '%s'\n" % name)
-        elif cmd == "sh":
-            commands = kwargs['shell']
-            if common.is_string(commands):
-                commands = [commands]
-            commands = [c.replace("'", "\\'")
-                         .replace("$", "\\$") for c in commands]
-            if len(commands) == 0:
-                return
-            if len(commands) == 1:
-                file.write("sh('%s')\n" % commands[0])
-            else:
-                file.write('parallel (\n')
-                commands_list = []
-                for c in enumerate(commands):
-                    commands_list.append("cmd%d: { sh('%s') }" % c)
-                file.write(',\n'.join(commands_list))
-                file.write(')\n')
-        elif cmd == "read_sh":
-            file_output = os.path.join(common.root_dir, ".dmake", "output_%d" % kwargs['id'])
-            file.write("sh('%s > %s')\n" % (kwargs['shell'], file_output))
-            file.write("env.%s = readFile '%s'\n" % (kwargs['var'], file_output));
-            if kwargs['fail_if_empty']:
-                file.write("sh('if [ -z \"${%s}\" ]; then exit 1; fi')\n" % kwargs['var'])
-        elif cmd == "env":
-            file.write('env.%s = "%s"\n' % (kwargs['var'], kwargs['value']))
-        elif cmd == "git_tag":
-            if common.repo_url is not None:
-                file.write("sh('git tag --force %s')\n" % kwargs['tag'])
-                file.write('try {\n')
-                if common.repo_url.startswith('https://') or common.repo_url.startswith('http://'):
-                    i = common.repo_url.find(':')
-                    prefix = common.repo_url[:i]
-                    host = common.repo_url[(i + 3):]
-                    file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: env.DMAKE_JENKINS_HTTP_CREDENTIALS, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
-                    file.write('try {\n')
-                    file.write("sh(\"git push --force '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' refs/tags/%s\")\n" % (prefix, host, kwargs['tag']))
-                    file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
-                    file.write("}\n")
-                    file.write("""} catch(error) {\nsh('echo "Define \\'User/Password\\' credentials and set their ID in the \\'DMAKE_JENKINS_HTTP_CREDENTIALS\\' environment variable to be able to build and deploy only changed parts of the app."')\n}\n""")
-                else:
-                    file.write("sh('git push --force origin refs/tags/%s')\n" % kwargs['tag'])
-                    file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
-        elif cmd == "junit":
-            file.write("junit '%s'\n" % kwargs['report'])
-        elif cmd == "cobertura":
-            pass
-        elif cmd == "publishHTML":
-            file.write("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])\n" % (kwargs['directory'], kwargs['index'], kwargs['title'].replace("'", "\'")))
-        elif cmd == "build":
-            parameters = []
-            for var, value in kwargs['parameters'].items():
-                value = common.eval_str_in_env(value)
-                parameters.append("string(name: '%s', value: '%s')" % (var.replace("'", "\\'"), value.replace("'", "\\'")))
-            parameters = ','.join(parameters)
-            file.write("build job: '%s', parameters: [%s], propagate: %s, wait: %s\n" % (
-                    kwargs['job'].replace("'", "\\'"),
-                    parameters,
-                    "true" if kwargs['propagate'] else "false",
-                    "true" if kwargs['wait'] else "false"))
-        else:
-            raise Exception("Unknown command %s" % cmd)
-
-    file.write('}\n')
-    file.write('finally {\n')
-    file.write('sh("dmake_clean")\n')
-    file.write('}\n')
-
-###############################################################################
-
-def generate_command_bash(file, cmds):
-    file.write('set -e\n')
-    for cmd, kwargs in cmds:
-        if cmd == "stage":
-            file.write("echo %s\n" % kwargs['name'])
-        elif cmd == "sh":
-            commands = kwargs['shell']
-            if common.is_string(commands):
-                commands = [commands]
-            for c in commands:
-                file.write("%s\n" % c)
-        elif cmd == "read_sh":
-            file.write("export %s=`%s`\n" % (kwargs['var'], kwargs['shell']))
-            if kwargs['fail_if_empty']:
-                file.write("if [ -z \"${%s}\" ]; then exit 1; fi\n" % kwargs['var'])
-        elif cmd == "env":
-            file.write('export %s="%s"\n' % (kwargs['var'], kwargs['value'].replace('"', '\\"')))
-        elif cmd == "git_tag":
-            file.write('git tag --force %s\n' % kwargs['tag'])
-            file.write('git push --force origin refs/tags/%s || echo %s\n' % (kwargs['tag'], tag_push_error_msg))
-        elif cmd == "junit":
-            pass  # Should be configured with GUI
-        elif cmd == "cobertura":
-            pass  # Should be configured with GUI
-        elif cmd == "publishHTML":
-            pass  # Should be configured with GUI
-        elif cmd == "build":
-            pass  # Should be configured with GUI
-        else:
-            raise Exception("Unknown command %s" % cmd)
-
-###############################################################################
-
-def generate_command(file_name, cmds):
-    with open(file_name, "w") as file:
-        if common.use_pipeline:
-            generate_command_pipeline(file, cmds)
-        else:
-            generate_command_bash(file, cmds)
-
-###############################################################################
-
 def make(root_dir, sub_dir, command, app, options):
-    if 'DMAKE_TMP_DIR' in os.environ:
-        del os.environ['DMAKE_TMP_DIR']
     common.init(command, root_dir, app, options)
-
-    if app == "":
-        app = None
 
     if common.command == "stop":
         common.run_shell_command("docker rm -f `docker ps -q -f name=%s.%s.%s`" % (app, common.branch, common.build_id))
         return
+
+    # Load dmake files
+    service_managers = loader.load_dmake_files()
+
+    # Create action managers
+    has_services = False
+    action_managers = {}
+    for a, service_manager in service_managers.items():
+        action_managers[a] = ActionManager(service_manager)
+        if len(service_manager.get_services()) > 0:
+            has_services = True
+    if not has_services:
+        raise DMakeException('No defined service. Nothing to do.')
+
+    # Filter by app, auto-discovers app by path if not given
+    def find_services(filter_path = '', filter_app = None):
+        services = []
+        for a, service_manager in service_managers.items():
+            for s, service in service_manager.get_services().items():
+                if str(service.get_dmake_file()).startswith(filter_path) and \
+                   (filter_app is None or filter_app == a or filter_app == s):
+                    services.append((a, s))
+        return services
+
+    if app == "*":
+        filtered_services = find_services()
+    elif app == "" or app is None: # Discover by path
+        filtered_services = find_services(sub_dir)
+    else:
+        app = app.split('/')
+        n = len(app)
+        if n > 2:
+            raise DMakeException('Cannot have more than one slash in the app name')
+        elif n == 2:
+            if app[0] in service_managers and \
+               app[1] in service_managers[app[0]].get_services():
+                filtered_services = [app]
+            else:
+                filtered_services = []
+        else:
+            filtered_services = find_services(sub_dir, app[0])
+
+    if len(filtered_services) == 0:
+        raise DMakeException('Could not find any service matching the requested pattern.')
+
+    if common.command in ["shell"] and len(filtered_services) > 1:
+        filtered_services = map(lambda s: s[0] + '/' + s[1], filtered_services)
+        filtered_services = map(lambda s: '- ' + s, filtered_services)
+        filtered_services = '\n'.join(filtered_services)
+        raise DMakeException('More than one service matches the requested pattern:\n%s' % filtered_services)
+
+    # Generate commands
+    action_map = {
+        'shell':  'ShellCommand',
+        'test':   'TestCommand',
+        'deploy': 'DeployCommand',
+    }
+    if common.command in action_map:
+        action = action_map[common.command]
+    else:
+        raise Exception('Unhandled action')
+    for app, service in filtered_services:
+        action_managers[app].request(action, service)
+
+    sys.exit(0)
+
 
     # Format args
     auto_complete = False
@@ -222,18 +150,6 @@ def make(root_dir, sub_dir, command, app, options):
     elif common.command in ['shell']:
         auto_complete = True
 
-    # Load build files
-    build_files = load_dmake_files_list()
-    if len(build_files) == 0:
-        raise DMakeException('No dmake.yml file found !')
-
-    # Load all dmake.yml files (except those blacklisted)
-    blacklist = []
-    loaded_files = {}
-    service_providers = {}
-    service_dependencies = {}
-    for file in build_files:
-        loader.load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, file)
 
     # Register all apps and services in the repo
     docker_links = {}
@@ -418,7 +334,7 @@ def make(root_dir, sub_dir, command, app, options):
         file_to_generate = os.path.join(common.tmp_dir, "DMakefile")
     else:
         file_to_generate = "DMakefile"
-    generate_command(file_to_generate, all_commands)
+    generator.generate(file_to_generate, all_commands)
     common.logger.info("Output has been written to %s" % file_to_generate)
 
     if common.command == "deploy" and common.is_local:

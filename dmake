@@ -12,8 +12,8 @@ def print_help():
     print("Use \"dmake help\" to see this help and \"dmake 'command' -h\" to see help about a specific command.\n")
     print("Available commands are:")
     print("- test:   Launch tests for the whole repo or, if specified, an app or one of its services.")
-    print("- run:    Launch the application or only one of its services.")
-    print("- stop:   Stop the containers lauched with 'dmake run'.")
+    #print("- run:    Launch the application or only one of its services.")
+    #print("- stop:   Stop the containers lauched with 'dmake run'.")
     print("- shell:  Run a shell session withing a docker container with the environment set up for a given service.")
     print("- deploy: Deploy specified apps and services.")
     sys.exit(1)
@@ -34,7 +34,9 @@ else:
 
 if command == "help":
     print_help()
-elif command not in ["test", "run", "stop", "shell", "deploy"]:
+# elif command not in ["test", "run", "stop", "shell", "deploy"]:
+#     print_help()
+elif command not in ["test", "shell", "deploy"]:
     print_help()
 
 # Make sure we are in a repo
@@ -50,7 +52,9 @@ if root_dir is None:
 os.chdir(root_dir)
 
 # Parse command args
-try:
+# TODO:
+if True:
+#try:
     sys.argv.pop(0)
     parser = argparse.ArgumentParser(prog='dmake %s' % command)
     if command in ["test", "deploy"]:
@@ -71,6 +75,6 @@ try:
         options.dependencies = True
     app = getattr(options, app_args)
     core.make(root_dir, sub_dir, command, app, options)
-except DMakeException as e:
-    print('ERROR: ' + str(e))
-    sys.exit(1)
+# except DMakeException as e:
+#     print('ERROR: ' + str(e))
+#     sys.exit(1)
