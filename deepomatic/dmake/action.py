@@ -13,12 +13,13 @@ class Action(object):
     def __init__(self, action_manager, service, **kwargs):
         self._action_manager = action_manager
         self._depends        = []
+        self._build_env      = {}
 
         dmake_file = service.get_dmake_file()
         if self.use_service:
-            self.__commands = self._generate_(dmake_file, service, **kwargs)
+            self._commands = self._generate_(dmake_file, service, **kwargs)
         else:
-            self.__commands = self._generate_(dmake_file, None, **kwargs)
+            self._commands = self._generate_(dmake_file, None, **kwargs)
 
     @classmethod
     def get_key(cls, service, **kwargs):
@@ -50,6 +51,9 @@ class Action(object):
         self.depends.append(node)
         return node
 
+    def get_build_env(self):
+        return self._build_env
+
     def _generate_(self, dmake_file, service, **kwargs):
         """
         This MUST BE OVERLOADED to generate a command list
@@ -61,16 +65,16 @@ class Action(object):
 class ActionManager(object):
 
     def __init__(self, service_manager):
-        self.__service_manager = service_manager
-        self.__actions = {}
+        self._service_manager = service_manager
+        self._actions = {}
 
     def request(self, action_name, service_name, **kwargs):
-        service = self.__service_manager.get_service(service_name)
+        service = self._service_manager.get_service(service_name)
         action_class = service.get_dmake_file().get_action(action_name)
         key = action_class.get_key(service, **kwargs)
-        if not key in self.__actions:
-            self.__actions[key] = action_class(self, service, **kwargs)
-        return self.__actions[key]
+        if not key in self._actions:
+            self._actions[key] = action_class(self, service, **kwargs)
+        return self._actions[key]
 
 ###############################################################################
 

@@ -8,7 +8,7 @@
 # Wait for links
 
 if [ $# -ne 2 ]; then
-    dmake_fail "$0: Missing arguments"
+    >&2 echo -e "$0: Missing arguments"
     exit 1
 fi
 
