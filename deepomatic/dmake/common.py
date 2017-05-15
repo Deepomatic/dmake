@@ -59,13 +59,16 @@ class NotGitRepositoryException(DMakeException):
 def run_dmake_script(module, cmd, *args):
     raise Exception("TODO")
 
-def run_shell_command(cmd, ignore_error = False):
+def run_shell_command(cmd, ignore_error = False, get_return_code = False):
     command = ['bash', '-c', cmd]
     p = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
     stdout, stderr = p.communicate()
     if len(stderr) > 0 and not ignore_error:
         raise ShellError(stderr.decode())
-    return stdout.strip().decode()
+    if get_return_code:
+        return p.returncode
+    else:
+        return stdout.strip().decode()
 
 def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
@@ -246,41 +249,3 @@ def get_tag_name():
     return 'deployed_version_%s' % branch
 
 ###############################################################################
-
-def append_command(commands, cmd, prepend = False, **args):
-    def check_cmd(args, required, optional = []):
-        for a in required:
-            if a not in args:
-                raise DMakeException("%s is required for command %s" % (a, cmd))
-        for a in args:
-            if a not in required and a not in optional:
-                raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
-    if cmd == "stage":
-        check_cmd(args, ['name', 'concurrency'])
-    elif cmd == "sh":
-        check_cmd(args, ['shell'])
-    elif cmd == "read_sh":
-        check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
-        args['id'] = len(commands)
-        if 'fail_if_empty' not in args:
-            args['fail_if_empty'] = False
-    elif cmd == "env":
-        check_cmd(args, ['var', 'value'])
-    elif cmd == "git_tag":
-        check_cmd(args, ['tag'])
-    elif cmd == "junit":
-        check_cmd(args, ['report'])
-    elif cmd == "cobertura":
-        check_cmd(args, ['report'])
-    elif cmd == "publishHTML":
-        check_cmd(args, ['directory', 'index', 'title'])
-    elif cmd == "build":
-        check_cmd(args, ['job', 'parameters', 'propagate', 'wait'])
-    else:
-        raise DMakeException("Unknow command %s" %cmd)
-    cmd = (cmd, args)
-    if prepend:
-        commands.insert(0, cmd)
-    else:
-        commands.append(cmd)
-

@@ -1,13 +1,16 @@
 import os
+import md5
+
 from deepomatic.dmake.serializer import ValidationError
 from deepomatic.dmake.common import DMakeException
-from deepomatic.dmake.service import Service, ServiceManager
+from deepomatic.dmake.service import ExternalService, Service, ServiceManager
 from deepomatic.dmake.action import Action
 
 ###############################################################################
 
 class DMakeFileAbstract(object):
     serializer = None # Need to be defined
+    _md5s = {}
 
     # At least those actions needs to be defined:
     class ShellCommand(Action):
@@ -27,6 +30,19 @@ class DMakeFileAbstract(object):
         self._register_action_(self.TestCommand)
         self._register_action_(self.DeployCommand)
 
+        # Register dmake file hash
+        count = 0
+        while True:
+            m = md5.new()
+            m.update(str(count) + '@')
+            m.update(self._path)
+            m = m.hexdigest()
+            if m not in self._md5s:
+                self._md5s[m] = self
+                self._md5 = m
+                break
+            count += 1
+
         # TODO
         if True:
         #try:
@@ -40,19 +56,22 @@ class DMakeFileAbstract(object):
     def __str__(self):
         return self._file
 
-    def _register_service_(self, name, dependencies = [], test_dependencies = []):
+    def _register_service_(self, external, name, docker_image_name, dependencies = [], test_dependencies = []):
         app_name = self.get_app_name()
         if app_name not in self._service_managers:
             self._service_managers[app_name] = ServiceManager()
         service_manager = self._service_managers[app_name]
-        service_manager.add_service(Service(
-            self,
-            name,
-            dependencies,
-            test_dependencies))
+
+        if external:
+            service_manager.add_service(ExternalService(self, name, docker_image_name))
+        else:
+            service_manager.add_service(Service(self, name, docker_image_name, dependencies, test_dependencies))
 
     def _register_action_(self, action_class):
         self._actions[action_class.__name__] = action_class
+
+    def get_md5(self):
+        return self._md5
 
     def get_path(self):
         return self._path

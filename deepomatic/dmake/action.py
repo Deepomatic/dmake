@@ -1,3 +1,32 @@
+from deepomatic.dmake.common import DMakeException
+
+
+###############################################################################
+
+class ActionContext(object):
+    def __init__(self):
+        self._fields = {}
+
+    def __getattribute__(self, key):
+        fields = object.__getattribute__(self, '_fields')
+        if key in fields:
+            return fields[key]
+        else:
+            return object.__getattribute__(self, key)
+
+    def set(self, key, value):
+        if key in self._fields:
+            if value != self._fields[key]:
+                raise Exception("Action nodes are over-writing context for key '%s' with different values. Value before: '%s', value after: '%s'." % (key, self._fields[key], value))
+        else:
+            self._fields[key] = value
+
+    def items(self):
+        return self._fields.items()
+
+    def merge(self, context):
+        for key, value in context.items():
+            self.set(key, value)
 
 ###############################################################################
 
@@ -12,8 +41,9 @@ class Action(object):
 
     def __init__(self, action_manager, service, **kwargs):
         self._action_manager = action_manager
+        self._commands       = []
         self._depends        = []
-        self._build_env      = {}
+        self._context        = ActionContext()
 
         dmake_file = service.get_dmake_file()
         if self.use_service:
@@ -46,13 +76,52 @@ class Action(object):
             key.append('%s' % str(val))
         return tuple(key)
 
-    def request(self, action_name, service_name, **kwargs):
-        node = self.action_manager.request(action_name, service_name, **kwargs)
-        self.depends.append(node)
+    @property
+    def context(self):
+        return self._context
+
+    def request(self, action_name, service, **kwargs):
+        node = self._action_manager.request(action_name, service.get_name(), **kwargs)
+        self._context.merge(node.context)
+        self._depends.append(node)
         return node
 
-    def get_build_env(self):
-        return self._build_env
+    def append_command(self, cmd, **args):
+        def check_cmd(args, required, optional = []):
+            for a in required:
+                if a not in args:
+                    raise DMakeException("%s is required for command %s" % (a, cmd))
+            for a in args:
+                if a not in required and a not in optional:
+                    raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
+        if cmd == "stage":
+            check_cmd(args, ['name', 'concurrency'])
+        elif cmd == "sh":
+            check_cmd(args, ['shell'])
+        elif cmd == "read_sh":
+            check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
+            args['id'] = len(self._commands)
+            if 'fail_if_empty' not in args:
+                args['fail_if_empty'] = False
+        elif cmd == "env":
+            check_cmd(args, ['var', 'value'])
+        elif cmd == "git_tag":
+            check_cmd(args, ['tag'])
+        elif cmd == "junit":
+            check_cmd(args, ['report'])
+        elif cmd == "cobertura":
+            check_cmd(args, ['report'])
+        elif cmd == "publishHTML":
+            check_cmd(args, ['directory', 'index', 'title'])
+        elif cmd == "build":
+            check_cmd(args, ['job', 'parameters', 'propagate', 'wait'])
+        else:
+            raise DMakeException("Unknow command %s" %cmd)
+        cmd = (cmd, args)
+        self._commands.append(cmd)
+
+    def dmake_shell_command(self, command, *args):
+        return "%s %s" % (command, ' '.join(['"%s"' % a.replace('"', '\\"') for a in args]))
 
     def _generate_(self, dmake_file, service, **kwargs):
         """
