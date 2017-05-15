@@ -544,7 +544,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
             opts.append("-v %s:%s" % (common.join_without_slash(host_volume), common.join_without_slash(volumes.container_volume)))
 
         docker_opts = self.docker_opts
-        if testing_mode:
+        if not common.is_local:
             docker_opts = docker_opts.replace('--privileged', '')
         opts = docker_opts + " " + (" ".join(opts))
         return opts
