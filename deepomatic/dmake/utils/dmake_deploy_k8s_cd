@@ -63,12 +63,12 @@ for i in ret.items:
 for name in deployments:
     while True:
         api_response = client.read_namespaced_deployment(name, namespace)
-        if api_response.spec.replicas > 0:
-            if api_response.status.available_replicas is None:
-                print("- Waiting for %s to be ready" % name)
-                time.sleep(5)
-            else:
-                break
+        if api_response.spec.replicas > 0 and \
+           api_response.status.available_replicas is None:
+            print("- Waiting for %s to be ready" % name)
+            time.sleep(5)
+        else:
+            break
 
 
 
