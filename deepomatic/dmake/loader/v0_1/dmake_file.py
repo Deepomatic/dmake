@@ -2,19 +2,19 @@ from deepomatic.dmake.dmake_file import DMakeFileAbstract
 from deepomatic.dmake.action import Action
 import deepomatic.dmake.common as common
 
-from .actions.build_base_docker_from_file import BuildBaseDockerFromFile, BuildBaseDockerFromService
-
+import actions.base as base
 import serializers
 
-
+###############################################################################
 
 class DMakeFile(DMakeFileAbstract):
-    serializer = serializers.DMakeFileSerializer()
-
     def __init__(self, service_managers, file, data):
+        self.serializer = serializers.DMakeFileSerializer()
         super(DMakeFile, self).__init__(service_managers, file, data)
-        self._register_action_(BuildBaseDockerFromFile)
-        self._register_action_(BuildBaseDockerFromService)
+
+        self._register_action_(base.GetBaseMD5)
+        self._register_action_(base.BuildBaseDockerFromFile)
+        self._register_action_(base.BuildBaseDockerFromService)
 
     def get_app_name(self):
         return self.serializer.app_name
@@ -83,7 +83,7 @@ class DMakeFile(DMakeFileAbstract):
     class DeployCommand(Action):
         stage = 'command'
         def _generate_(self, dmake_file, service):
-            self.request('BuildBaseDockerFromService', service)
+            self.request('BuildBaseDockerFromService', service.get_name())
 
     class TestCommand(Action):
         stage = 'command'

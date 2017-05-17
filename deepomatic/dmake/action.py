@@ -5,24 +5,23 @@ from deepomatic.dmake.common import DMakeException
 
 class ActionContext(object):
     def __init__(self):
-        self._fields = {}
-
-    def __getattribute__(self, key):
-        fields = object.__getattribute__(self, '_fields')
-        if key in fields:
-            return fields[key]
-        else:
-            return object.__getattribute__(self, key)
+        self._context = {}
 
     def set(self, key, value):
-        if key in self._fields:
-            if value != self._fields[key]:
-                raise Exception("Action nodes are over-writing context for key '%s' with different values. Value before: '%s', value after: '%s'." % (key, self._fields[key], value))
+        if key in self._context:
+            if value != self._context[key]:
+                raise Exception("Action nodes are over-writing context for key '%s' with different values. Value before: '%s', value after: '%s'." % (key, self._context[key], value))
         else:
-            self._fields[key] = value
+            self._context[key] = value
+
+    def get(self, key):
+        if key in self._context:
+            return self._context[key]
+        else:
+            raise Exception("Unkown key '%s' in context. context = %s" % (key, str(self._context)))
 
     def items(self):
-        return self._fields.items()
+        return self._context.items()
 
     def merge(self, context):
         for key, value in context.items():
@@ -39,13 +38,13 @@ class Action(object):
     use_service = True  # Can be set to False if the actions does not make use of the service
     args = []           # List of Action argument
 
-    def __init__(self, action_manager, service, **kwargs):
+    def __init__(self, action_manager, dmake_file, service, **kwargs):
         self._action_manager = action_manager
         self._commands       = []
         self._depends        = []
         self._context        = ActionContext()
+        self._dmake_file     = dmake_file
 
-        dmake_file = service.get_dmake_file()
         if self.use_service:
             self._commands = self._generate_(dmake_file, service, **kwargs)
         else:
@@ -80,11 +79,18 @@ class Action(object):
     def context(self):
         return self._context
 
-    def request(self, action_name, service, **kwargs):
-        node = self._action_manager.request(action_name, service.get_name(), **kwargs)
-        self._context.merge(node.context)
-        self._depends.append(node)
+    def request(self, action_name, service_name = None, dmake_file_path = None, same_build_host = False, **kwargs):
+        if dmake_file_path is None:
+            dmake_file = self._dmake_file
+        else:
+            dmake_file = self._action_manager.get_dmake_file(dmake_file_path)
+        node = self._action_manager.request(action_name, dmake_file, service_name, **kwargs)
+        self.merge_context(node)
+        self._depends.append((node, same_build_host))
         return node
+
+    def merge_context(self, node):
+        self._context.merge(node.context)
 
     def append_command(self, cmd, **args):
         def check_cmd(args, required, optional = []):
@@ -121,7 +127,7 @@ class Action(object):
         self._commands.append(cmd)
 
     def dmake_shell_command(self, command, *args):
-        return "%s %s" % (command, ' '.join(['"%s"' % a.replace('"', '\\"') for a in args]))
+        return "%s %s" % ('dmake_' + command, ' '.join(['"%s"' % a.replace('"', '\\"') for a in args]))
 
     def _generate_(self, dmake_file, service, **kwargs):
         """
@@ -133,16 +139,31 @@ class Action(object):
 
 class ActionManager(object):
 
-    def __init__(self, service_manager):
+    def __init__(self, service_manager, loaded_files):
         self._service_manager = service_manager
+        self._loaded_files = loaded_files
         self._actions = {}
 
-    def request(self, action_name, service_name, **kwargs):
-        service = self._service_manager.get_service(service_name)
-        action_class = service.get_dmake_file().get_action(action_name)
+    def get_service(self, service_name):
+        return self._service_manager.get_service(service_name)
+
+    def get_dmake_file(self, dmake_file_path):
+        if dmake_file_path in self._loaded_files:
+            return self._loaded_files[dmake_file_path]
+        else:
+            raise DMakeException("Unknown DMake file '%s'" % dmake_file_path)
+
+    def request(self, action_name, dmake_file, service_name, **kwargs):
+        if service_name is not None:
+            service = self.get_service(service_name)
+            dmake_file = service.get_dmake_file()
+        else:
+            service = None
+
+        action_class = dmake_file.get_action(action_name)
         key = action_class.get_key(service, **kwargs)
         if not key in self._actions:
-            self._actions[key] = action_class(self, service, **kwargs)
+            self._actions[key] = action_class(self, dmake_file, service, **kwargs)
         return self._actions[key]
 
 ###############################################################################

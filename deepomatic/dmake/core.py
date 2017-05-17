@@ -60,41 +60,46 @@ def order_dependencies(dependencies, sorted_leaves):
 
 ###############################################################################
 
+def find_services(service_managers, filter_path = '', filter_app = None):
+    """
+    Filter by app, auto-discovers app by path if not given
+    """
+    services = []
+    for a, service_manager in service_managers.items():
+        for s, service in service_manager.get_services().items():
+            if not service.is_external() and \
+               str(service.get_dmake_file()).startswith(filter_path) and \
+               (filter_app is None or filter_app == a or filter_app == s):
+                services.append((a, s))
+    return services
+
+###############################################################################
+
 def make(root_dir, sub_dir, command, app, options):
     common.init(command, root_dir, app, options)
 
-    if common.command == "stop":
-        common.run_shell_command("docker rm -f `docker ps -q -f name=%s.%s.%s`" % (app, common.branch, common.build_id))
-        return
+    # if common.command == "stop":
+    #     common.run_shell_command("docker rm -f `docker ps -q -f name=%s.%s.%s`" % (app, common.branch, common.build_id))
+    #     return
 
     # Load dmake files
-    service_managers = loader.load_dmake_files()
+    service_managers, loaded_files = loader.load_dmake_files()
 
     # Create action managers
     has_services = False
     action_managers = {}
     for a, service_manager in service_managers.items():
-        action_managers[a] = ActionManager(service_manager)
+        action_managers[a] = ActionManager(service_manager, loaded_files)
         if len(service_manager.get_services()) > 0:
             has_services = True
     if not has_services:
         raise DMakeException('No defined service. Nothing to do.')
 
-    # Filter by app, auto-discovers app by path if not given
-    def find_services(filter_path = '', filter_app = None):
-        services = []
-        for a, service_manager in service_managers.items():
-            for s, service in service_manager.get_services().items():
-                if not service.is_external() and \
-                   str(service.get_dmake_file()).startswith(filter_path) and \
-                   (filter_app is None or filter_app == a or filter_app == s):
-                    services.append((a, s))
-        return services
-
+    # Filter active services
     if app == "*":
-        filtered_services = find_services()
+        filtered_services = find_services(service_managers)
     elif app == "" or app is None: # Discover by path
-        filtered_services = find_services(sub_dir)
+        filtered_services = find_services(service_managers, sub_dir)
     else:
         app = app.split('/')
         n = len(app)
@@ -107,7 +112,7 @@ def make(root_dir, sub_dir, command, app, options):
             else:
                 filtered_services = []
         else:
-            filtered_services = find_services(sub_dir, app[0])
+            filtered_services = find_services(service_managers, sub_dir, app[0])
 
     if len(filtered_services) == 0:
         raise DMakeException('Could not find any service matching the requested pattern.')
@@ -128,8 +133,10 @@ def make(root_dir, sub_dir, command, app, options):
         action = action_map[common.command]
     else:
         raise Exception('Unhandled action')
-    for app, service in filtered_services:
-        action_managers[app].request(action, service)
+    for app, service_name in filtered_services:
+        am = action_managers[app]
+        file = am.get_service(service_name).get_dmake_file()
+        am.request(action, file, service_name)
 
     sys.exit(0)
 

@@ -157,4 +157,4 @@ def load_dmake_files():
     for file in build_files:
         load_dmake_file(blacklist, loaded_files, service_managers, file)
 
-    return service_managers
+    return service_managers, loaded_files

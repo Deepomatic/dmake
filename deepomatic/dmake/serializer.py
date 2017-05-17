@@ -116,10 +116,6 @@ class FieldSerializer(object):
                 data = str(data)
             if not common.is_string(data):
                 raise WrongType("Expecting string")
-
-            # Replace environment variables in strings
-            data = common.eval_str_in_env(data)
-
             if not self.blank and data == "":
                 raise WrongType("Expecting non-blank string")
             if self.no_slash_no_space:
