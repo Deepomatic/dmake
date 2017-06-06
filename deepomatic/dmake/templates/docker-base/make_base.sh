@@ -21,7 +21,7 @@ fi
 
 # Setup packet manager
 dpkg --configure -a
-apt-get update --fix-missing
+apt-get update || apt-get update --fix-missing
 
 # Make sure SSH Agent socket is here if needed
 if [ ! -z "$SSH_AUTH_SOCK" ] || [ -f "/key" ]; then # HACK for mac: Waiting for Issue docker/for-mac#483 to be solved (cf deepobuild.py)

@@ -86,8 +86,13 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
 
     def get_replaced_variables(self, additional_variables = {}):
         env = {}
-        if self.has_value():
+        if self.has_value() and (len(self.variables) or len(additional_variables)):
+            # HACK
+            # If the first varaible is empty, if is stripped out
+            # So we make sure the first line is non-empty
+            delimitor = 'echo "-"'
             cmd = []
+
             if self.source is not None:
                 cmd.append('source %s' % self.source)
 
@@ -95,16 +100,17 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
             for k, v in additional_variables.items():
                  variables[k] = v
 
+            cmd.append(delimitor)
             for value in variables.values():
                 cmd.append('echo %s' % common.wrap_cmd(value))
+            cmd.append(delimitor)
 
-            if len(cmd) > 0:
-                cmd = ' && '.join(cmd)
-                output = common.run_shell_command(cmd)
-                output = output.split('\n')
-                assert(len(output) == len(variables))
-                for var, value in zip(variables.keys(), output):
-                    env[var] = value.strip()
+            cmd = ' && '.join(cmd)
+            output = common.run_shell_command(cmd)
+            output = output.split('\n')[1:-1]
+            assert(len(output) == len(variables))
+            for var, value in zip(variables.keys(), output):
+                env[var] = value.strip()
         return env
 
 class EnvSerializer(YAML2PipelineSerializer):
@@ -219,8 +225,37 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     link_name        = FieldSerializer("string", example = "mongo", help_text = "Link name.")
     deployed_options = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when deployed.")
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
+    probe_ports      = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
+
+    def probe_ports_list(self):
+        if isinstance(self.probe_ports, list):
+            good = True
+            for p in self.probe_ports:
+                i = p.find('/')
+                port = p[:i]
+                proto = p[(i + 1):]
+                if proto not in ['udp', 'tcp']:
+                    good = False
+                    break
+                if proto == 'udp':
+                    raise DMakeException("TODO: udp support in dmake_wait_for_it")
+                try:
+                    if int(port) < 0:
+                        good = False
+                        break
+                except:
+                    good = False
+                    break
+
+            if good:
+                return ','.join(self.probe_ports)
+        elif self.probe_ports in ['auto', 'none']:
+            return self.probe_ports
+
+        raise DMakeException("Badly formatted probe ports.")
 
 class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
+    name_prefix  = FieldSerializer("string", default = "${DMAKE_DEPLOY_PREFIX}", help_text = "The prefix to add to the 'deploy_name'. Can be useful as application name have to be unique across all users of Elastic BeanStalk.")
     region       = FieldSerializer("string", default = "eu-west-1", help_text = "The AWS region where to deploy.")
     stack        = FieldSerializer("string", default = "64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2")
     options      = FieldSerializer("path", example = "path/to/options.txt", help_text = "AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html")
@@ -308,6 +343,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
         if self.ebextensions is not None:
             common.run_shell_command('cp -LR %s %s' % (self.ebextensions, os.path.join(tmp_dir, ".ebextensions")))
 
+        app_name = common.eval_str_in_env(self.name_prefix) + app_name
         append_command(commands, 'sh', shell = 'dmake_deploy_aws_eb "%s" "%s" "%s" "%s"' % (
             tmp_dir,
             app_name,
@@ -353,13 +389,36 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%s"' % (tmp_dir, app_name, self.user, self.host, self.port)
         append_command(commands, 'sh', shell = cmd)
 
+class K8SCDDeploySerializer(YAML2PipelineSerializer):
+    context   = FieldSerializer("string", help_text = "kubectl context to use.")
+    namespace = FieldSerializer("string", default = "default", help_text = "Kubernetes namespace to target")
+    selectors = FieldSerializer("dict", default = {}, child = "string", help_text = "Selectors to restrict the deployment.")
+
+    def _serialize_(self, commands, app_name, image_name, env):
+        if not self.has_value():
+            return
+
+        for var, value in env.items():
+            os.environ[var] = common.eval_str_in_env(value)
+
+        selectors = []
+        for key, value in self.selectors.items():
+            if value.find(','):
+                raise DMakeException("Cannot have ',' in selector value")
+            selectors.append("%s=%s" % (key, value))
+        selectors = ",".join(selectors)
+
+        cmd = 'dmake_deploy_k8s_cd "%s" "%s" "%s" "%s" "%s" "%s"' % (common.tmp_dir, common.eval_str_in_env(self.context), common.eval_str_in_env(self.namespace), app_name, image_name, selectors)
+        append_command(commands, 'sh', shell = cmd)
+
+
 class DeployConfigPortsSerializer(YAML2PipelineSerializer):
     container_port    = FieldSerializer("int", example = 8000, help_text = "Port on the container")
     host_port         = FieldSerializer("int", example = 80, help_text = "Port on the host")
 
 class DeployConfigVolumesSerializer(YAML2PipelineSerializer):
-    container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Volume on the container")
-    host_volume       = FieldSerializer("string", example = "/mnt", help_text = "Volume on the host")
+    container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
+    host_volume       = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume from the host")
 
 class DeployStageSerializer(YAML2PipelineSerializer):
     description   = FieldSerializer("string", example = "Deployment on AWS and via SSH", help_text = "Deploy stage description.")
@@ -367,27 +426,33 @@ class DeployStageSerializer(YAML2PipelineSerializer):
     env           = FieldSerializer("dict", child = "string", default = {}, example = {'AWS_ACCESS_KEY_ID': '1234', 'AWS_SECRET_ACCESS_KEY': 'abcd'}, help_text = "Additionnal environment variables for deployment.")
     aws_beanstalk = AWSBeanStalkDeploySerializer(optional = True, help_text = "Deploy via Elastic Beanstalk")
     ssh           = SSHDeploySerializer(optional = True, help_text = "Deploy via SSH")
+    k8s_continuous_deployment = K8SCDDeploySerializer(optional = True, help_text = "Continuous deployment via Kubernetes. Look for all the deployments running this service.")
 
 class ServiceDockerSerializer(YAML2PipelineSerializer):
     name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.")
-    check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
+    check_private    = FieldSerializer("bool",   default = True,  help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be {:branch_name}-{:build_id}")
-    workdir          = FieldSerializer("dir", optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
+    workdir          = FieldSerializer("dir",    optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
     #install_targets = FieldSerializer("array", child = FieldSerializer([InstallExeSerializer(), InstallLibSerializer(), InstallDirSerializer()]), default = [], help_text = "Target files or directories to install.")
     copy_directories = FieldSerializer("array", child = "dir", default = [], help_text = "Directories to copy in the docker image.")
     install_script   = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "install.sh", help_text = "The install script (will be run in the docker). It has to be executable.")
     entrypoint       = FieldSerializer("path", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
     start_script     = FieldSerializer("path", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
 
-    def get_image_name(self, service_name):
+    def get_image_name(self, service_name, latest = False):
         if self.name is None:
             name = service_name.replace('/', '-')
         else:
             name = common.eval_str_in_env(self.name)
         if self.tag is None:
             tag = common.branch.lower()
-            if common.build_id is not None:
-                tag += "-%s" % common.build_id
+            if latest:
+                tag += "-latest"
+            else:
+                if common.build_id is not None:
+                    tag += "-%s" % common.build_id
+        else:
+            tag = self.tag
         image_name = name + ":" + tag
         return image_name
 
@@ -508,14 +573,14 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
             opts.append("-v %s:%s" % (common.join_without_slash(host_volume), common.join_without_slash(volumes.container_volume)))
 
         docker_opts = self.docker_opts
-        if testing_mode:
+        if not common.is_local:
             docker_opts = docker_opts.replace('--privileged', '')
         opts = docker_opts + " " + (" ".join(opts))
         return opts
 
 class DeploySerializer(YAML2PipelineSerializer):
-    deploy_name  = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to \"${DMAKE_DEPLOY_PREFIX}-app_name-service_name\" if not specified")
-    stages       = FieldSerializer("array", child = DeployStageSerializer(), help_text = "Deployment possibilities")
+    deploy_name = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to 'app_name-service_name' if not specified")
+    stages      = FieldSerializer("array", child = DeployStageSerializer(), help_text = "Deployment possibilities")
 
     def generate_build_docker(self, commands, path_dir, service_name, docker_base, env, build, config):
         if config.docker_image.has_value():
@@ -525,7 +590,7 @@ class DeploySerializer(YAML2PipelineSerializer):
         if self.deploy_name is not None:
             app_name = self.deploy_name
         else:
-            app_name = "${DMAKE_DEPLOY_PREFIX}%s-%s" % (app_name, service_name)
+            app_name = "%s-%s" % (app_name, service_name)
         app_name = common.eval_str_in_env(app_name)
 
         links = []
@@ -536,6 +601,8 @@ class DeploySerializer(YAML2PipelineSerializer):
 
         image_name = config.docker_image.get_image_name(service_name)
         append_command(commands, 'sh', shell = 'dmake_push_docker_image "%s" "%s"' % (image_name, "1" if config.docker_image.check_private else "0"))
+        image_latest = config.docker_image.get_image_name(service_name, latest = True)
+        append_command(commands, 'sh', shell = 'docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, "1" if config.docker_image.check_private else "0"))
 
         for stage in self.stages:
             branches = stage.branches
@@ -545,9 +612,31 @@ class DeploySerializer(YAML2PipelineSerializer):
             branch_env = env.get_replaced_variables(stage.env)
             stage.aws_beanstalk._serialize_(commands, app_name, links, config, image_name, branch_env)
             stage.ssh._serialize_(commands, app_name, links, config, image_name, branch_env)
+            stage.k8s_continuous_deployment._serialize_(commands, app_name, image_name, branch_env)
+
+class DataVolumeSerializer(YAML2PipelineSerializer):
+    container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
+    source            = FieldSerializer("string", example = "s3://my-bucket/some/folder", help_text = "Remote bucket to mount. Only s3 is supported for now and the path must start with 's3://'")
+
+    def get_mount_opt(self):
+        scheme = None
+        path = ""
+        i = self.source.find('://')
+        if i >= 0:
+            scheme = self.source[:i]
+            path = self.source[(i + 3):]
+
+        if scheme == "s3":
+            path = os.path.join(common.config_dir, 'data_volumes', 's3', path)
+            common.run_shell_command('aws s3 sync %s %s' % (self.source, path))
+        else:
+            raise DMakeException("Field source is expected to start with 's3://'")
+
+        return '-v %s:%s' % (path, self.container_volume)
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
+    data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     junit_report       = FieldSerializer("string", optional = True, example = "test-reports/*.xml", help_text = "Uses JUnit plugin to generate unit test report.")
     cobertura_report   = FieldSerializer("string", optional = True, example = "", help_text = "Publish a Cobertura report (not working for now).")
@@ -557,13 +646,8 @@ class TestSerializer(YAML2PipelineSerializer):
         if not self.has_value():
             return
 
-        if common.build_id is None:
-            build_id = 0
-        else:
-            build_id = common.build_id
         for cmd in self.commands:
-            d_cmd = "${DOCKER_LINK_OPTS} -e BUILD=%s " % build_id + docker_cmd
-            append_command(commands, 'sh', shell = "dmake_run_docker_command " + d_cmd + cmd)
+            append_command(commands, 'sh', shell = docker_cmd + cmd)
 
         if self.junit_report is not None:
             append_command(commands, 'junit', report = self.junit_report)
@@ -630,7 +714,10 @@ class DMakeFile(DMakeFileSerializer):
                     for var, value in env_branch.variables.items():
                         env.variables[var] = value
                     env.__fields__['source'].value = env_branch.source
-                env.__fields__['source'].value = common.eval_str_in_env(env.source)
+                if env.source is not None:
+                    env.__fields__['source'].value = common.eval_str_in_env(env.source)
+                else:
+                    env.__fields__['source'].value = None
                 self.__fields__['env'] = env
 
         self.docker_services_image = None
@@ -654,13 +741,11 @@ class DMakeFile(DMakeFileSerializer):
             flags.append('-e %s=%s' % (key, common.wrap_cmd(value)))
         return " ".join(flags)
 
-    def _generate_docker_cmd_(self, commands, app_name, env = {}):
-        # Set environment variables
-        env_str = self._generate_env_flags_(env)
-
-        # Docker command line to run
-        docker_cmd = "-v %s:/app -w /app/%s %s -i %s " % (common.join_without_slash(common.root_dir), self.__path__, env_str, self.docker.get_docker_base_image_name_tag())
-
+    def _generate_docker_cmd_(self, env = {}, workdir = None):
+        if workdir is None:
+            workdir = os.path.join('/app/', self.__path__)
+        docker_cmd = "-v %s:/app -w %s " % (common.join_without_slash(common.root_dir), workdir)
+        docker_cmd += self._generate_env_flags_(env)
         return docker_cmd
 
     def _get_service_(self, service):
@@ -691,47 +776,12 @@ class DMakeFile(DMakeFileSerializer):
     def generate_base(self, commands):
         self.docker._serialize_(commands, self.__path__)
 
-    def launch_options(self, commands, service, docker_links):
-        service = self._get_service_(service)
-        workdir = common.join_without_slash('/app', self.__path__)
-        if not service.config.has_value() or not service.config.docker_image.has_value():
-            entrypoint = None
-        else:
-            if service.config.docker_image.workdir is not None:
-                workdir = common.join_without_slash('/app', service.config.docker_image.workdir)
-            entrypoint = service.config.docker_image.entrypoint
-
-        docker_opts = ' -v %s:/app -w %s' % (common.join_without_slash(common.root_dir), workdir)
-        if entrypoint is not None:
-            full_path_container = os.path.join('/app', self.__path__, entrypoint)
-            docker_opts += ' --entrypoint %s' % full_path_container
-
-        self._get_check_needed_services_(commands, service)
-
-        env_str = self._generate_env_flags_(self.build.env.testing if self.build.has_value() and \
-                                                                      self.build.env.has_value() else {})
-
-        if common.build_id is None:
-            build_id = 0
-        else:
-            build_id = common.build_id
-
-        self._get_link_opts_(commands, service)
-        image_name = self.docker.get_docker_base_image_name_tag()
-        opts = docker_opts + " " + service.config.full_docker_opts(True)
-        opts = " ${DOCKER_LINK_OPTS} %s -e BUILD=%s %s" % (opts, build_id, env_str)
-        return opts, " -i %s" % image_name
-
-    def generate_shell(self, commands, service, docker_links):
-        opts, image_opts = self.launch_options(commands, service, docker_links)
-        append_command(commands, 'sh', shell = "dmake_run_docker_command %s %s" % (opts + image_opts, self.docker.command))
-
     def generate_run(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
         if service.config is None or service.config.docker_image.start_script is None:
             return
 
-        opts, _ = self.launch_options(commands, service_name, docker_links)
+        opts = self._launch_options_(commands, service, docker_links)
         image_name = service.config.docker_image.get_image_name(service_name)
 
         # <DEPRECATED>
@@ -766,11 +816,12 @@ class DMakeFile(DMakeFileSerializer):
         if self.build.env.has_value():
             for var, value in self.build.env.testing.items():
                 env[var] = common.eval_str_in_env(value)
-        docker_cmd = self._generate_docker_cmd_(commands, self.app_name, env)
-        docker_cmd = ' -e DMAKE_TESTING=1 ' + docker_cmd
+        docker_cmd = self._generate_docker_cmd_(env)
+        docker_cmd += ' -e DMAKE_TESTING=1 '
+        docker_cmd += " -i %s " % self.docker.get_docker_base_image_name_tag()
 
         for cmds in self.build.commands:
-            append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + '%s' % cmd for cmd in cmds])
+            append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + ' %s' % cmd for cmd in cmds])
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
@@ -778,33 +829,60 @@ class DMakeFile(DMakeFileSerializer):
         tmp_dir = service.deploy.generate_build_docker(commands, self.__path__, service_name, docker_base, self.env, self.build, service.config)
         self.app_package_dirs[service.service_name] = tmp_dir
 
-    def generate_test(self, commands, service_name, docker_links):
-        service = self._get_service_(service_name)
-        docker_cmd = self._generate_docker_cmd_(commands, self.app_name)
-        docker_cmd = service.config.full_docker_opts(True) + " " + docker_cmd
-        if service.config.has_value() and \
-           service.config.docker_image.has_value() and \
-           service.config.docker_image.entrypoint:
-           docker_cmd = (' --entrypoint %s ' % os.path.join('/app', self.__path__, service.config.docker_image.entrypoint)) + docker_cmd
-        docker_cmd = ' -e DMAKE_TESTING=1 ' + docker_cmd
-
-        if common.build_id is None:
-            build_id = 0
+    def _launch_options_(self, commands, service, docker_links, env = {}):
+        workdir = common.join_without_slash('/app', self.__path__)
+        if not service.config.has_value() or not service.config.docker_image.has_value():
+            entrypoint = None
         else:
-            build_id = common.build_id
+            if service.config.docker_image.workdir is not None:
+                workdir = common.join_without_slash('/app', service.config.docker_image.workdir)
+            entrypoint = service.config.docker_image.entrypoint
 
+        docker_opts = self._generate_docker_cmd_(env, workdir)
+        if entrypoint is not None:
+            full_path_container = os.path.join('/app', self.__path__, entrypoint)
+            docker_opts += ' --entrypoint %s' % full_path_container
+
+        build_id = common.build_id if common.build_id else "0"
         self._get_check_needed_services_(commands, service)
         self._get_link_opts_(commands, service)
-        d_cmd = "dmake_run_docker_command ${DOCKER_LINK_OPTS} -e BUILD=%s " % build_id + docker_cmd
+        docker_opts += " " + service.config.full_docker_opts(True)
+        docker_opts += " ${DOCKER_LINK_OPTS} -e BUILD=%s" % build_id
+
+        return docker_opts
+
+    def _generate_test_docker_cmd_(self, commands, service, docker_links):
+        env = self.build.env.testing if self.build.has_value() and \
+                                        self.build.env.has_value() else {}
+        docker_opts  = self._launch_options_(commands, service, docker_links, env)
+
+        if service.tests.has_value():
+            opts=[]
+            for data_volume in service.tests.data_volumes:
+                opts.append(data_volume.get_mount_opt())
+            docker_opts += " " + (" ".join(opts))
+
+        docker_opts += " -e DMAKE_TESTING=1 -i %s" % self.docker.get_docker_base_image_name_tag()
+
+        return "dmake_run_docker_command %s " % docker_opts
+
+    def generate_shell(self, commands, service_name, docker_links):
+        service = self._get_service_(service_name)
+        docker_cmd = self._generate_test_docker_cmd_(commands, service, docker_links)
+        append_command(commands, 'sh', shell = docker_cmd + self.docker.command)
+
+    def generate_test(self, commands, service_name, docker_links):
+        service = self._get_service_(service_name)
+        docker_cmd = self._generate_test_docker_cmd_(commands, service, docker_links)
 
         # Run pre-test commands
         for cmd in self.pre_test_commands:
-            append_command(commands, 'sh', shell = d_cmd + cmd)
+            append_command(commands, 'sh', shell = docker_cmd + cmd)
         # Run test commands
         service.tests.generate_test(commands, self.app_name, docker_cmd, docker_links)
         # Run post-test commands
         for cmd in self.post_test_commands:
-            append_command(commands, 'sh', shell = d_cmd + cmd)
+            append_command(commands, 'sh', shell = docker_cmd + cmd)
 
     def generate_run_link(self, commands, service, docker_links):
         service = service.split('/')
@@ -814,9 +892,11 @@ class DMakeFile(DMakeFileSerializer):
         if link_name not in docker_links:
             raise Exception("Unexpected link '%s'" % link_name)
         link = docker_links[link_name]
-        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s"' % (self.app_name, link.image_name, link.link_name, link.testing_options))
-        if common.command in ['test']:
-            append_command(commands, 'sh', shell = 'sleep 20')
+        for var, value in self.env.get_replaced_variables().items():
+            os.environ[var] = common.eval_str_in_env(value)
+        image_name = common.eval_str_in_env(link.image_name)
+        options = common.eval_str_in_env(link.testing_options)
+        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, image_name, link.link_name, options, link.probe_ports_list()))
 
     def generate_deploy(self, commands, service, docker_links):
         service = self._get_service_(service)
