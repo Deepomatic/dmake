@@ -528,7 +528,7 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
 
         # Make the command with "" around parameters
         cmd = self.command[0] + ' ' + (' '.join([common.wrap_cmd(c) for c in self.command[1:]]))
-        cmd = "T=0; sleep %s; while [ %s ]; do %s; if [ '$?' == '0' ]; then exit 0; fi; T=$((T+%d)); sleep %d; done; exit 1;" % (self.initial_delay_seconds, condition, cmd, period, period)
+        cmd = """T=0; sleep %s; while [ %s ]; do %s; if [ "$?" = "0" ]; then exit 0; fi; T=$((T+%d)); sleep %d; done; exit 1;""" % (self.initial_delay_seconds, condition, cmd, period, period)
         return 'bash -c %s' % common.wrap_cmd(cmd).replace('$', '\$')
 
 class DeployConfigSerializer(YAML2PipelineSerializer):
