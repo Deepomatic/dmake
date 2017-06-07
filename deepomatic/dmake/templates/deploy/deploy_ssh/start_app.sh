@@ -63,7 +63,6 @@ $RUN_COMMAND --restart unless-stopped --name ${APP_NAME}-tmp -d -i ${IMAGE_NAME}
 
 # Run ready probe
 if [ ! -z '${READYNESS_PROBE}' ]; then # '' are importants here as there might be unescaped " in READYNESS_PROBE
-    echo "Running readyness probe"
     docker exec ${APP_NAME}-tmp ${READYNESS_PROBE}
 fi
 
