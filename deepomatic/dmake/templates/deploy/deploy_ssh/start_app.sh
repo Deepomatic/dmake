@@ -61,7 +61,7 @@ fi
 docker rm -f ${APP_NAME}-tmp || :
 $RUN_COMMAND --restart unless-stopped --name ${APP_NAME}-tmp -d -i ${IMAGE_NAME}
 
-# Run ready probe (deprecated)
+# Run ready probe
 if [ ! -z "${READYNESS_PROBE}" ]; then
     echo "Running readyness probe"
     docker exec ${APP_NAME}-tmp ${READYNESS_PROBE}
@@ -73,8 +73,8 @@ if [ ! -z "${MID_DEPLOY_HOOKS}" ]; then
     $RUN_COMMAND_HOOKS ${MID_DEPLOY_HOOKS}
 fi
 
-docker stop ${APP_NAME} || :
-docker rm -f ${APP_NAME} || :
+docker stop ${APP_NAME} 1&>2 2> /dev/null || :
+docker rm -f ${APP_NAME} 1&>2 2> /dev/null || :
 docker rename ${APP_NAME}-tmp ${APP_NAME}
 
 # Remove unused images (deprecated)

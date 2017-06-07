@@ -36,6 +36,10 @@ def run_shell_command(cmd, ignore_error = False):
 def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
 
+escape_re = re.compile(r'(\$|\\|\"|\')')
+def escape_cmd(cmd):
+    return '"%s"' % escape_re.sub(lambda m:{'$':'\$','\\':'\\\\','"':'\\"','\'':'\\\''}[m.group()], cmd)
+
 def wrap_cmd(cmd):
     return '"%s"' % cmd.replace('"', '\\"')
 

@@ -381,8 +381,9 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
               ('export PRE_DEPLOY_HOOKS="%s" && ' % config.pre_deploy_script) + \
               ('export MID_DEPLOY_HOOKS="%s" && ' % config.mid_deploy_script) + \
               ('export POST_DEPLOY_HOOKS="%s" && ' % config.post_deploy_script) + \
-              ('export READYNESS_PROBE=%s && ' % common.wrap_cmd(config.readiness_probe.get_cmd())) + \
+              ('export READYNESS_PROBE=%s && ' % common.escape_cmd(config.readiness_probe.get_cmd())) + \
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
+        print cmd
         common.run_shell_command(cmd)
 
         cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%s"' % (tmp_dir, app_name, self.user, self.host, self.port)
@@ -510,7 +511,7 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
 
 class ReadinessProbeSerializer(YAML2PipelineSerializer):
     command               = FieldSerializer("array", child = "string", default = [], example = ['cat', '/tmp/worker_ready'], help_text = "The command to run to check if the container is ready. The command should fail with a non-zero code if not ready.")
-    initial_delay_seconds = FieldSerializer("int", default = 5, example = "5", help_text = "The delay before the first probe is launched")
+    initial_delay_seconds = FieldSerializer("int", default = 0, example = "0", help_text = "The delay before the first probe is launched")
     period_seconds        = FieldSerializer("int", default = 5, example = "5", help_text = "The delay between two first probes")
     max_seconds           = FieldSerializer("int", default = 0, example = "40", help_text = "The maximum delay after failure")
 
@@ -528,7 +529,7 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
         # Make the command with "" around parameters
         cmd = self.command[0] + ' ' + (' '.join([common.wrap_cmd(c) for c in self.command[1:]]))
         cmd = """T=0; sleep %s; while [ %s ]; do %s; if [ "$?" = "0" ]; then exit 0; fi; T=$((T+%d)); sleep %d; done; exit 1;""" % (self.initial_delay_seconds, condition, cmd, period, period)
-        return 'bash -c %s' % common.wrap_cmd(cmd).replace('$', '\$')
+        return 'bash -c %s' % common.escape_cmd(cmd)
 
 class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_image       = ServiceDockerSerializer(optional = True, help_text = "Docker to build for running and deploying.")
