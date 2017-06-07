@@ -383,7 +383,6 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
               ('export POST_DEPLOY_HOOKS="%s" && ' % config.post_deploy_script) + \
               ('export READYNESS_PROBE=%s && ' % common.wrap_cmd(config.readiness_probe.get_cmd())) + \
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
-        print cmd
         common.run_shell_command(cmd)
 
         cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%s"' % (tmp_dir, app_name, self.user, self.host, self.port)

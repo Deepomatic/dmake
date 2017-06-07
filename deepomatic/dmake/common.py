@@ -37,7 +37,7 @@ def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
 
 def wrap_cmd(cmd):
-    return '"%s"' % cmd.replace('\\', '\\\\').replace('"', '\\"')
+    return '"%s"' % cmd.replace('"', '\\"')
 
 def eval_str_in_env(cmd):
     cmd = 'echo %s' % wrap_cmd(cmd)
