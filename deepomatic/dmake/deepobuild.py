@@ -383,7 +383,6 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
               ('export POST_DEPLOY_HOOKS="%s" && ' % config.post_deploy_script) + \
               ('export READYNESS_PROBE=%s && ' % common.escape_cmd(config.readiness_probe.get_cmd())) + \
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
-        print cmd
         common.run_shell_command(cmd)
 
         cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%s"' % (tmp_dir, app_name, self.user, self.host, self.port)
@@ -529,7 +528,9 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
         # Make the command with "" around parameters
         cmd = self.command[0] + ' ' + (' '.join([common.wrap_cmd(c) for c in self.command[1:]]))
         cmd = """T=0; sleep %s; while [ %s ]; do echo "Running readyness probe"; %s; if [ "$?" = "0" ]; then exit 0; fi; T=$((T+%d)); sleep %d; done; exit 1;""" % (self.initial_delay_seconds, condition, cmd, period, period)
-        return 'bash -c %s' % common.escape_cmd(cmd)
+        cmd = common.escape_cmd(cmd)
+        print cmd
+        return 'bash -c %s' % cmd
 
 class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_image       = ServiceDockerSerializer(optional = True, help_text = "Docker to build for running and deploying.")

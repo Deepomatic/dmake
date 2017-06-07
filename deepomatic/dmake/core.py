@@ -351,8 +351,7 @@ def generate_command_pipeline(file, cmds):
             commands = kwargs['shell']
             if common.is_string(commands):
                 commands = [commands]
-            commands = [c.replace("'", "\\'")
-                         .replace("$", "\\$") for c in commands]
+            commands = [c.replace("'", "\\'") for c in commands]
             if len(commands) == 0:
                 return
             if len(commands) == 1:
