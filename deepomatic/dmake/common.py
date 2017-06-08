@@ -36,8 +36,15 @@ def run_shell_command(cmd, ignore_error = False):
 def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
 
+escape_re = re.compile(r'(\$|\\|\"|\')')
+def escape_cmd(cmd):
+    return escape_re.sub(lambda m:{'$':'\$','\\':'\\\\','"':'\\"','\'':'\\\''}[m.group()], cmd)
+
+def wrap_cmd(cmd):
+    return '"%s"' % cmd.replace('"', '\\"')
+
 def eval_str_in_env(cmd):
-    cmd = 'echo "%s"' % cmd.replace('"', '\\"')
+    cmd = 'echo %s' % wrap_cmd(cmd)
     return run_shell_command(cmd).strip()
 
 # Docker has some trouble mounting volumes with trailing '/'.

@@ -50,6 +50,7 @@ RUN_COMMAND="docker run --privileged ${DOCKER_OPTS} -v /var/log:/var/log"
 # Options to share docker (if the hooks wants to launch another container)
 DOCKER_SHARE_OPTS="-v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):/usr/bin/docker -v /usr/lib/x86_64-linux-gnu/libltdl.so.7:/usr/lib/x86_64-linux-gnu/libltdl.so.7"
 RUN_COMMAND_HOOKS="$RUN_COMMAND --rm $DOCKER_SHARE_OPTS -t -i ${IMAGE_NAME}"
+
 # Run pre hooks
 if [ ! -z "${PRE_DEPLOY_HOOKS}" ]; then
     echo "Running pre-deploy script ${PRE_DEPLOY_HOOKS}"
@@ -60,17 +61,22 @@ fi
 docker rm -f ${APP_NAME}-tmp || :
 $RUN_COMMAND --restart unless-stopped --name ${APP_NAME}-tmp -d -i ${IMAGE_NAME}
 
-# Run mid hooks
+# Run ready probe
+if [ ! -z '${READYNESS_PROBE}' ]; then # '' are importants here as there might be unescaped " in READYNESS_PROBE
+    docker exec ${APP_NAME}-tmp ${READYNESS_PROBE}
+fi
+
+# Run mid hooks (deprecated)
 if [ ! -z "${MID_DEPLOY_HOOKS}" ]; then
     echo "Running mid-deploy script ${MID_DEPLOY_HOOKS}"
     $RUN_COMMAND_HOOKS ${MID_DEPLOY_HOOKS}
 fi
 
-docker stop ${APP_NAME} || :
-docker rm -f ${APP_NAME} || :
+docker stop ${APP_NAME} 1&>2 2> /dev/null || :
+docker rm -f ${APP_NAME} 1&>2 2> /dev/null || :
 docker rename ${APP_NAME}-tmp ${APP_NAME}
 
-# Remove unused images
+# Remove unused images (deprecated)
 set +e
 IDS=`docker images | sed "s/  */ /g" | cut -d\  -f1,3 | grep "<none>"`
 if [ ! -z "$IDS" ]; then

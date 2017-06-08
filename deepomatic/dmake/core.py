@@ -351,12 +351,11 @@ def generate_command_pipeline(file, cmds):
             commands = kwargs['shell']
             if common.is_string(commands):
                 commands = [commands]
-            commands = [c.replace("'", "\\'")
-                         .replace("$", "\\$") for c in commands]
+            commands = [common.escape_cmd(c) for c in commands]
             if len(commands) == 0:
                 return
             if len(commands) == 1:
-                file.write("sh('%s')\n" % commands[0])
+                file.write('sh("%s")\n' % commands[0])
             else:
                 file.write('parallel (\n')
                 commands_list = []
