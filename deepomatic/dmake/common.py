@@ -38,7 +38,7 @@ def array_to_env_vars(array):
 
 escape_re = re.compile(r'(\$|\\|\"|\')')
 def escape_cmd(cmd):
-    return '"%s"' % escape_re.sub(lambda m:{'$':'\$','\\':'\\\\','"':'\\"','\'':'\\\''}[m.group()], cmd)
+    return escape_re.sub(lambda m:{'$':'\$','\\':'\\\\','"':'\\"','\'':'\\\''}[m.group()], cmd)
 
 def wrap_cmd(cmd):
     return '"%s"' % cmd.replace('"', '\\"')
