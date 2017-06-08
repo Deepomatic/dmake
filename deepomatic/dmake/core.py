@@ -348,10 +348,9 @@ def generate_command_pipeline(file, cmds):
             else:
                 file.write("stage '%s'\n" % name)
         elif cmd == "sh":
-            cmds = kwargs['shell']
-            if common.is_string(cmds):
-                cmds = [cmds]
-            commands = []
+            commands = kwargs['shell']
+            if common.is_string(commands):
+                commands = [commands]
             commands = [common.escape_cmd(c) for c in commands]
             if len(commands) == 0:
                 return
