@@ -8,45 +8,6 @@ from deepomatic.dmake.common import DMakeException
 
 ###############################################################################
 
-def append_command(commands, cmd, prepend = False, **args):
-    def check_cmd(args, required, optional = []):
-        for a in required:
-            if a not in args:
-                raise DMakeException("%s is required for command %s" % (a, cmd))
-        for a in args:
-            if a not in required and a not in optional:
-                raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
-    if cmd == "stage":
-        check_cmd(args, ['name', 'concurrency'])
-    elif cmd == "sh":
-        check_cmd(args, ['shell'])
-    elif cmd == "read_sh":
-        check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
-        args['id'] = len(commands)
-        if 'fail_if_empty' not in args:
-            args['fail_if_empty'] = False
-    elif cmd == "env":
-        check_cmd(args, ['var', 'value'])
-    elif cmd == "git_tag":
-        check_cmd(args, ['tag'])
-    elif cmd == "junit":
-        check_cmd(args, ['report'])
-    elif cmd == "cobertura":
-        check_cmd(args, ['report'])
-    elif cmd == "publishHTML":
-        check_cmd(args, ['directory', 'index', 'title'])
-    elif cmd == "build":
-        check_cmd(args, ['job', 'parameters', 'propagate', 'wait'])
-    else:
-        raise DMakeException("Unknow command %s" %cmd)
-    cmd = (cmd, args)
-    if prepend:
-        commands.insert(0, cmd)
-    else:
-        commands.append(cmd)
-
-###############################################################################
-
 def generate_copy_command(commands, tmp_dir, src):
     src = common.join_without_slash(src)
     if src == '':
@@ -105,12 +66,14 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                 cmd.append('echo %s' % common.wrap_cmd(value))
             cmd.append(delimitor)
 
-            cmd = ' && '.join(cmd)
-            output = common.run_shell_command(cmd)
-            output = output.split('\n')[1:-1]
-            assert(len(output) == len(variables))
-            for var, value in zip(variables.keys(), output):
-                env[var] = value.strip()
+            if len(cmd) > 0:
+                cmd = ' && '.join(cmd)
+                output = common.run_shell_command(cmd)
+                output = output.split('\n')[1:-1]
+                assert(len(output) == len(variables))
+                for var, value in zip(variables.keys(), output):
+                    env[var] = value.strip()
+
         return env
 
 class EnvSerializer(YAML2PipelineSerializer):
@@ -118,8 +81,8 @@ class EnvSerializer(YAML2PipelineSerializer):
     branches = FieldSerializer('dict', child = EnvBranchSerializer(), default = {}, help_text = "If the branch matches one of the following fields, those variables will be defined as well, eventually replacing the default.", example = {'master': {'ENV_TYPE': 'prod'}})
 
 class DockerBaseSerializer(YAML2PipelineSerializer):
-    name                 = FieldSerializer("string", help_text = "Base image name. If no docker user is indicated, the image will be kept locally")
-    version              = FieldSerializer("string", help_text = "Base image version. The branch name will be prefixed to form the docker image tag.", example = "v2", default = 'latest')
+    name                 = FieldSerializer("string", optional = True, help_text = "Base image name. If no docker user is indicated, the image will be kept locally") # Deprecated
+    version              = FieldSerializer("string", optional = True, help_text = "Base image version. The branch name will be prefixed to form the docker image tag.", example = "v2") # Deprecated
     install_scripts      = FieldSerializer("array", default = [], child = FieldSerializer("path", executable = True, child_path_only = True), example = ["some/relative/script/to/run"])
     python_requirements  = FieldSerializer("path", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "")
     python3_requirements = FieldSerializer("path", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "requirements.txt")
@@ -134,73 +97,9 @@ class DockerRootImageSerializer(YAML2PipelineSerializer):
         return common.eval_str_in_env(full)
 
 class DockerSerializer(YAML2PipelineSerializer):
-    root_image   = FieldSerializer([FieldSerializer("path", help_text = "to another dmake file, in which base the root_image will be this file's base_image."), DockerRootImageSerializer()], help_text = "The source image name to build on.", example = "ubuntu:16.04")
+    root_image   = FieldSerializer([DockerRootImageSerializer(), FieldSerializer("path", help_text = "to another dmake file, in which base the root_image will be this file's base_image.")], help_text = "The source image name to build on.", example = "ubuntu:16.04")
     base_image   = DockerBaseSerializer(optional = True, help_text = "Base (intermediate) image to speed-up builds.")
     command      = FieldSerializer("string", default = "bash", help_text = "Only used when running 'dmake shell': set the command of the container")
-
-    def _serialize_(self, commands, path_dir):
-        if self.base_image.has_value():
-            # Make the temporary directory
-            tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
-
-            # Copy file and compute their md5
-            files_to_copy = []
-            for file in self.base_image.copy_files + self.base_image.install_scripts:
-                files_to_copy.append(file)
-            if self.base_image.python_requirements:
-                files_to_copy.append(self.base_image.python_requirements)
-            if self.base_image.python3_requirements:
-                files_to_copy.append(self.base_image.python3_requirements)
-
-            # Copy file and keep their md5
-            md5s = {}
-            for file in files_to_copy:
-                md5s[file] = common.run_shell_command('dmake_copy_file %s %s' % (os.path.join(path_dir, file), os.path.join(tmp_dir, 'user', file)))
-
-            # Set RUN command
-            run_cmd = "cd user"
-            for file in self.base_image.install_scripts:
-                run_cmd += " && ./%s" % file
-
-            # Install pip if needed
-            if self.base_image.python_requirements:
-                run_cmd += " && bash ../install_pip.sh && pip install --process-dependency-links -r " + self.base_image.python_requirements
-            if self.base_image.python3_requirements:
-                run_cmd += " && bash ../install_pip3.sh && pip3 install --process-dependency-links -r " + self.base_image.python3_requirements
-
-            # Save the command in a bash file
-            file = 'run_cmd.sh'
-            with open(os.path.join(tmp_dir, file), 'w') as f:
-                f.write(run_cmd)
-            md5s[file] = common.run_shell_command('dmake_md5 %s' % os.path.join(tmp_dir, file))
-
-            # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
-            if common.key_file is not None:
-                common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
-
-            # Local environment for temmplates
-            local_env = []
-            local_env.append("export ROOT_IMAGE=%s" % self.root_image)
-            local_env = ' && '.join(local_env)
-            if len(local_env) > 0:
-                local_env += ' && '
-
-            # Copy templates
-            for file in ["make_base.sh", "config.logrotate", "load_credentials.sh", "install_pip.sh", "install_pip3.sh"]:
-                md5s[file] = common.run_shell_command('%s dmake_copy_template docker-base/%s %s' % (local_env, file, os.path.join(tmp_dir, file)))
-
-            # Output md5s for comparison
-            with open(os.path.join(tmp_dir, 'md5s'), 'w') as f:
-                for md5 in md5s.items():
-                    f.write('%s %s\n' % md5)
-
-            # Append Docker Base build command
-            append_command(commands, 'sh', shell = 'dmake_build_base_docker "%s" "%s" "%s" "%s" "%s"' %
-                            (tmp_dir,
-                             self.root_image,
-                             self.base_image.name,
-                             self._get_tag_(),
-                             self.base_image.version))
 
     def _get_tag_(self):
         if common.is_pr:
@@ -662,7 +561,7 @@ class TestSerializer(YAML2PipelineSerializer):
                 index     = html['index'],
                 title     = html['title'])
 
-class ServicesSerializer(YAML2PipelineSerializer):
+class ServiceSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", default = "", help_text = "The name of the application part.", example = "api", no_slash_no_space = True)
     needed_services = FieldSerializer("array", child = FieldSerializer("string", blank = False), default = [], help_text = "List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.", example = ["worker"])
     sources         = FieldSerializer("array", child = FieldSerializer(["path", "dir"]), optional = True, help_text = "If specified, this service will be considered as updated only when the content of those directories or files have changed.", example = 'path/to/app')
@@ -683,12 +582,12 @@ class DMakeFileSerializer(YAML2PipelineSerializer):
     app_name           = FieldSerializer("string", help_text = "The application name.", example = "my_app", no_slash_no_space = True)
     blacklist          = FieldSerializer("array", child = "path", default = [], help_text = "List of dmake files to blacklist.", child_path_only = True, example = ['some/sub/dmake.yml'])
     env                = FieldSerializer(["path", EnvSerializer()], optional = True, help_text = "Environment variables to embed in built docker images.")
-    docker             = FieldSerializer([FieldSerializer("path", help_text = "to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field."), DockerSerializer()], help_text = "The environment in which to build and deploy.")
+    docker             = FieldSerializer([DockerSerializer(), FieldSerializer("path", help_text = "to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field.")], help_text = "The environment in which to build and deploy.")
     docker_links       = FieldSerializer("array", child = DockerLinkSerializer(), default = [], help_text = "List of link to create, they are shared across the whole application, so potentially across multiple dmake files.")
     build              = BuildSerializer(optional = True, help_text = "Commands to run for building the application.")
     pre_test_commands  = FieldSerializer("array", default = [], child = "string", help_text = "Command list to run before running tests.")
     post_test_commands = FieldSerializer("array", default = [], child = "string", help_text = "Command list to run after running tests.")
-    services           = FieldSerializer("array", child = ServicesSerializer(), default = [], help_text = "Service list.")
+    services           = FieldSerializer("array", child = ServiceSerializer(), default = [], help_text = "Service list.")
 
 class DMakeFile(DMakeFileSerializer):
     def __init__(self, file, data):
@@ -906,3 +805,4 @@ class DMakeFile(DMakeFileSerializer):
             raise DMakeException("You need to specify a 'config' when deploying.")
         assert(service.service_name in self.app_package_dirs)
         service.deploy.generate_deploy(commands, self.app_name, service.service_name, self.app_package_dirs[service.service_name], docker_links, self.env, service.config)
+>>>>>>> master:deepomatic/dmake/deepobuild.py

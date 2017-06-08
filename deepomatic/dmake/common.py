@@ -1,8 +1,13 @@
 import os
-import sys
 import logging
 import subprocess
 import re
+import tempfile
+from datetime import date
+
+# Compatibility
+from deepomatic.dmake.compat import is_string
+from deepomatic.dmake.compat import read_input
 
 # Set logger
 logger = logging.getLogger("deepomatic.dmake")
@@ -10,6 +15,31 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 ###############################################################################
+# Set by init: TODO some things could be set directly
+
+root_dir = None
+tmp_dir = None
+cache_dir = None
+key_file  = None
+branch = None
+target = None
+is_pr = None
+pr_id = None
+build_id = None
+commit_id = None
+#force_full_deploy = False
+repo_url = None
+repo = None
+use_pipeline = None
+is_local = None
+skip_tests = None
+build_description = None
+command = None
+options = None
+uname = None
+
+###############################################################################
+# Exceptions
 
 class ShellError(Exception):
     def __init__(self, msg):
@@ -24,14 +54,21 @@ class NotGitRepositoryException(DMakeException):
         super(NotGitRepositoryException, self).__init__('Not a GIT repository')
 
 ###############################################################################
+# Shell utilities
 
-def run_shell_command(cmd, ignore_error = False):
+def run_dmake_script(module, cmd, *args):
+    raise Exception("TODO")
+
+def run_shell_command(cmd, ignore_error = False, get_return_code = False):
     command = ['bash', '-c', cmd]
     p = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
     stdout, stderr = p.communicate()
     if len(stderr) > 0 and not ignore_error:
         raise ShellError(stderr.decode())
-    return stdout.strip().decode()
+    if get_return_code:
+        return p.returncode
+    else:
+        return stdout.strip().decode()
 
 def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
@@ -55,8 +92,6 @@ def join_without_slash(*args):
         path = path[:-1]
     return path
 
-###############################################################################
-
 def find_repo_root(root_dir):
     sub_dir = ''
     while True:
@@ -73,8 +108,6 @@ def find_repo_root(root_dir):
     if sub_dir == '.':
         sub_dir = '' # IMPORTANT: Need to get rid of the leading '.' to unify behaviour
     return root_dir, sub_dir
-
-###############################################################################
 
 pulled_config_dirs = {}
 def pull_config_dir(root_dir):
@@ -96,16 +129,9 @@ def pull_config_dir(root_dir):
 
 ###############################################################################
 
-if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import is_string, read_input
-else:
-    from deepomatic.dmake.python_2x import is_string, read_input
-
-###############################################################################
-
 def init(_command, _root_dir, _app, _options):
     global root_dir, tmp_dir, config_dir, cache_dir, key_file
-    global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
+    global branch, target, is_pr, pr_id, build_id, commit_id
     global repo_url, repo, use_pipeline, is_local, skip_tests
     global build_description
     global command, options, uname
@@ -122,7 +148,10 @@ def init(_command, _root_dir, _app, _options):
     except OSError:
         pass
 
-    tmp_dir = run_shell_command("dmake_make_tmp_dir")
+    # Create temporary directory for the build
+    today = date.today()
+    prefix = 'dmake_tmp_%d_%02d_%02d_' % (today.year, today.month, today.day)
+    tmp_dir = tempfile.mkdtemp(prefix=prefix)
     os.environ['DMAKE_TMP_DIR'] = tmp_dir
 
     # Get uname
@@ -158,15 +187,9 @@ def init(_command, _root_dir, _app, _options):
         pr_id    = os.getenv('CHANGE_ID')
         build_id = os.getenv('BUILD_ID', '0')
     is_pr = target is not None
-    force_full_deploy = False
 
     if 'branch' in options and options.branch:
         branch = options.branch
-
-    # Modify command if (is_pr && !is_local)
-    if is_pr and not is_local:
-        assert(command == "deploy")
-        command = "test"
 
     # Find repo
     repo_url = run_shell_command('git config --get remote.origin.url')
@@ -225,3 +248,11 @@ def init(_command, _root_dir, _app, _options):
         else:
             logger.warning("WARNING: DMAKE_SSH_KEY does not point to a valid file. You won't be able to clone private repositories.")
             key_file = None
+
+###############################################################################
+
+def get_tag_name():
+    global branch
+    return 'deployed_version_%s' % branch
+
+###############################################################################
