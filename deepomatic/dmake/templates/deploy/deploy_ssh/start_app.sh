@@ -74,7 +74,7 @@ fi
 
 docker stop ${APP_NAME} 1&>2 2> /dev/null || :
 docker rm -f ${APP_NAME} 1&>2 2> /dev/null || :
-docker rename ${APP_NAME}-tmp ${APP_NAME} 1&>2 2> /dev/null || :
+docker rename ${APP_NAME}-tmp ${APP_NAME}
 
 # Remove unused images
 set +e
