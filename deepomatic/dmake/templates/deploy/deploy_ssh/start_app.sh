@@ -51,7 +51,7 @@ RUN_COMMAND="docker run --privileged ${DOCKER_OPTS} -v /var/log:/var/log"
 DOCKER_SHARE_OPTS="-v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):/usr/bin/docker -v /usr/lib/x86_64-linux-gnu/libltdl.so.7:/usr/lib/x86_64-linux-gnu/libltdl.so.7"
 RUN_COMMAND_HOOKS="$RUN_COMMAND --rm $DOCKER_SHARE_OPTS -t -i ${IMAGE_NAME}"
 
-# Run pre hooks
+# Run pre hooks (deprecated)
 if [ ! -z "${PRE_DEPLOY_HOOKS}" ]; then
     echo "Running pre-deploy script ${PRE_DEPLOY_HOOKS}"
     $RUN_COMMAND_HOOKS ${PRE_DEPLOY_HOOKS}
@@ -74,9 +74,9 @@ fi
 
 docker stop ${APP_NAME} 1&>2 2> /dev/null || :
 docker rm -f ${APP_NAME} 1&>2 2> /dev/null || :
-docker rename ${APP_NAME}-tmp ${APP_NAME}
+docker rename ${APP_NAME}-tmp ${APP_NAME} 1&>2 2> /dev/null || :
 
-# Remove unused images (deprecated)
+# Remove unused images
 set +e
 IDS=`docker images | sed "s/  */ /g" | cut -d\  -f1,3 | grep "<none>"`
 if [ ! -z "$IDS" ]; then
@@ -84,7 +84,7 @@ if [ ! -z "$IDS" ]; then
 fi
 set -e
 
-# Run post hooks
+# Run post hooks (deprecated)
 if [ ! -z "${POST_DEPLOY_HOOKS}" ]; then
     echo "Running post-deploy script ${POST_DEPLOY_HOOKS}"
     $RUN_COMMAND_HOOKS ${POST_DEPLOY_HOOKS}
