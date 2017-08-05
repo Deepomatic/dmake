@@ -382,6 +382,7 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
               ('export MID_DEPLOY_HOOKS="%s" && ' % config.mid_deploy_script) + \
               ('export POST_DEPLOY_HOOKS="%s" && ' % config.post_deploy_script) + \
               ('export READYNESS_PROBE="%s" && ' % common.escape_cmd(config.readiness_probe.get_cmd())) + \
+              ('export DOCKER_CMD="%s" && ' % 'nvidia-docker' if config.need_gpu else 'docker') + \
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
         common.run_shell_command(cmd)
 
@@ -535,6 +536,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_image       = ServiceDockerSerializer(optional = True, help_text = "Docker to build for running and deploying.")
     docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add.")
+    need_gpu           = FieldSerializer("bool", default = False, help_text = "Whether the service needs to be run on a GPU node.")
     ports              = FieldSerializer("array", child = DeployConfigPortsSerializer(), default = [], help_text = "Ports to open.")
     volumes            = FieldSerializer("array", child = DeployConfigVolumesSerializer(), default = [], help_text = "Volumes to open.")
     readiness_probe    = ReadinessProbeSerializer(optional = True, help_text = "A probe that waits until the container is ready.")

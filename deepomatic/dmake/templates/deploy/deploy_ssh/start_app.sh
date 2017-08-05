@@ -2,10 +2,6 @@
 
 # Do not add {} around variables without it: it is on purpose so that replace_vars do not replace them.
 
-# Make sure modules are loaded
-modprobe nvidia
-modprobe nvidia_uvm
-
 # Mount volumes
 mount -a
 
@@ -37,6 +33,23 @@ if [ -e $device_name ] && [ `df | grep $device_name | wc -l` == "0" ] && [ ! -e 
     fi
 fi
 
+# Install NVIDIA drivers
+if [ "${DOCKER_CMD}" = "nvidia-docker" ]; then
+    if [ ! `which nvidia-smi` ]; then
+        apt-get update
+        apt-get install nvidia-375
+    fi
+    # Make sure modules are loaded
+    modprobe nvidia
+    modprobe nvidia_uvm
+    if [ ! `which nvidia-docker` ]; then
+        apt-get update
+        apt-get install nvidia-modprobe
+        wget -P /tmp https://github.com/NVIDIA/nvidia-docker/releases/download/v1.0.1/nvidia-docker_1.0.1-1_amd64.deb
+        sudo dpkg -i /tmp/nvidia-docker*.deb && rm /tmp/nvidia-docker*.deb
+    fi
+fi
+
 # Copy docker credentials
 cp -r .docker* $HOME/ || :
 
@@ -46,7 +59,7 @@ ${LAUNCH_LINK}
 # Pull the base image and build
 docker pull ${IMAGE_NAME}
 
-RUN_COMMAND="docker run --privileged ${DOCKER_OPTS} -v /var/log:/var/log"
+RUN_COMMAND="${DOCKER_CMD} run ${DOCKER_OPTS} -v /var/log:/var/log"
 # Options to share docker (if the hooks wants to launch another container)
 DOCKER_SHARE_OPTS="-v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):/usr/bin/docker -v /usr/lib/x86_64-linux-gnu/libltdl.so.7:/usr/lib/x86_64-linux-gnu/libltdl.so.7"
 RUN_COMMAND_HOOKS="$RUN_COMMAND --rm $DOCKER_SHARE_OPTS -t -i ${IMAGE_NAME}"
@@ -58,11 +71,13 @@ if [ ! -z "${PRE_DEPLOY_HOOKS}" ]; then
 fi
 
 # Switch images
+echo "Deploying new app version"
 docker rm -f ${APP_NAME}-tmp || :
 $RUN_COMMAND --restart unless-stopped --name ${APP_NAME}-tmp -d -i ${IMAGE_NAME}
 
 # Run ready probe
 if [ ! -z '${READYNESS_PROBE}' ]; then # '' are importants here as there might be unescaped " in READYNESS_PROBE
+    echo "Running readyness probe"
     docker exec ${APP_NAME}-tmp ${READYNESS_PROBE}
 fi
 
