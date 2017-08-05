@@ -17,6 +17,15 @@ set -e
 CONTAINER_ID=$1
 shift 1
 
+set +e
 docker exec ${CONTAINER_ID} "$@"
+EXIT_CODE=$?
+set -e
 
-
+if [ "${EXIT_CODE}" = "137" ]; then
+    # Docker container exited before end of probe
+    echo "Docker container probably crashed. Here is the logs:"
+    docker logs ${CONTAINER_ID}
+else
+    exit ${EXIT_CODE}
+fi
