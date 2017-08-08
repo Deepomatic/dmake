@@ -26,6 +26,7 @@ if [ "${EXIT_CODE}" = "137" ]; then
     # Docker container exited before end of probe
     echo "Docker container probably crashed. Here is the logs:"
     docker logs ${CONTAINER_ID}
+    exit 1
 else
     exit ${EXIT_CODE}
 fi
