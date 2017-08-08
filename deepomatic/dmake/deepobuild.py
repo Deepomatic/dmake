@@ -382,7 +382,7 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
               ('export MID_DEPLOY_HOOKS="%s" && ' % config.mid_deploy_script) + \
               ('export POST_DEPLOY_HOOKS="%s" && ' % config.post_deploy_script) + \
               ('export READYNESS_PROBE="%s" && ' % common.escape_cmd(config.readiness_probe.get_cmd())) + \
-              ('export DOCKER_CMD="%s" && ' % 'nvidia-docker' if config.need_gpu else 'docker') + \
+              ('export DOCKER_CMD="%s" && ' % ('nvidia-docker' if config.need_gpu else 'docker')) + \
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
         common.run_shell_command(cmd)
 
