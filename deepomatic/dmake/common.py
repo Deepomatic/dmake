@@ -112,10 +112,17 @@ def pull_config_dir(root_dir):
 
 ###############################################################################
 
+def get_dmake_build_type():
+    global is_release_branch
+    assert(is_release_branch is not None)
+    return "release" if is_release_branch else "testing"
+
+###############################################################################
+
 def init(_command, _root_dir, _app, _options):
     global root_dir, tmp_dir, config_dir, cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
-    global repo_url, repo, use_pipeline, is_local, skip_tests
+    global repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global build_description
     global command, options, uname
     root_dir = os.path.join(_root_dir, '')
@@ -142,6 +149,9 @@ def init(_command, _root_dir, _app, _options):
 
     # Set skip test variable
     skip_tests = os.getenv('DMAKE_SKIP_TESTS', "false") == "true"
+
+    # Currently set if any dmake file describes a deploy stage matching current branch; updated after files parsing
+    is_release_branch = None
 
     use_pipeline = True
     # For PRs on Jenkins this will give the source branch name
