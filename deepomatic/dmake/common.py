@@ -11,6 +11,13 @@ logger.addHandler(logging.StreamHandler())
 
 ###############################################################################
 
+if sys.version_info >= (3,0):
+    from deepomatic.dmake.python_3x import is_string, read_input, subprocess_output_to_string
+else:
+    from deepomatic.dmake.python_2x import is_string, read_input, subprocess_output_to_string
+
+###############################################################################
+
 class ShellError(Exception):
     def __init__(self, msg):
         super(ShellError, self).__init__(msg)
@@ -30,8 +37,8 @@ def run_shell_command(cmd, ignore_error = False):
     p = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
     stdout, stderr = p.communicate()
     if len(stderr) > 0 and not ignore_error:
-        raise ShellError(stderr.decode())
-    return stdout.strip().decode()
+        raise ShellError(subprocess_output_to_string(stderr))
+    return subprocess_output_to_string(stdout).strip()
 
 def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
@@ -93,13 +100,6 @@ def pull_config_dir(root_dir):
     logger.info("Pulling config from: %s" % root_dir)
     os.system("cd %s && git pull origin master" % root_dir)
     pulled_config_dirs[root_dir] = True
-
-###############################################################################
-
-if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import is_string, read_input
-else:
-    from deepomatic.dmake.python_2x import is_string, read_input
 
 ###############################################################################
 
