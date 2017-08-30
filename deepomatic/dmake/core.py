@@ -90,7 +90,8 @@ def look_for_changed_directories():
 ###############################################################################
 
 def load_dmake_files_list():
-    build_files = common.run_shell_command("find . -name dmake.yml").split("\n")
+    # Ignore permission issues when searching for dmake.yml files, in a portable way
+    build_files = common.run_shell_command("{ LC_ALL=C find . -name dmake.yml 3>&2 2>&1 1>&3 | { grep -v 'Permission denied' >&3; [ $? -eq 1 ]; } } 3>&2 2>&1").split("\n")
     build_files = filter(lambda f: len(f.strip()) > 0, build_files)
     build_files = [file[2:] for file in build_files]
     # Important: for black listed files: we load file in order from root to deepest file
