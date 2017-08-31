@@ -32,9 +32,14 @@ class NotGitRepositoryException(DMakeException):
 
 ###############################################################################
 
-def run_shell_command(cmd, ignore_error = False):
-    command = ['bash', '-c', cmd]
-    p = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+def run_shell_command(commands, ignore_error = False):
+    if not isinstance(commands, list):
+        commands = [commands]
+    prev_p = None
+    for cmd in commands:
+        cmd = ['bash', '-c', cmd]
+        stdin = None if prev_p is None else prev_p.stdout
+        p = subprocess.Popen(cmd, stdin = stdin, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
     stdout, stderr = p.communicate()
     if len(stderr) > 0 and not ignore_error:
         raise ShellError(subprocess_output_to_string(stderr))

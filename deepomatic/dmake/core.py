@@ -646,7 +646,8 @@ def make(root_dir, sub_dir, command, app, options):
             app_name = dmake_file.get_app_name()
             links = docker_links[app_name]
 
-            try:
+            #try:
+            if True:
                 if command == "base":
                     dmake_file.generate_base(all_commands)
                 elif command == "shell":
@@ -658,16 +659,16 @@ def make(root_dir, sub_dir, command, app, options):
                 elif command == "run_link":
                     dmake_file.generate_run_link(all_commands, service, links)
                 elif command == "build":
-                    dmake_file.generate_build(all_commands, service)
+                    dmake_file.generate_build(all_commands)
                 elif command == "build_docker":
                     dmake_file.generate_build_docker(all_commands, service)
                 elif command == "deploy":
                     dmake_file.generate_deploy(all_commands, service, links)
                 else:
                    raise Exception("Unkown command '%s'" % command)
-            except DMakeException as e:
-                print(('ERROR in file %s:\n' % file) + str(e))
-                sys.exit(1)
+            #except DMakeException as e:
+            #    print(('ERROR in file %s:\n' % file) + str(e))
+            #    sys.exit(1)
 
     # Check stages do not appear twice (otherwise it may block Jenkins)
     stage_names = set()
