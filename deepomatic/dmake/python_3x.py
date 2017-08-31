@@ -21,3 +21,7 @@ def is_string(x):
 
 def read_input(msg):
     return input(msg + ' ')
+
+def subprocess_output_to_string(output):
+    """Returns a python 3 string (unicode characters string) from a 'bytes' object"""
+    return output.decode()

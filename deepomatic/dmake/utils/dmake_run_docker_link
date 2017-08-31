@@ -1,12 +1,12 @@
 #!/bin/bash
 #
 # Usage:
-# dmake_run_docker_link APP_NAME IMAGE_NAME LINK_NAME OPTIONS
+# dmake_run_docker_link APP_NAME IMAGE_NAME LINK_NAME OPTIONS PROBE_PORTS
 #
 # Result:
 # Run a docker link and cache the result (call dmake_return_docker_links to export the docker options)
 
-if [ $# -ne 4 ]; then
+if [ $# -ne 5 ]; then
     dmake_fail "$0: Missing arguments"
     exit 1
 fi
@@ -22,6 +22,7 @@ APP_NAME=$1
 IMAGE_NAME=$2
 LINK_NAME=$3
 OPTIONS=$4
+PROBE_PORTS=$5
 
 CACHE_DIR="${DMAKE_TMP_DIR}/links/${APP_NAME}"
 LINK_FILE="${CACHE_DIR}/${LINK_NAME}.link"
@@ -61,6 +62,21 @@ if [ -z "${CONTAINER_ID}" ]; then
     done
 fi
 
+LINK_OPT="--link ${CONTAINER_ID}:${LINK_NAME}"
 echo ${OPT_STR} > ${OPT_FILE}
-echo "--link ${CONTAINER_ID}:${LINK_NAME}" > ${LINK_FILE}
+echo ${LINK_OPT} > ${LINK_FILE}
 echo "${CONTAINER_NAME}" > ${NAME_FILE}
+
+if [ "${PROBE_PORTS}" = "none" ]; then
+    :
+else
+    if [ "${PROBE_PORTS}" = "auto" ]; then
+        PROBE_PORTS=$(docker ps -f id=${CONTAINER_ID} --format "{{.Ports}}" | sed "s/ *//g" | sed "s/\([0-9]*\.\)\{3\}[0-9]*:[0-9]*->//g")
+    fi
+    if [ ! -z "${PROBE_PORTS}" ]; then
+        ROOT=$(dirname $0)
+        docker run --rm ${LINK_OPT} -v ${ROOT}/dmake_wait_for_it:/usr/bin/dmake_wait_for_it -v ${ROOT}/dmake_wait_for_it_wrapper:/usr/bin/dmake_wait_for_it_wrapper -i ubuntu dmake_wait_for_it_wrapper "${LINK_NAME}" "${PROBE_PORTS}"
+    fi
+fi
+
+

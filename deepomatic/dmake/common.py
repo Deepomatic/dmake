@@ -11,6 +11,13 @@ logger.addHandler(logging.StreamHandler())
 
 ###############################################################################
 
+if sys.version_info >= (3,0):
+    from deepomatic.dmake.python_3x import is_string, read_input, subprocess_output_to_string
+else:
+    from deepomatic.dmake.python_2x import is_string, read_input, subprocess_output_to_string
+
+###############################################################################
+
 class ShellError(Exception):
     def __init__(self, msg):
         super(ShellError, self).__init__(msg)
@@ -30,14 +37,21 @@ def run_shell_command(cmd, ignore_error = False):
     p = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
     stdout, stderr = p.communicate()
     if len(stderr) > 0 and not ignore_error:
-        raise ShellError(stderr.decode())
-    return stdout.strip().decode()
+        raise ShellError(subprocess_output_to_string(stderr))
+    return subprocess_output_to_string(stdout).strip()
 
 def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
 
+escape_re = re.compile(r'(\$|\\|\"|\')')
+def escape_cmd(cmd):
+    return escape_re.sub(lambda m:{'$':'\$','\\':'\\\\','"':'\\"','\'':'\\\''}[m.group()], cmd)
+
+def wrap_cmd(cmd):
+    return '"%s"' % cmd.replace('"', '\\"')
+
 def eval_str_in_env(cmd):
-    cmd = 'echo "%s"' % cmd.replace('"', '\\"')
+    cmd = 'echo %s' % wrap_cmd(cmd)
     return run_shell_command(cmd).strip()
 
 # Docker has some trouble mounting volumes with trailing '/'.
@@ -89,15 +103,8 @@ def pull_config_dir(root_dir):
 
 ###############################################################################
 
-if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import is_string, read_input
-else:
-    from deepomatic.dmake.python_2x import is_string, read_input
-
-###############################################################################
-
 def init(_command, _root_dir, _app, _options):
-    global root_dir, tmp_dir, cache_dir, key_file
+    global root_dir, tmp_dir, config_dir, cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
     global repo_url, repo, use_pipeline, is_local, skip_tests
     global build_description
@@ -106,6 +113,9 @@ def init(_command, _root_dir, _app, _options):
     command = _command
     options = _options
 
+    config_dir = os.getenv('DMAKE_CONFIG_DIR', None)
+    if config_dir is None:
+        raise DMakeException("DMake seems to be badly configured: environment variable DMAKE_CONFIG_DIR is missing. Try to run %s again." % os.path.join(os.getenv('DMAKE_PATH', ""), 'install.sh'))
     cache_dir = os.path.join(root_dir, '.dmake')
     try:
         os.mkdir(cache_dir)

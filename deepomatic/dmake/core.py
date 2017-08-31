@@ -90,7 +90,8 @@ def look_for_changed_directories():
 ###############################################################################
 
 def load_dmake_files_list():
-    build_files = common.run_shell_command("find . -name dmake.yml").split("\n")
+    # Ignore permission issues when searching for dmake.yml files, in a portable way
+    build_files = common.run_shell_command("{ LC_ALL=C find . -name dmake.yml 3>&2 2>&1 1>&3 | { grep -v 'Permission denied' >&3; [ $? -eq 1 ]; } } 3>&2 2>&1").split("\n")
     build_files = filter(lambda f: len(f.strip()) > 0, build_files)
     build_files = [file[2:] for file in build_files]
     # Important: for black listed files: we load file in order from root to deepest file
@@ -351,12 +352,11 @@ def generate_command_pipeline(file, cmds):
             commands = kwargs['shell']
             if common.is_string(commands):
                 commands = [commands]
-            commands = [c.replace("'", "\\'")
-                         .replace("$", "\\$") for c in commands]
+            commands = [common.escape_cmd(c) for c in commands]
             if len(commands) == 0:
                 return
             if len(commands) == 1:
-                file.write("sh('%s')\n" % commands[0])
+                file.write('sh("%s")\n' % commands[0])
             else:
                 file.write('parallel (\n')
                 commands_list = []
@@ -701,7 +701,7 @@ def make(root_dir, sub_dir, command, app, options):
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
         do_clean = True
-        if result != 0 and common.command in ['run', 'shell']:
+        if result != 0 and common.command in ['run', 'shell', 'test']:
             r = common.read_input("An error was detected. DMake will stop. The script directory is : %s.\nDo you want to stop all the running containers? [Y/n] " % common.tmp_dir)
             if r.lower() != 'y' and r != "":
                 do_clean = False

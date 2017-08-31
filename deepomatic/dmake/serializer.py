@@ -40,7 +40,12 @@ class FieldSerializer(object):
         if not isinstance(data_type, list):
             data_type = [data_type]
         for t in data_type:
-            assert(isinstance(t, YAML2PipelineSerializer) or isinstance(t, FieldSerializer) or t in self.allowed_types)
+            if not (isinstance(t, YAML2PipelineSerializer) or isinstance(t, FieldSerializer) or t in self.allowed_types):
+                if not isinstance(t, tuple):
+                    raise Exception('Unknown type: %s' % str(t))
+                for tt in t:
+                    if not tt in self.allowed_types:
+                        raise Exception('Unknown type: %s' % str(tt))
             if t == "array" or t == "dict":
                 if child in self.allowed_types:
                     child = FieldSerializer(child, blank = True)

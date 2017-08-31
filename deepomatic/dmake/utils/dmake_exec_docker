@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+# Usage:
+# dmake_exec_docker CONTAINER_ID ARGS...
+#
+# Result:
+# Execute a command in a container
+
+if [ $# -lt 2 ]; then
+    dmake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+set -e
+
+CONTAINER_ID=$1
+shift 1
+
+set +e
+docker exec ${CONTAINER_ID} "$@"
+EXIT_CODE=$?
+set -e
+
+if [ "${EXIT_CODE}" = "137" ]; then
+    # Docker container exited before end of probe
+    echo "Docker container probably crashed. Here is the logs:"
+    docker logs ${CONTAINER_ID}
+    exit 1
+else
+    exit ${EXIT_CODE}
+fi
