@@ -700,8 +700,9 @@ def make(root_dir, sub_dir, command, app, options):
     # If on local, run the commands
     if common.is_local:
         result = os.system('bash %s' % file_to_generate)
-        do_clean = True
-        if result != 0 and common.command in ['run', 'shell', 'test']:
+        # Do not clean for the 'run' command
+        do_clean = common.command != 'run'
+        if result != 0 and common.command in ['shell', 'test']:
             r = common.read_input("An error was detected. DMake will stop. The script directory is : %s.\nDo you want to stop all the running containers? [Y/n] " % common.tmp_dir)
             if r.lower() != 'y' and r != "":
                 do_clean = False

@@ -35,7 +35,7 @@ class FieldSerializer(object):
             no_slash_no_space = False,
             help_text = "",
             example = None):
-        self.allowed_types = ["bool", "int", "path", "dir", "string", "array", "dict"]
+        self.allowed_types = ["bool", "int", "path", "file", "dir", "string", "array", "dict"]
 
         if not isinstance(data_type, list):
             data_type = [data_type]
@@ -135,7 +135,7 @@ class FieldSerializer(object):
                     if data.find(c) >= 0:
                         raise ValidationError("Character '%s' not allowed" % c)
             return data
-        elif data_type == "path" or data_type == "dir":
+        elif data_type in ["path", "file", "dir"]:
             if not common.is_string(data):
                 raise WrongType("Expecting string")
             if len(data) > 0 and data[0] == '/':
@@ -157,11 +157,14 @@ class FieldSerializer(object):
                 raise WrongType("Trying to access a parent directory is forbidden")
             if self.check_path:
                 if data_type == "path":
+                    if not (os.path.isfile(full_path) or os.path.isdir(full_path)):
+                        raise WrongType("Could not find file or directory: %s" % data)
+                elif data_type == "file":
                     if not os.path.isfile(full_path):
                         raise WrongType("Could not find file: %s" % data)
                     if self.executable and not os.access(full_path, os.X_OK):
                         raise WrongType("The file must be executable: %s" % full_path)
-                else:
+                elif data_type == "dir":
                     if not os.path.isdir(full_path):
                         raise WrongType("Could not find directory: %s" % data)
             return data
@@ -215,6 +218,9 @@ class FieldSerializer(object):
             type_str = 'int'
             help_text = 'integers' if is_plural else 'an integer'
         elif obj == "path":
+            type_str = 'file or directory path'
+            help_text = 'file or directory paths' if is_plural else 'a file or directory path'
+        elif obj == "file":
             type_str = 'file path'
             help_text = 'file paths' if is_plural else 'a file path'
         elif obj == "dir":
@@ -279,12 +285,11 @@ class FieldSerializer(object):
             elif value is None:
                 if t == "int":
                     value = "1"
-                elif t == "path" or t == "dir":
-                    path_str = "path" if t == "path" else "directory"
+                elif t in ["path", "file", "dir"]:
                     if self.child_path_only:
-                        value = "some/relative/%s/example" % path_str
+                        value = "some/relative/%s/example" % t
                     else:
-                        value = "some/%s/example" % path_str
+                        value = "some/%s/example" % t
                 elif t == "string":
                     value = "Some string"
                 elif t == "bool":
