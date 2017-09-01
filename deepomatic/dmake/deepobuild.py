@@ -776,16 +776,10 @@ class DMakeFile(DMakeFileSerializer):
         raise DMakeException("Could not find service '%s'" % service)
 
     def _get_link_opts_(self, commands, service):
-        docker_links_names = []
-        if common.options.dependencies:
-            if service.tests.has_value():
-                docker_links_names = service.tests.docker_links_names
-        else:
-            if service.config.has_value():
-                docker_links_names = service.config.docker_links_names
-
-        if len(docker_links_names) > 0:
-            append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(docker_links_names)), fail_if_empty = True)
+        if common.options.dependencies and service.tests.has_value():
+            docker_links_names = service.tests.docker_links_names
+            if len(docker_links_names) > 0:
+                append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(docker_links_names)), fail_if_empty = True)
 
     def _get_check_needed_services_(self, commands, service):
         if common.options.dependencies and len(service.needed_services) > 0:
