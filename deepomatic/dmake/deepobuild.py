@@ -850,7 +850,7 @@ class DMakeFile(DMakeFileSerializer):
 
         docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env)
         if entrypoint is not None:
-            full_path_container = os.path.join('/app', self.__path__, entrypoint)
+            full_path_container = os.path.join(self.docker.mount_point, self.__path__, entrypoint)
             docker_opts += ' --entrypoint %s' % full_path_container
 
         build_id = common.build_id if common.build_id else "0"
