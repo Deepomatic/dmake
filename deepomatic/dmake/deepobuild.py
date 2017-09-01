@@ -233,7 +233,7 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
 
             # Turn it into an absolute path
             if host_vol[0] == '.':
-                host_vol = os.path.join(path, host_vol)
+                host_vol = os.path.normpath(os.path.join(common.root_dir, path, host_vol))
             options += ' -v %s:%s' % (host_vol, container_vol)
         return options
 
