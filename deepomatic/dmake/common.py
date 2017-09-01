@@ -32,9 +32,11 @@ class NotGitRepositoryException(DMakeException):
 
 ###############################################################################
 
-def run_shell_command(commands, ignore_error=False, additional_env={}):
+def run_shell_command(commands, ignore_error=False, additional_env=None):
     if not isinstance(commands, list):
         commands = [commands]
+    if additional_env is None:
+        additional_env = {}
 
     env = os.environ.copy()
     env.update(additional_env)
@@ -59,7 +61,9 @@ def escape_cmd(cmd):
 def wrap_cmd(cmd):
     return '"%s"' % cmd.replace('"', '\\"')
 
-def eval_str_in_env(cmd, env={}):
+def eval_str_in_env(cmd, env=None):
+    if env is None:
+        env = {}
     cmd = 'echo %s' % wrap_cmd(cmd)
     return run_shell_command(cmd, additional_env=env).strip()
 

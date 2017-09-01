@@ -40,8 +40,9 @@ class FieldSerializer(object):
         if not isinstance(data_type, list):
             data_type = [data_type]
         for t in data_type:
-            assert(isinstance(t, YAML2PipelineSerializer) or isinstance(t, FieldSerializer) or t in self.allowed_types)
-            if t == "array" or t == "dict":
+            isComplex = isinstance(t, YAML2PipelineSerializer) or isinstance(t, FieldSerializer)
+            assert(isComplex or t in self.allowed_types)
+            if not isComplex and (t == "array" or t == "dict"):
                 if child in self.allowed_types:
                     child = FieldSerializer(child, blank = True)
                 else:
