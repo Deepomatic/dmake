@@ -14,7 +14,7 @@ fi
 set -e
 
 for SERVICE in "$@"; do
-    LINE=`cat ${DMAKE_TMP_DIR}/daemon_ids.txt | grep " ${SERVICE}\$"`
+    LINE=`cat ${DMAKE_TMP_DIR}/daemon_ids.txt | grep " ${SERVICE}\$" || :`
     if [ -z "${LINE}" ]; then
         dmake_fail "Unexpected error: unknown service ${SERVICE}"
         exit 1
