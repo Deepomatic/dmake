@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# Usage:
+# dmake_deploy_kubernetes DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME REPO BRANCH COMMIT_ID ARGS...
+#
+# Result:
+# Deploy resources on kubernetes, using ARGS as kubernetes manifest yaml files.
+# NAMESPACE can be emply, meaning using default namespace defined in KUBE_CONTEXT
+
+set -e
+
+if [ $# -lt 6 ]; then
+  dmake_fail "$0: Wrong arguments"
+  echo "exit 1"
+  exit 1
+fi
+
+TMP_DIR=$1; shift
+CONTEXT=$1; shift
+NAMESPACE=$1; shift
+SERVICE=$1; shift
+REPO=$1; shift
+BRANCH="$1"; shift
+COMMIT=$1; shift
+
+BASE_ARGS=( --context=${CONTEXT} ${NAMESPACE:+--namespace=${NAMESPACE}} )
+
+FILES_ARGS=( )
+for file in "$@"; do
+  FILES_ARGS[${#FILES_ARGS[*]}]="--filename=${TMP_DIR}/${file}"
+done
+
+
+function echo_title() {
+  echo
+  echo [DMake] "$@"
+}
+
+deploy_timestamp=$(date --iso-8601=seconds)
+
+echo_title Apply ${SERVICE} to kubernetes cluster ${CONTEXT}:
+# --record=false allows to specify `kubernetes.io/change-cause` annotation from the manifest files
+APPLY_ARGS=( "${BASE_ARGS[@]}" apply --record=false --output=yaml "${FILES_ARGS[@]}" )
+echo kubectl "${APPLY_ARGS[@]}"
+kubectl "${APPLY_ARGS[@]}"
+
+echo_title Annotate ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
+# TODO currently not atomic: multiple apply can work in parallel, and this command may annotate the wrong version
+prefix="dmake.deepomatic.com"
+ANNOTATE_ARGS=( "${BASE_ARGS[@]}" annotate deployment/${SERVICE} --overwrite=true --record=false
+                ${prefix}/deploy-timestamp="${deploy_timestamp}"
+                ${prefix}/service=${SERVICE}
+                ${prefix}/git-repository=${REPO}
+                ${prefix}/git-branch="${BRANCH}"
+                ${prefix}/git-revision=${COMMIT}
+              )
+echo kubectl "${ANNOTATE_ARGS[@]}"
+kubectl "${ANNOTATE_ARGS[@]}"
+
+echo_title Rollout status for ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
+ROLLOUT_STATUS_ARGS=( "${BASE_ARGS[@]}" rollout status --watch=true deployment/${SERVICE} )
+echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
+kubectl "${ROLLOUT_STATUS_ARGS[@]}"
+
+echo_title New state of ${SERVICE} on kubernetes cluster ${CONTEXT}:
+GET_ARGS=( "${BASE_ARGS[@]}" get --output=wide "${FILES_ARGS[@]}" )
+echo kubectl "${GET_ARGS[@]}"
+kubectl "${GET_ARGS[@]}"

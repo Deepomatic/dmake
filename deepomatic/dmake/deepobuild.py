@@ -405,6 +405,45 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
+class KubernetesDeploySerializer(YAML2PipelineSerializer):
+    context   = FieldSerializer("string", help_text = "kubectl context to use.")
+    namespace = FieldSerializer("string", optional = True, help_text = "Kubernetes namespace to target (overrides kubectl context default namespace")
+    manifest  = FieldSerializer("file", example = "path/to/kubernetes-manifest.yaml", help_text = "Kubernetes manifest file (template) defining all the resources needed to deploy the service")
+
+    def _serialize_(self, commands, app_name, image_name, env):
+        if not self.has_value():
+            return
+
+        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+
+        # generate ConfigMap containing runtime environment variables
+        configmap_name = k8s_utils.generate_config_map_file(env, app_name, os.path.join(tmp_dir, 'kubernetes-configmap-env.yaml'))
+
+        # copy/render template manifest file
+        change_cause = "DMake deploy %s from repo %s#%s (%s)" % (app_name, common.repo, common.branch, common.commit_id)
+        common.run_shell_command('env; dmake_replace_vars %s %s' % (self.manifest, os.path.join(tmp_dir, 'kubernetes-user-manifest.yaml')),
+                                 additional_env = {
+                                     'SERVICE_NAME': app_name,
+                                     'CHANGE_CAUSE': change_cause,
+                                     'DOCKER_IMAGE_NAME': image_name,
+                                     'CONFIGMAP_ENV_NAME': configmap_name
+                                 })
+
+        # generate call to kubernetes
+        context = common.eval_str_in_env(self.context)
+        namespace = common.eval_str_in_env(self.namespace) if self.namespace else ""
+        program = 'dmake_deploy_kubernetes'
+        args = [tmp_dir,
+                context,
+                namespace,
+                app_name,
+                common.repo,
+                common.branch,
+                common.commit_id,
+                'kubernetes-configmap-env.yaml', 'kubernetes-user-manifest.yaml']
+        cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
+        append_command(commands, 'sh', shell = cmd)
+
 
 class DeployConfigPortsSerializer(YAML2PipelineSerializer):
     container_port    = FieldSerializer("int", example = 8000, help_text = "Port on the container")
@@ -421,6 +460,7 @@ class DeployStageSerializer(YAML2PipelineSerializer):
     aws_beanstalk = AWSBeanStalkDeploySerializer(optional = True, help_text = "Deploy via Elastic Beanstalk")
     ssh           = SSHDeploySerializer(optional = True, help_text = "Deploy via SSH")
     k8s_continuous_deployment = K8SCDDeploySerializer(optional = True, help_text = "Continuous deployment via Kubernetes. Look for all the deployments running this service.")
+    kubernetes    = KubernetesDeploySerializer(optional = True, help_text = "Deploy to Kubernetes cluster.")
 
 class ServiceDockerSerializer(YAML2PipelineSerializer):
     name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.")
@@ -611,6 +651,7 @@ class DeploySerializer(YAML2PipelineSerializer):
             stage.aws_beanstalk._serialize_(commands, app_name, config, image_name, branch_env)
             stage.ssh._serialize_(commands, app_name, config, image_name, branch_env)
             stage.k8s_continuous_deployment._serialize_(commands, app_name, image_name, branch_env)
+            stage.kubernetes._serialize_(commands, app_name, image_name, branch_env)
 
 class DataVolumeSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
