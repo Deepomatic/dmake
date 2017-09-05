@@ -216,25 +216,26 @@ class HTMLReportSerializer(YAML2PipelineSerializer):
 class DockerLinkSerializer(YAML2PipelineSerializer):
     image_name       = FieldSerializer("string", example = "mongo:3.2", help_text = "Name and tag of the image to launch.")
     link_name        = FieldSerializer("string", example = "mongo", help_text = "Link name.")
-    volumes          = FieldSerializer("array", child = "string", default = [], help_text = "The list of volumes to mount on the link. Should be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.")
+    volumes          = FieldSerializer("array", child = "string", default = [], help_text = "For the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.")
     #deployed_options = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when deployed.")
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
     probe_ports      = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
 
     def get_options(self, path):
         options = self.testing_options
-        for vol in self.volumes:
-            vol = vol.split(':')
-            if len(vol) != 2:
-                raise DMakeException("Volumes shoud be in the form ./host/path:/absolute/container/path")
-            host_vol, container_vol = vol
-            if host_vol[0] != '.' and host_vol[0] != '/':
-                raise DMakeException("Only local volumes are supported. The volume should start by '.' or '/'.")
+        if common.command == "shell":
+            for vol in self.volumes:
+                vol = vol.split(':')
+                if len(vol) != 2:
+                    raise DMakeException("Volumes shoud be in the form ./host/path:/absolute/container/path")
+                host_vol, container_vol = vol
+                if host_vol[0] != '.' and host_vol[0] != '/':
+                    raise DMakeException("Only local volumes are supported. The volume should start by '.' or '/'.")
 
-            # Turn it into an absolute path
-            if host_vol[0] == '.':
-                host_vol = os.path.normpath(os.path.join(common.root_dir, path, host_vol))
-            options += ' -v %s:%s' % (host_vol, container_vol)
+                # Turn it into an absolute path
+                if host_vol[0] == '.':
+                    host_vol = os.path.normpath(os.path.join(common.root_dir, path, host_vol))
+                options += ' -v %s:%s' % (host_vol, container_vol)
         return options
 
     def probe_ports_list(self):
