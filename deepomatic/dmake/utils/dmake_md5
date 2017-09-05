@@ -36,7 +36,7 @@ if [ -f $1 ]; then
     echo $($CMD $1 | cut -d ' ' -f $COLUMN)
 else
     # For a directory, it hashes the list of MD5s
-    echo $(find $1 -type f -print0 | xargs -0 $CMD | cut -d ' ' -f $COLUMN | $CMD)
+    echo $(dmake_find $1 -type f -print0 | xargs -0 $CMD | cut -d ' ' -f $COLUMN | $CMD)
 fi
 
 
