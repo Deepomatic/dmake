@@ -88,7 +88,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
         replaced_variables = {}
         if self.has_value() and (len(self.variables) or len(additional_variables)):
             if self.source is not None:
-                cmd = ['source ' + self.source, 'env']
+                cmd = ['source ' + self.source + ' && env']
                 env = []
                 for v in common.run_shell_command(cmd).split('\n'):
                     v = v.split('=')
@@ -101,7 +101,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
 
             variables = dict(self.variables.items() + additional_variables.items())
             for var, value in variables.items():
-                replaced_variables[var] = common.run_shell_command(env + ' echo %s' % value)
+                replaced_variables[var] = common.run_shell_command(env + ' && echo %s' % value)
 
         return replaced_variables
 
