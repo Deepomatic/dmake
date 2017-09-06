@@ -512,7 +512,7 @@ def make(root_dir, sub_dir, command, app, options):
         if dmake_file.env is not None and dmake_file.env.source is not None:
             try:
                 common.pull_config_dir(os.path.dirname(dmake_file.env.source))
-            except common.NotGitRepositoryException as e:
+            except common.NotGitRepositoryException:
                 common.logger.warning('Not a Git repository: %s' % (dmake_file.env.source))
 
         app_name = dmake_file.get_app_name()
@@ -646,8 +646,7 @@ def make(root_dir, sub_dir, command, app, options):
             app_name = dmake_file.get_app_name()
             links = docker_links[app_name]
 
-            #try:
-            if True:
+            try:
                 if command == "base":
                     dmake_file.generate_base(all_commands)
                 elif command == "shell":
@@ -666,9 +665,9 @@ def make(root_dir, sub_dir, command, app, options):
                     dmake_file.generate_deploy(all_commands, service, links)
                 else:
                    raise Exception("Unkown command '%s'" % command)
-            #except DMakeException as e:
-            #    print(('ERROR in file %s:\n' % file) + str(e))
-            #    sys.exit(1)
+            except DMakeException as e:
+               print(('ERROR in file %s:\n' % file) + str(e))
+               sys.exit(1)
 
     # Check stages do not appear twice (otherwise it may block Jenkins)
     stage_names = set()

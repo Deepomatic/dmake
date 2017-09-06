@@ -50,8 +50,7 @@ if root_dir is None:
 os.chdir(root_dir)
 
 # Parse command args
-# try:
-if True:
+try:
     sys.argv.pop(0)
     parser = argparse.ArgumentParser(prog='dmake %s' % command)
     if command in ["test", "deploy"]:
@@ -72,6 +71,6 @@ if True:
         options.dependencies = True
     app = getattr(options, app_args)
     core.make(root_dir, sub_dir, command, app, options)
-# except DMakeException as e:
-#     print('ERROR: ' + str(e))
-#     sys.exit(1)
+except DMakeException as e:
+    print('ERROR: ' + str(e))
+    sys.exit(1)
