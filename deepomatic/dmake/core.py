@@ -5,6 +5,7 @@ import deepomatic.dmake.common as common
 from   deepomatic.dmake.common import DMakeException
 from   deepomatic.dmake.deepobuild import DMakeFile, append_command
 
+
 tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that the credentials declared in the DMAKE_JENKINS_SSH_AGENT_CREDENTIALS and DMAKE_JENKINS_HTTP_CREDENTIALS allow you to write to the repository."
 
 ###############################################################################
@@ -91,7 +92,7 @@ def look_for_changed_directories():
 
 def load_dmake_files_list():
     # Ignore permission issues when searching for dmake.yml files, in a portable way
-    build_files = common.run_shell_command('dmake_find -name dmake.yml').split("\n")
+    build_files = common.run_shell_command('dmake_find . -name dmake.yml').split("\n")
     build_files = filter(lambda f: len(f.strip()) > 0, build_files)
     build_files = [file[2:] for file in build_files]
     # Important: for black listed files: we load file in order from root to deepest file
