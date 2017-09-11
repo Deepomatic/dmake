@@ -30,9 +30,13 @@ node {
              submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/Deepomatic/${REPO_TO_TEST}.git']]]
 
 
-    withEnv(['DMAKE_ON_BUILD_SERVER=0', 'REPO=${REPO_TO_TEST}', 'BRANCH_NAME=']) {
+    withEnv([
+            'DMAKE_ON_BUILD_SERVER=0',
+            'REPO=${REPO_TO_TEST}',
+            'BRANCH_NAME=',
+            'BUILD_NUMBER=0']) {
         env.PYTHONPATH = pwd()
-        PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/utils:$PATH"
+        env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/utils:$PATH"
         dir('workspace') {
             sh('env')
             sh 'dmake test "*"'
