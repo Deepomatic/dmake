@@ -266,7 +266,9 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
             load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
             dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.get_docker_base_image_name_tag()
         else:
-            dmake_file.docker.__fields__['root_image'] = dmake_file.docker.root_image.full_name()
+            root_image = dmake_file.docker.root_image
+            root_image = common.eval_str_in_env(root_image.name + ":" + root_image.tag)
+            dmake_file.docker.__fields__['root_image'] = root_image
 
         # If a base image is declared
         root_image = dmake_file.docker.root_image
