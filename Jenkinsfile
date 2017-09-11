@@ -1,9 +1,9 @@
 properties([
     parameters([
-        string(name: 'REPO',
+        string(name: 'REPO_TO_TEST',
                defaultValue: 'vulcain',
                description: 'The repository to check.'),
-        string(name: 'BRANCH',
+        string(name: 'BRANCH_TO_TEST',
                defaultValue: 'stag',
                description: 'The branch to check.')
     ]),
@@ -21,6 +21,7 @@ node {
         sh 'git submodule update --init'
     }
 
+    env.REPO = ${REPO_TO_TEST}
     env.PYTHONPATH = pwd();
     env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/utils:$PATH"
 
@@ -29,8 +30,8 @@ node {
              scm: [$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false,
              extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'workspace'],
                           [$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: false, recursiveSubmodules: true, reference: '', trackingSubmodules: false],
-                          [$class: 'LocalBranch', localBranch: '${BRANCH}']],
-             submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/Deepomatic/${REPO}.git']]]
+                          [$class: 'LocalBranch', localBranch: '${BRANCH_TO_TEST}']],
+             submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/Deepomatic/${REPO_TO_TEST}.git']]]
 
     dir('workspace') {
         sh 'dmake test "*"'
