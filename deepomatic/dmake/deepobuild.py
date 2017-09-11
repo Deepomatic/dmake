@@ -78,9 +78,8 @@ def generate_env_file(tmp_dir, env, docker_file = False):
             break
     with open(file, 'w') as f:
         for key, value in env.items():
-            value = common.wrap_cmd(value).replace('\n', '')
             if docker_file:
-                f.write('ENV %s %s\n' % (key, value))
+                f.write('ENV %s %s\n' % (key, common.wrap_cmd(value)))
             else:
                 f.write('%s=%s\n' % (key, value))
     return file
