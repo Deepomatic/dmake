@@ -12,6 +12,9 @@ properties([
 
 
 node {
+    env.REPO_TO_TEST = params.REPO_TO_TEST
+    env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
+
     checkout scm
     try {
         sh 'git submodule update --init'
@@ -20,8 +23,6 @@ node {
         checkout scm
         sh 'git submodule update --init'
     }
-
-    sh('env')
 
     checkout changelog: false,
              poll: false,
