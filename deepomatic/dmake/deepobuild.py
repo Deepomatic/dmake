@@ -166,7 +166,7 @@ class DockerSerializer(YAML2PipelineSerializer):
             if common.key_file is not None:
                 common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
 
-            # Local environment for temmplates
+            # Local environment for templates
             local_env = []
             local_env.append("export ROOT_IMAGE=%s" % self.root_image)
             local_env = ' && '.join(local_env)
