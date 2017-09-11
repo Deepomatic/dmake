@@ -21,13 +21,6 @@ node {
         sh 'git submodule update --init'
     }
 
-    env.DMAKE_ON_BUILD_SERVER = "0"
-    env.REPO = "${REPO_TO_TEST}"
-    env.PYTHONPATH = pwd()
-    env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/utils:$PATH"
-
-    sh('env')
-
     checkout changelog: false,
              poll: false,
              scm: [$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false,
@@ -36,7 +29,14 @@ node {
                           [$class: 'LocalBranch', localBranch: '${BRANCH_TO_TEST}']],
              submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/Deepomatic/${REPO_TO_TEST}.git']]]
 
-    dir('workspace') {
-        sh 'dmake test "*"'
+
+    withEnv(['DMAKE_ON_BUILD_SERVER=0', 'REPO=${REPO_TO_TEST}', 'BRANCH_NAME=']) {
+        env.PYTHONPATH = pwd()
+        PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/utils:$PATH"
+        dir('workspace') {
+            sh('env')
+            sh 'dmake test "*"'
+        }
     }
+
 }
