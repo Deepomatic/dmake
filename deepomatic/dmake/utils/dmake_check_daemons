@@ -4,7 +4,7 @@
 # dmake_check_daemons FILTER_TYPE [ARGS...]
 #
 # Result:
-# Run a docker daemon and save its ID in the list of containers to remove and return the container ID
+# Check the daemons passed as arguments are still running
 
 if [ $# -lt 1 ]; then
     dmake_fail "$0: Missing arguments"
