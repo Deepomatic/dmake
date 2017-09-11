@@ -27,6 +27,7 @@ for s in sys.argv[6].split(","):
     s = s.split("=")
     selectors[s[0]] = "=".join(s[1:])
 
+os.system('kubectl get nodes') # refresh auth token for kubectl, otherwise next line might fail
 kubernetes.config.load_kube_config(context=context)
 
 client = kubernetes.client.ExtensionsV1beta1Api()
