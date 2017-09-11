@@ -756,12 +756,6 @@ class DMakeFile(DMakeFileSerializer):
     def get_docker_links(self):
         return self.docker_links
 
-    def _generate_env_flags_(self, additional_variables={}):
-        flags = []
-        for key, value in self.env.get_replaced_variables(additional_variables).items():
-            flags.append('-e %s=%s' % (key, common.wrap_cmd(value)))
-        return " ".join(flags)
-
     def _generate_docker_cmd_(self, docker_base, service=None, env={}):
         mount_point = docker_base.mount_point
         if service is not None and \
@@ -773,7 +767,8 @@ class DMakeFile(DMakeFileSerializer):
             workdir = os.path.join(mount_point, self.__path__)
 
         docker_cmd = "-v %s:%s -w %s " % (common.join_without_slash(common.root_dir), mount_point, workdir)
-        docker_cmd += '--env-file ' + generate_env_file(common.tmp_dir, env)
+        env_file = generate_env_file(common.tmp_dir, env)
+        docker_cmd += '--env-file ' + env_file
         return docker_cmd
 
     def _get_service_(self, service):
@@ -835,10 +830,7 @@ class DMakeFile(DMakeFileSerializer):
     def generate_build(self, commands):
         if not self.build.has_value():
             return
-        env = {}
-        if self.build.env.has_value():
-            for var, value in self.build.env.testing.items():
-                env[var] = eval_str_in_dmake_env(value, self.env.get_replaced_variables())
+        env = self.env.get_replaced_variables(self.build.env.testing if self.build.env.has_value() else {})
         docker_cmd = self._generate_docker_cmd_(self.docker, env=env)
         docker_cmd += ' -e DMAKE_TESTING=1 '
         docker_cmd += " -i %s " % self.docker.get_docker_base_image_name_tag()
@@ -857,6 +849,7 @@ class DMakeFile(DMakeFileSerializer):
         else:
             entrypoint = None
 
+        env = self.env.get_replaced_variables(env)
         docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env)
         if entrypoint is not None:
             full_path_container = os.path.join(self.docker.mount_point, self.__path__, entrypoint)
