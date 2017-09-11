@@ -32,14 +32,18 @@ class NotGitRepositoryException(DMakeException):
 
 ###############################################################################
 
-def run_shell_command(commands, ignore_error = False):
+def run_shell_command(commands, ignore_error=False, additional_env={}):
     if not isinstance(commands, list):
         commands = [commands]
+
+    env = os.environ.copy()
+    env.update(additional_env)
+
     prev_p = None
     for cmd in commands:
         cmd = ['bash', '-c', cmd]
         stdin = None if prev_p is None else prev_p.stdout
-        p = subprocess.Popen(cmd, stdin = stdin, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        p = subprocess.Popen(cmd, stdin = stdin, stdout = subprocess.PIPE, stderr = subprocess.PIPE, env = env)
     stdout, stderr = p.communicate()
     if len(stderr) > 0 and not ignore_error:
         raise ShellError(subprocess_output_to_string(stderr))
@@ -55,9 +59,9 @@ def escape_cmd(cmd):
 def wrap_cmd(cmd):
     return '"%s"' % cmd.replace('"', '\\"')
 
-def eval_str_in_env(cmd):
+def eval_str_in_env(cmd, env={}):
     cmd = 'echo %s' % wrap_cmd(cmd)
-    return run_shell_command(cmd).strip()
+    return run_shell_command(cmd, additional_env=env).strip()
 
 # Docker has some trouble mounting volumes with trailing '/'.
 # See http://stackoverflow.com/questions/38338612/mounting-file-system-in-docker-fails-sometimes

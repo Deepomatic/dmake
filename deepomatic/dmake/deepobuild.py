@@ -57,20 +57,6 @@ def generate_copy_command(commands, tmp_dir, src):
 
 ###############################################################################
 
-def run_shell_command_in_dmake_env(cmd, env):
-    """
-    cmd: a shell command
-    env: a dictionnary with (variable, value) tuples
-    """
-    env = ["%s=%s" % (var, common.wrap_cmd(value)) for (var, value) in env.items()]
-    cmd = (' '.join(env)) + ' ' + cmd
-    return common.run_shell_command(cmd).strip()
-
-def eval_str_in_dmake_env(string_to_eval, env):
-    return run_shell_command_in_dmake_env('echo ' + common.wrap_cmd(string_to_eval), env)
-
-###############################################################################
-
 def generate_env_file(tmp_dir, env, docker_file = False):
     while True:
         file = os.path.join(tmp_dir, 'env.txt.%d' % random.randint(0, 999999))
@@ -340,7 +326,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
             json.dump(data, dockerrun)
 
         option_file = os.path.join(tmp_dir, 'options.txt')
-        run_shell_command_in_dmake_env('dmake_replace_vars %s %s' % (self.options, option_file), env)
+        common.run_shell_command('dmake_replace_vars %s %s' % (self.options, option_file), additional_env=env)
         with open(option_file, 'r') as f:
             options = json.load(f)
         for var, value in env.items():
@@ -361,7 +347,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
         if self.ebextensions is not None:
             common.run_shell_command('cp -LR %s %s' % (self.ebextensions, os.path.join(tmp_dir, ".ebextensions")))
 
-        app_name = eval_str_in_dmake_env(self.name_prefix, env) + app_name
+        app_name = common.eval_str_in_env(self.name_prefix, env) + app_name
         append_command(commands, 'sh', shell = 'dmake_deploy_aws_eb "%s" "%s" "%s" "%s"' % (
             tmp_dir,
             app_name,
@@ -423,7 +409,7 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
             selectors.append("%s=%s" % (key, value))
         selectors = ",".join(selectors)
 
-        cmd = 'dmake_deploy_k8s_cd "%s" "%s" "%s" "%s" "%s" "%s"' % (common.tmp_dir, eval_str_in_dmake_env(self.context, env), eval_str_in_dmake_env(self.namespace, env), app_name, image_name, selectors)
+        cmd = 'dmake_deploy_k8s_cd "%s" "%s" "%s" "%s" "%s" "%s"' % (common.tmp_dir, common.eval_str_in_env(self.context, env), common.eval_str_in_env(self.namespace, env), app_name, image_name, selectors)
         append_command(commands, 'sh', shell = cmd)
 
 
@@ -458,7 +444,7 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         if self.name is None:
             name = service_name.replace('/', '-')
         else:
-            name = eval_str_in_dmake_env(self.name, env)
+            name = common.eval_str_in_env(self.name, env)
         if self.tag is None:
             tag = common.branch.lower()
             if latest:
@@ -611,7 +597,7 @@ class DeploySerializer(YAML2PipelineSerializer):
             app_name = self.deploy_name
         else:
             app_name = "%s-%s" % (app_name, service_name)
-        app_name = eval_str_in_dmake_env(app_name, deploy_env)
+        app_name = common.eval_str_in_env(app_name, deploy_env)
 
         # links = []
         # for link_name in config.docker_links_names:
@@ -904,8 +890,8 @@ class DMakeFile(DMakeFileSerializer):
             raise Exception("Unexpected link '%s'" % link_name)
         link = docker_links[link_name]
         env = self.env.get_replaced_variables()
-        image_name = eval_str_in_dmake_env(link.image_name, env)
-        options = eval_str_in_dmake_env(link.get_options(self.__path__), env)
+        image_name = common.eval_str_in_env(link.image_name, env)
+        options = common.eval_str_in_env(link.get_options(self.__path__), env)
         append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, image_name, link.link_name, options, link.probe_ports_list()))
 
     def generate_deploy(self, commands, service, docker_links):
