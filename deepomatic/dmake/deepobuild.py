@@ -57,16 +57,16 @@ def generate_copy_command(commands, tmp_dir, src):
 
 ###############################################################################
 
-def generate_env_file(tmp_dir, env, docker_cmd = False):
+def generate_env_file(tmp_dir, env, docker_file = False):
     while True:
         file = os.path.join(tmp_dir, 'env.txt.%d' % random.randint(0, 999999))
         if not os.path.isfile(file):
             break
     with open(file, 'w') as f:
         for key, value in env.items():
-            value = common.eval_str_in_env(value)
-            if docker_cmd:
-                f.write('ENV %s "%s"\n' % (key, value))
+            value = common.wrap_cmd(value).replace('\n', '')
+            if docker_file:
+                f.write('ENV %s %s\n' % (key, value))
             else:
                 f.write('%s=%s\n' % (key, value))
     return file
@@ -101,7 +101,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
 
             variables = dict(self.variables.items() + additional_variables.items())
             for var, value in variables.items():
-                replaced_variables[var] = common.run_shell_command(env + ' && echo %s' % value)
+                replaced_variables[var] = common.run_shell_command(env + ' && echo %s' % common.wrap_cmd(value))
 
         return replaced_variables
 
@@ -331,7 +331,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
             json.dump(data, dockerrun)
 
         for var, value in env.items():
-            os.environ[var] = common.eval_str_in_env(value)
+            os.environ[var] = value
         option_file = os.path.join(tmp_dir, 'options.txt')
         common.run_shell_command('dmake_replace_vars %s %s' % (self.options, option_file))
         with open(option_file, 'r') as f:
@@ -766,7 +766,7 @@ class DMakeFile(DMakeFileSerializer):
             workdir = os.path.join(mount_point, self.__path__)
 
         docker_cmd = "-v %s:%s -w %s " % (common.join_without_slash(common.root_dir), mount_point, workdir)
-        docker_cmd += self._generate_env_flags_(env)
+        docker_cmd += '--env-file ' + generate_env_file(common.tmp_dir, env)
         return docker_cmd
 
     def _get_service_(self, service):
@@ -904,7 +904,7 @@ class DMakeFile(DMakeFileSerializer):
             raise Exception("Unexpected link '%s'" % link_name)
         link = docker_links[link_name]
         for var, value in self.env.get_replaced_variables().items():
-            os.environ[var] = common.eval_str_in_env(value)
+            os.environ[var] = value
         image_name = common.eval_str_in_env(link.image_name)
         options = common.eval_str_in_env(link.get_options(self.__path__))
         append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, image_name, link.link_name, options, link.probe_ports_list()))
