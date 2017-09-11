@@ -21,6 +21,7 @@ node {
         sh 'git submodule update --init'
     }
 
+    env.DMAKE_ON_BUILD_SERVER = "0"
     env.REPO = "${REPO_TO_TEST}"
     env.PYTHONPATH = pwd()
     env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/utils:$PATH"
