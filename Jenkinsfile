@@ -21,8 +21,8 @@ node {
         sh 'git submodule update --init'
     }
 
-    env.REPO = ${REPO_TO_TEST}
-    env.PYTHONPATH = pwd();
+    env.REPO = "${REPO_TO_TEST}"
+    env.PYTHONPATH = pwd()
     env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/utils:$PATH"
 
     checkout changelog: false,
