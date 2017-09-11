@@ -26,6 +26,8 @@ node {
     env.PYTHONPATH = pwd()
     env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/utils:$PATH"
 
+    sh('env')
+
     checkout changelog: false,
              poll: false,
              scm: [$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false,
