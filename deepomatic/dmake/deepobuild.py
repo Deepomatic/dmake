@@ -206,7 +206,6 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     image_name       = FieldSerializer("string", example = "mongo:3.2", help_text = "Name and tag of the image to launch.")
     link_name        = FieldSerializer("string", example = "mongo", help_text = "Link name.")
     volumes          = FieldSerializer("array", child = "string", default = [], help_text = "For the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.")
-    #deployed_options = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when deployed.")
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
     probe_ports      = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
 
@@ -362,11 +361,6 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         env_file = generate_env_file(tmp_dir, env)
 
         opts = config.full_docker_opts(False) + " --env-file " + os.path.basename(env_file)
-
-        # launch_links = ""
-        # for link in docker_links:
-        #     launch_links += 'if [ \\`docker ps -f name=%s | wc -l\\` = "1" ]; then set +e; docker rm -f %s 2> /dev/null ; set -e; docker run -d --name %s %s -i %s; fi\n' % (link.link_name, link.link_name, link.link_name, link.deployed_options, link.image_name)
-        #     opts += " --link %s" % link.link_name
 
         # TODO: find a proper way to login on docker when deploying via SSH
         common.run_shell_command('cp -R ${HOME}/.docker* %s/ || :' % tmp_dir)
@@ -531,7 +525,6 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
 
 class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_image       = ServiceDockerSerializer(optional = True, help_text = "Docker to build for running and deploying.")
-    #docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add.")
     need_gpu           = FieldSerializer("bool", default = False, help_text = "Whether the service needs to be run on a GPU node.")
     ports              = FieldSerializer("array", child = DeployConfigPortsSerializer(), default = [], help_text = "Ports to open.")
@@ -592,12 +585,6 @@ class DeploySerializer(YAML2PipelineSerializer):
         else:
             app_name = "%s-%s" % (app_name, service_name)
         app_name = common.eval_str_in_env(app_name, deploy_env)
-
-        # links = []
-        # for link_name in config.docker_links_names:
-        #     if link_name not in docker_links:
-        #         raise DMakeException("Unknown link name: '%s'" % link_name)
-        #     links.append(docker_links[link_name])
 
         image_name = config.docker_image.get_image_name(service_name, deploy_env)
         append_command(commands, 'sh', shell = 'dmake_push_docker_image "%s" "%s"' % (image_name, "1" if config.docker_image.check_private else "0"))
