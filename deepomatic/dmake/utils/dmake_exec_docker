@@ -18,7 +18,7 @@ CONTAINER_ID=$1
 shift 1
 
 if [ $(docker inspect ${CONTAINER_ID} -f "{{ .State.Status }}") != "running" ]; then
-    echo "Docker container ${CONTAINER_ID} is not running. Here is the logs:"
+    echo "Docker container ${CONTAINER_ID} is not running. Here are the logs:"
     docker logs ${CONTAINER_ID}
     exit 1
 fi
