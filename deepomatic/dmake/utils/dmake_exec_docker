@@ -17,6 +17,12 @@ set -e
 CONTAINER_ID=$1
 shift 1
 
+if [ $(docker inspect ${CONTAINER_ID} -f "{{ .State.Status }}") != "running" ]; then
+    echo "Docker container ${CONTAINER_ID} is not running. Here are the logs:"
+    docker logs ${CONTAINER_ID}
+    exit 1
+fi
+
 set +e
 docker exec ${CONTAINER_ID} "$@"
 EXIT_CODE=$?
@@ -27,6 +33,6 @@ if [ "${EXIT_CODE}" = "137" ]; then
     echo "Docker container probably crashed. Here is the logs:"
     docker logs ${CONTAINER_ID}
     exit 1
-else
-    exit ${EXIT_CODE}
 fi
+
+exit ${EXIT_CODE}

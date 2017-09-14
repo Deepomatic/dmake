@@ -267,7 +267,9 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
             load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
             dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.get_docker_base_image_name_tag()
         else:
-            dmake_file.docker.__fields__['root_image'] = dmake_file.docker.root_image.full_name()
+            root_image = dmake_file.docker.root_image
+            root_image = common.eval_str_in_env(root_image.name + ":" + root_image.tag)
+            dmake_file.docker.__fields__['root_image'] = root_image
 
         # If a base image is declared
         root_image = dmake_file.docker.root_image
@@ -513,7 +515,7 @@ def make(root_dir, sub_dir, command, app, options):
         if dmake_file.env is not None and dmake_file.env.source is not None:
             try:
                 common.pull_config_dir(os.path.dirname(dmake_file.env.source))
-            except common.NotGitRepositoryException as e:
+            except common.NotGitRepositoryException:
                 common.logger.warning('Not a Git repository: %s' % (dmake_file.env.source))
 
         app_name = dmake_file.get_app_name()
@@ -667,8 +669,8 @@ def make(root_dir, sub_dir, command, app, options):
                 else:
                    raise Exception("Unkown command '%s'" % command)
             except DMakeException as e:
-                print(('ERROR in file %s:\n' % file) + str(e))
-                sys.exit(1)
+               print(('ERROR in file %s:\n' % file) + str(e))
+               sys.exit(1)
 
     # Check stages do not appear twice (otherwise it may block Jenkins)
     stage_names = set()

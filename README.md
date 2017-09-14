@@ -248,12 +248,13 @@ This Documentation was generated automatically.
             - **python_requirements** *(file path, default = '')*: Path to python requirements.txt.
             - **python3_requirements** *(file path, default = '')*: Path to python requirements.txt.
             - **copy_files** *(array\<file path\>, default = [])*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
+        - **mount_point** *(string, default = /app)*: Mount point of the app in the built docker image. Needs to be an absolute path.
         - **command** *(string, default = bash
 ...)*: Only used when running 'dmake shell': set the command of the container.
 - **docker_links** *(array\<object\>, default = [])*: List of link to create, they are shared across the whole application, so potentially across multiple dmake files.
     - **image_name** *(string)*: Name and tag of the image to launch.
     - **link_name** *(string)*: Link name.
-    - **deployed_options** *(string, default = '')*: Additional Docker options when deployed.
+    - **volumes** *(array\<string>\, default = [])*: For the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.
     - **testing_options** *(string, default = '')*: Additional Docker options when testing on Jenkins.
 - **build** *(object, optional)*: Commands to run for building the application. It must be an object with the following fields:
     - **env** *(object, optional)*: Environment variable to define when building. It must be an object with the following fields:
@@ -281,7 +282,6 @@ This Documentation was generated automatically.
             - **install_script** *(file path)*: The install script (will be run in the docker). It has to be executable.
             - **entrypoint** *(file path)*: Set the entrypoint of the docker image generated to run the app.
             - **start_script** *(file path)*: The start script (will be run in the docker). It has to be executable.
-        - **docker_links_names** *(array\<string\>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
         - **docker_opts** *(string, default = '')*: Docker options to add.
         - **ports** *(array\<object\>, default = [])*: Ports to open.
             - **container_port** *(int)*: Port on the container.

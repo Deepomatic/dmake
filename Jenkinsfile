@@ -12,6 +12,9 @@ properties([
 
 
 node {
+    env.REPO_TO_TEST = params.REPO_TO_TEST
+    env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
+
     checkout scm
     try {
         sh 'git submodule update --init'
@@ -38,7 +41,6 @@ node {
         env.PYTHONPATH = pwd()
         env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/dmake/utils:$PATH"
         dir('workspace') {
-            sh('env')
             sh 'dmake test "*"'
         }
     }
