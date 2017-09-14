@@ -21,14 +21,14 @@ node {
         sh 'git submodule update --init'
     }
 
-    # Use this version of dmake
+    // Use this version of dmake
     env.PYTHONPATH = pwd()
     env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/dmake/utils:$PATH"
 
-    # Run tests of dmake
+    // Run tests of dmake
     load "${DMAKE_JENKINS_FILE}_core"
 
-    # If another repo if targeted, test it as well
+    // If another repo if targeted, test it as well
     env.REPO_TO_TEST = params.REPO_TO_TEST
     env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
     stage('Thrid-party test') {
