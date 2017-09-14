@@ -10,7 +10,6 @@ properties([
     pipelineTriggers([])
 ])
 
-
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                         env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
     checkout scm
@@ -24,3 +23,5 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
     sh 'dmake deploy "${DMAKE_APP}"'
     load 'DMakefile'
 }
+
+

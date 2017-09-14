@@ -34,17 +34,16 @@ It should display the help message with the list of commands.
 
 ## Tutorial
 
-To start the tutorial, clone the tutorial repository with:
+To start the tutorial, enter the tutorial directory:
 
 ```
-$ git clone https://github.com/Deepomatic/dmake-tutorial.git
-$ cd dmake-tutorial
+$ cd tutorial
 ```
 
 For those who just want to see the results, just run:
 
 ```
-$ dmake run dmake-tutorial
+$ dmake run web -d
 ```
 
 Once it has completed, the factorial demo is available at [http://localhost:8000](http://localhost:8000)
