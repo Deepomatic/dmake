@@ -435,6 +435,7 @@ def generate_command_bash(file, cmds):
     file.write('set -e\n')
     for cmd, kwargs in cmds:
         if cmd == "stage":
+            file.write("\n")
             file.write("echo %s\n" % kwargs['name'])
         elif cmd == "sh":
             commands = kwargs['shell']
