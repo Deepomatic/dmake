@@ -21,9 +21,7 @@ node {
         sh 'git submodule update --init'
     }
 
-    steps {
-        load "${DMAKE_JENKINS_FILE}"
-    }
+    load "${DMAKE_JENKINS_FILE}"
 
     env.REPO_TO_TEST = params.REPO_TO_TEST
     env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
