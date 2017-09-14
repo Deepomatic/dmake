@@ -35,24 +35,23 @@ node {
     }
 
     stage('Thrid-party test') {
-        if (env.REPO_TO_TEST != '') {
-            checkout changelog: false,
-                     poll: false,
-                     scm: [$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false,
-                     extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'workspace'],
-                                  [$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: false, recursiveSubmodules: true, reference: '', trackingSubmodules: false],
-                                  [$class: 'LocalBranch', localBranch: '${BRANCH_TO_TEST}']],
-                     submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/${REPO_TO_TEST}.git']]]
+        sh ('echo "Cloning ${BRANCH_TO_TEST} from https://github.com/${REPO_TO_TEST}.git"')
+        checkout changelog: false,
+                 poll: false,
+                 scm: [$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false,
+                 extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'workspace'],
+                              [$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: false, recursiveSubmodules: true, reference: '', trackingSubmodules: false],
+                              [$class: 'LocalBranch', localBranch: '${BRANCH_TO_TEST}']],
+                 submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/${REPO_TO_TEST}.git']]]
 
 
-            withEnv([
-                    'DMAKE_ON_BUILD_SERVER=0',
-                    'REPO=${REPO_TO_TEST}',
-                    'BRANCH_NAME=',
-                    'BUILD_NUMBER=0']) {
-                dir('workspace') {
-                    sh 'dmake test -d "*"'
-                }
+        withEnv([
+                'DMAKE_ON_BUILD_SERVER=0',
+                'REPO=${REPO_TO_TEST}',
+                'BRANCH_NAME=',
+                'BUILD_NUMBER=0']) {
+            dir('workspace') {
+                sh 'dmake test -d "*"'
             }
         }
     }
