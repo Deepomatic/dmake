@@ -35,7 +35,7 @@ node {
         env.BUILD_NUMBER = 0
     }
 
-    stage('Thrid-party test') {
+    stage('Testing') {
         sh ('echo "Cloning ${BRANCH_TO_TEST} from https://github.com/${REPO_TO_TEST}.git"')
         checkout changelog: false,
                  poll: false,
