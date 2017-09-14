@@ -1,7 +1,7 @@
 properties([
     parameters([
         string(name: 'REPO_TO_TEST',
-               defaultValue: '',
+               defaultValue: 'deepomatic/dmake',
                description: 'The repository to check.'),
         string(name: 'BRANCH_TO_TEST',
                defaultValue: 'master',
@@ -39,7 +39,7 @@ node {
                      extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'workspace'],
                                   [$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: false, recursiveSubmodules: true, reference: '', trackingSubmodules: false],
                                   [$class: 'LocalBranch', localBranch: '${BRANCH_TO_TEST}']],
-                     submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/Deepomatic/${REPO_TO_TEST}.git']]]
+                     submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/${REPO_TO_TEST}.git']]]
 
 
             withEnv([
