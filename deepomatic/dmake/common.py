@@ -144,7 +144,7 @@ def init(_command, _root_dir, _app, _options):
     skip_tests = os.getenv('DMAKE_SKIP_TESTS', "false") == "true"
 
     use_pipeline = True
-    branch   = os.getenv('BRANCH_NAME', None)
+    branch = os.getenv('CHANGE_BRANCH', None)
     if branch is None:
         use_pipeline = False
         target = os.getenv('ghprbTargetBranch', None)
