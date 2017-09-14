@@ -41,7 +41,7 @@ node {
                  scm: [$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false,
                  extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'workspace'],
                               [$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: false, recursiveSubmodules: true, reference: '', trackingSubmodules: false],
-                              [$class: 'LocalBranch', localBranch: '${BRANCH_TO_TEST}']],
+                              [$class: 'LocalBranch', localBranch: env.BRANCH_TO_TEST]],
                  submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/${REPO_TO_TEST}.git']]]
 
 
