@@ -43,7 +43,7 @@ $ cd tutorial
 For those who just want to see the results, just run:
 
 ```
-$ dmake run dmake-tutorial
+$ dmake run web -d
 ```
 
 Once it has completed, the factorial demo is available at [http://localhost:8000](http://localhost:8000)

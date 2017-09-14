@@ -29,8 +29,7 @@ node {
     env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
 
     stage('Thrid-party test') {
-        when { not { environment name: 'REPO_TO_TEST', value: '' } }
-        steps {
+        if (env.REPO_TO_TEST != '') {
             checkout changelog: false,
                      poll: false,
                      scm: [$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false,
@@ -53,4 +52,5 @@ node {
             }
         }
     }
+
 }
