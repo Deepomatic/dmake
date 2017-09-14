@@ -34,6 +34,8 @@ node {
         env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
     }
 
+    sh('env')
+
     stage('Thrid-party test') {
         sh ('echo "Cloning ${BRANCH_TO_TEST} from https://github.com/${REPO_TO_TEST}.git"')
         checkout changelog: false,
