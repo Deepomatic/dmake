@@ -1,0 +1,30 @@
+dmake_version: 0.1
+app_name: dmake-tutorial
+
+docker:
+  root_image:
+    name: ubuntu
+    tag: 16.04
+  base_image:
+    name: dmake-tutorial-web-base
+    install_scripts:
+      - deploy/dependencies.sh
+    python_requirements: requirements.txt
+
+services:
+  -
+    service_name: web
+    needed_services:
+      - worker
+    config:
+      docker_image:
+        entrypoint: deploy/entrypoint.sh
+        start_script: deploy/start.sh
+      ports:
+        - container_port: 8000
+          host_port: 8000
+    tests:
+      docker_links_names:
+        - rabbitmq
+      commands:
+        - ./manage.py test

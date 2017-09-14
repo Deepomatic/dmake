@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [ ! -z "${RABBITMQ_PORT_5672_TCP}" ]; then
+    export AMQP_URL=$(echo $RABBITMQ_PORT_5672_TCP | sed "s|\(.*\)://\(.*\)|amqp://$RABBITMQ_ENV_RABBITMQ_DEFAULT_USER:$RABBITMQ_ENV_RABBITMQ_DEFAULT_PASS@\2/$RABBITMQ_ENV_RABBITMQ_DEFAULT_VHOST|")
+fi
+
+exec "$@"

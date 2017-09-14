@@ -1,0 +1,42 @@
+dmake_version: 0.1
+app_name: dmake-tutorial
+
+docker:
+  root_image:
+    name: ubuntu
+    tag: 16.04
+  base_image:
+    name: dmake-tutorial-worker-base
+    install_scripts:
+      - deploy/dependencies.sh
+
+env:
+  default:
+    variables:
+      AMQP_URL: amqp:///192.168.1.45/dev
+  branches:
+    master:
+      variables:
+        AMQP_URL: amqp://1.2.3.4/prod
+
+docker_links:
+  - image_name: rabbitmq:3.6
+    link_name: rabbitmq
+    testing_options: -e RABBITMQ_DEFAULT_USER=user -e RABBITMQ_DEFAULT_PASS=password -e RABBITMQ_DEFAULT_VHOST=dev
+
+build:
+  commands:
+    - make
+
+services:
+  -
+    service_name: worker
+    config:
+      docker_image:
+        entrypoint: deploy/entrypoint.sh
+        start_script: deploy/start.sh
+    tests:
+      docker_links_names:
+        - rabbitmq
+      commands:
+        - ./bin/worker_test
