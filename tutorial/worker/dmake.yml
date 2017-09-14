@@ -13,7 +13,7 @@ docker:
 env:
   default:
     variables:
-      AMQP_URL: amqp:///192.168.1.45/dev
+      AMQP_URL: amqp:///rabbitmq/dev
   branches:
     master:
       variables:
@@ -22,6 +22,8 @@ env:
 docker_links:
   - image_name: rabbitmq:3.6
     link_name: rabbitmq
+    probe_ports:
+      - 5672/tcp
     testing_options: -e RABBITMQ_DEFAULT_USER=user -e RABBITMQ_DEFAULT_PASS=password -e RABBITMQ_DEFAULT_VHOST=dev
 
 build:

@@ -1,6 +1,15 @@
 dmake_version: 0.1
 app_name: dmake-tutorial
 
+env:
+  default:
+    variables:
+      AMQP_URL: amqp:///rabbitmq/dev
+  branches:
+    master:
+      variables:
+        AMQP_URL: amqp://1.2.3.4/prod
+
 docker:
   root_image:
     name: ubuntu
