@@ -41,7 +41,6 @@ node {
         env.PYTHONPATH = pwd()
         env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/dmake/utils:$PATH"
         dir('workspace') {
-            sh('env')
             sh 'dmake test "*"'
         }
     }
