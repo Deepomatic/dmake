@@ -32,13 +32,14 @@ node {
     }
     else {
         env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
+        env.BUILD_NUMBER = 0
     }
 
     stage('Thrid-party test') {
         sh ('echo "Cloning ${BRANCH_TO_TEST} from https://github.com/${REPO_TO_TEST}.git"')
         checkout changelog: false,
                  poll: false,
-                 scm: [$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false,
+                 scm: [$class: 'GitSCM', branches: [[name: env.BRANCH_TO_TEST]], doGenerateSubmoduleConfigurations: false,
                  extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'workspace'],
                               [$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: false, recursiveSubmodules: true, reference: '', trackingSubmodules: false],
                               [$class: 'LocalBranch', localBranch: env.BRANCH_TO_TEST]],
@@ -48,8 +49,7 @@ node {
         withEnv([
                 'DMAKE_ON_BUILD_SERVER=0',
                 'REPO=${REPO_TO_TEST}',
-                'BRANCH_NAME=',
-                'BUILD_NUMBER=0']) {
+                'BRANCH_NAME=']) {
             dir('workspace') {
                 sh 'dmake test -d "*"'
             }
