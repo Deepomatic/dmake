@@ -28,13 +28,11 @@ node {
     // If another repo if targeted, test it as well
     env.REPO_TO_TEST = params.REPO_TO_TEST
     if (params.BRANCH_TO_TEST == '') {
-        env.BRANCH_TO_TEST = env.BRANCH_NAME
+        env.BRANCH_TO_TEST = env.CHANGE_BRANCH
     }
     else {
         env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
     }
-
-    sh('env')
 
     stage('Thrid-party test') {
         sh ('echo "Cloning ${BRANCH_TO_TEST} from https://github.com/${REPO_TO_TEST}.git"')
