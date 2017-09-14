@@ -45,14 +45,11 @@ node {
                               [$class: 'LocalBranch', localBranch: env.BRANCH_TO_TEST]],
                  submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: 'https://github.com/${REPO_TO_TEST}.git']]]
 
-
-        withEnv([
-                'DMAKE_ON_BUILD_SERVER=0',
-                'REPO=${REPO_TO_TEST}',
-                'BRANCH_NAME=']) {
-            dir('workspace') {
-                sh 'dmake test -d "*"'
-            }
+        env.DMAKE_ON_BUILD_SERVER=0
+        env.REPO=env.REPO_TO_TEST
+        env.BRANCH_NAME=""
+        dir('workspace') {
+            sh 'dmake test -d "*"'
         }
     }
 
