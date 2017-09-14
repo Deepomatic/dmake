@@ -4,8 +4,8 @@ properties([
                defaultValue: 'deepomatic/dmake',
                description: 'The repository to check.'),
         string(name: 'BRANCH_TO_TEST',
-               defaultValue: 'master',
-               description: 'The branch to check.')
+               defaultValue: '',
+               description: 'The branch to check. When empty, uses the current dmake branch.')
     ]),
     pipelineTriggers([])
 ])
@@ -27,7 +27,13 @@ node {
 
     // If another repo if targeted, test it as well
     env.REPO_TO_TEST = params.REPO_TO_TEST
-    env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
+    if (params.BRANCH_TO_TEST == '') {
+        env.BRANCH_TO_TEST = env.BRANCH_NAME
+    }
+    else {
+        env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
+    }
+
     stage('Thrid-party test') {
         if (env.REPO_TO_TEST != '') {
             checkout changelog: false,
