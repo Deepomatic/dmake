@@ -48,6 +48,7 @@ node {
 
         env.DMAKE_ON_BUILD_SERVER=0
         env.REPO=env.REPO_TO_TEST
+        env.BRANCH_NAME=""
         env.CHANGE_BRANCH=""
         dir('workspace') {
             sh 'dmake test -d "*"'
