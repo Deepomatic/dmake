@@ -144,7 +144,11 @@ def init(_command, _root_dir, _app, _options):
     skip_tests = os.getenv('DMAKE_SKIP_TESTS', "false") == "true"
 
     use_pipeline = True
+    # For PRs on Jenkins this will give the source branch name
     branch = os.getenv('CHANGE_BRANCH', None)
+    # When not PR, this will be the actual branch name
+    if branch is None:
+        branch = os.getenv('BRANCH_NAME', None)
     if branch is None:
         use_pipeline = False
         target = os.getenv('ghprbTargetBranch', None)
