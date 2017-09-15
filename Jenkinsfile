@@ -22,13 +22,13 @@ node {
     }
 
     // Use this version of dmake
-    env.PYTHONPATH = pwd()
-    env.PATH = "${PYTHONPATH}:${PYTHONPATH}/deepomatic/dmake/utils:$PATH"
+    env.PYTHONPATH = pwd() + ":${PYTHONPATH}"
+    env.PATH = "${PWD}:${PWD}/deepomatic/dmake/utils:$PATH"
 
     // If another repo if targeted, test it as well
     env.REPO_TO_TEST = params.REPO_TO_TEST
     if (params.REPO_TO_TEST == 'deepomatic/dmake') {
-        env.BRANCH_TO_TEST = env.CHANGE_BRANCH
+        env.BRANCH_TO_TEST = env.CHANGE_BRANCH ? env.CHANGE_BRANCH : env.BRANCH_NAME
     }
     else {
         env.BRANCH_TO_TEST = params.BRANCH_TO_TEST
