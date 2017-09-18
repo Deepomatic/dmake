@@ -32,7 +32,7 @@ node {
     }
     else {
         BRANCH_TO_TEST = params.BRANCH_TO_TEST
-        env.BUILD_NUMBER = 0
+        env.BUILD_ID = 0
     }
 
     stage('Testing') {
