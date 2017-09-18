@@ -7,7 +7,7 @@
 # Run a docker command.
 
 USER_FLAG=""
-if [ ! -z ${DMAKE_UID} ]; then
+if [ ! -z "${DMAKE_UID}" ]; then
     USER_FLAG="-u ${DMAKE_UID}"
 fi
 
