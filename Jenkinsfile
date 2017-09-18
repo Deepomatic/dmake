@@ -46,12 +46,15 @@ node {
                               [$class: 'LocalBranch', localBranch: BRANCH_TO_TEST]],
                  submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: "https://github.com/${params.REPO_TO_TEST}.git"]]]
 
-        env.DMAKE_ON_BUILD_SERVER=0
         env.REPO=params.REPO_TO_TEST
-        env.BRANCH_NAME=""
-        env.CHANGE_BRANCH=""
+        env.BRANCH_NAME=BRANCH_TO_TEST
+        env.CHANGE_BRANCH=BRANCH_TO_TEST
         dir('workspace') {
             sh 'dmake test -d "*"'
+            sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
+                        env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
+              load 'DMakefile'
+            }
         }
     }
 
