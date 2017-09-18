@@ -48,7 +48,9 @@ node {
 
         env.REPO=params.REPO_TO_TEST
         env.BRANCH_NAME=BRANCH_TO_TEST
-        env.CHANGE_BRANCH=BRANCH_TO_TEST
+        env.CHANGE_BRANCH=""
+        env.CHANGE_TARGET=""
+        env.CHANGE_ID=""
         dir('workspace') {
             sh 'dmake test -d "*"'
             sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
