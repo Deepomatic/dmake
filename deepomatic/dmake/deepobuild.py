@@ -841,7 +841,7 @@ class DMakeFile(DMakeFileSerializer):
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; service_name already contains "<app_name>/"
             unique_service_name += service_customization.get_service_name_unique_suffix()
 
-        opts = self._launch_options_(commands, service, docker_links, env=customized_env)
+        opts = self._launch_options_(commands, service, docker_links, customized_env, run_base_image=False)
         env = self.env.get_replaced_variables()
         image_name = service.config.docker_image.get_image_name(service_name, env)
 
@@ -885,19 +885,20 @@ class DMakeFile(DMakeFileSerializer):
         tmp_dir = service.deploy.generate_build_docker(commands, self.__path__, service_name, self.docker, self.build, service.config)
         self.app_package_dirs[service.service_name] = tmp_dir
 
-    def _launch_options_(self, commands, service, docker_links, env=None):
-        if env is None:
-            env = {}
-        if service.config.has_value() and service.config.docker_image.has_value():
-            entrypoint = service.config.docker_image.entrypoint
+    def _launch_options_(self, commands, service, docker_links, env, run_base_image):
+        if run_base_image and \
+           service.config.has_value() and service.config.docker_image.has_value() and \
+           service.config.docker_image.entrypoint:
+            full_path_container = os.path.join(self.docker.mount_point,
+                                               self.__path__,
+                                               service.config.docker_image.entrypoint)
+            entrypoint_opt = ' --entrypoint %s' % full_path_container
         else:
-            entrypoint = None
+            entrypoint_opt = ''
 
         env = self.env.get_replaced_variables(env)
         docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env)
-        if entrypoint is not None:
-            full_path_container = os.path.join(self.docker.mount_point, self.__path__, entrypoint)
-            docker_opts += ' --entrypoint %s' % full_path_container
+        docker_opts += entrypoint_opt
 
         self._get_check_needed_services_(commands, service)
         self._get_link_opts_(commands, service)
@@ -907,7 +908,7 @@ class DMakeFile(DMakeFileSerializer):
         return docker_opts
 
     def _generate_test_docker_cmd_(self, commands, service, docker_links):
-        docker_opts  = self._launch_options_(commands, service, docker_links, self.build.env)
+        docker_opts  = self._launch_options_(commands, service, docker_links, self.build.env, run_base_image=True)
 
         if service.tests.has_value():
             opts=[]
