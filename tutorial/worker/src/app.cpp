@@ -18,17 +18,17 @@ uint64_t factorial(int n, uint64_t acc = 1)
 
 /*---------------------------------------------------------------------------*/
 
-void run(bool *stop)
+void run(bool *stop, std::string queue_name)
 {
     AMQPWrapper amqp_client;
-    amqp_client.declareQueue(WORKER_QUEUE);
+    amqp_client.declareQueue(queue_name);
 
     int n;
     std::string reply_queue;
     while(!*stop)
     {
-        LOG(INFO) << "Waiting for a message on queue '" << WORKER_QUEUE << "'";
-        if (amqp_client.recv(WORKER_QUEUE, n, reply_queue))
+        LOG(INFO) << "Waiting for a message on queue '" << queue_name << "'";
+        if (amqp_client.recv(queue_name, n, reply_queue))
         {
             amqp_client.send(reply_queue, factorial(n));
         }

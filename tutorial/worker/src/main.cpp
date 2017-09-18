@@ -8,6 +8,6 @@ int main(int argc, const char **argv)
     FLAGS_logtostderr = 1;
 
     bool stop = false;
-    run(&stop);
+    run(&stop, "worker");
     return 0;
 }
