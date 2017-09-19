@@ -211,13 +211,15 @@ def init(_command, _root_dir, _app, _options):
     if use_pipeline:
         run_shell_command('git submodule update --init', ignore_error = True)
         if is_pr:
-            build_description = "<a href=%s>PR #%s</a>: %s" % (
+            build_description = "%s/%s: <a href=%s>PR #%s</a>: %s" % (
+                repo_github_owner or '', repo,
                 os.getenv('CHANGE_URL'),
                 os.getenv('CHANGE_ID'),
                 os.getenv('CHANGE_TITLE'))
         else:
             if repo_github_owner is not None:
-                build_description = "Branch <a href=%s>%s</a> - %s" % (
+                build_description = "%s/%s: <a href=%s>%s</a> - %s" % (
+                    repo_github_owner, repo,
                     "https://github.com/%s/%s/tree/%s" % (repo_github_owner, repo, branch),
                     branch, _app)
 
