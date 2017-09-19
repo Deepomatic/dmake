@@ -5,7 +5,10 @@ properties([
                description: 'The repository to check out.'),
         string(name: 'BRANCH_TO_TEST',
                defaultValue: 'master',
-               description: 'The branch to check out. Only used when testing a directory different from deepomatic/dmake.')
+               description: 'The branch to check out. Only used when testing a directory different from deepomatic/dmake.'),
+        string(name: 'DMAKE_APP_TO_TEST',
+               defaultValue: '*',
+               description: 'Application to test. You can also specify a service name if there is no ambiguity. Use * to force the test of all applications.')
     ]),
     pipelineTriggers([])
 ])
@@ -52,7 +55,7 @@ node {
         env.CHANGE_TARGET=""
         env.CHANGE_ID=""
         dir('workspace') {
-            sh 'dmake test -d "*"'
+            sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
             sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                         env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
               load 'DMakefile'
