@@ -1,6 +1,8 @@
 #include <thread>
 
 #include "gtest/gtest.h"
+#include <glog/logging.h>
+
 #include "amqp_client.hpp"
 #include "app.hpp"
 
@@ -24,7 +26,17 @@ TEST(HelloWorld, TestQueue) {
 
     uint64_t     n;
     ASSERT_TRUE(amqp_client.recv(TEST_REPLY_QUEUE, n));
-    ASSERT_EQ(720, n);
+    ASSERT_EQ(720u, n);
 
     worker_thread.join();
+}
+
+
+
+int main(int argc, char **argv) {
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging(argv[0]);
+
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

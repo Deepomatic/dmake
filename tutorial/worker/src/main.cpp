@@ -4,8 +4,9 @@
 
 int main(int argc, const char **argv)
 {
-    google::InitGoogleLogging(argv[0]);
+    (void) argc;
     FLAGS_logtostderr = 1;
+    google::InitGoogleLogging(argv[0]);
 
     bool stop = false;
     run(&stop, "worker");
