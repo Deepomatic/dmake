@@ -6,6 +6,8 @@
 # Result:
 # Check the service passed as arguments are still running
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ -z "${DMAKE_TMP_DIR}" ]; then
     dmake_fail "Missing environment variable DMAKE_TMP_DIR"
     exit 1
@@ -19,11 +21,10 @@ for SERVICE in "$@"; do
         dmake_fail "Unexpected error: unknown service ${SERVICE}"
         exit 1
     fi
-    ID=`echo ${LINE} | cut -d\  -f 1`    
+    ID=`echo ${LINE} | cut -d\  -f 1`
     if [ `docker ps --filter id=${ID} | sed '1d' | wc -l` = 0 ]; then
         >&2 echo -e "Daemon ${SERVICE} quit unexpectedly. Here are the logs:"
         docker logs ${ID}
         exit 1
     fi
 done
-

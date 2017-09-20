@@ -6,6 +6,8 @@
 # Result:
 # Run a docker link and cache the result (call dmake_return_docker_links to export the docker options)
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -ne 5 ]; then
     dmake_fail "$0: Missing arguments"
     exit 1
@@ -78,5 +80,3 @@ else
         docker run --rm ${LINK_OPT} -v ${ROOT}/dmake_wait_for_it:/usr/bin/dmake_wait_for_it -v ${ROOT}/dmake_wait_for_it_wrapper:/usr/bin/dmake_wait_for_it_wrapper -i ubuntu dmake_wait_for_it_wrapper "${LINK_NAME}" "${PROBE_PORTS}"
     fi
 fi
-
-

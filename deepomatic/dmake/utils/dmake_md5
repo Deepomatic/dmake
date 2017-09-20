@@ -6,6 +6,8 @@
 # Result:
 # Returns the file's MD5.
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -lt 1 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"
@@ -38,5 +40,3 @@ else
     # For a directory, it hashes the list of MD5s
     echo $(dmake_find $1 -type f -print0 | xargs -0 $CMD | cut -d ' ' -f $COLUMN | $CMD)
 fi
-
-

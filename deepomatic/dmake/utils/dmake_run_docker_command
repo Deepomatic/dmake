@@ -6,6 +6,8 @@
 # Result:
 # Run a docker command.
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 USER_FLAG=""
 if [ ! -z "${DMAKE_UID}" ]; then
     USER_FLAG="-u ${DMAKE_UID}"

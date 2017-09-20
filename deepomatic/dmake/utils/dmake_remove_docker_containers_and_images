@@ -6,6 +6,8 @@
 # Result:
 # Terminate the docker links.
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -ne 1 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"

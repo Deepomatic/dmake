@@ -2,9 +2,11 @@
 #
 # Usage:
 # dmake_deploy_ssh TMP_DIR APP_NAME USER HOST SSH_PORT
-
+#
 # Result:
 # Will deploy on a server via SSH
+
+test "${DMAKE_DEBUG}" = "1" && set -x
 
 if [ $# -ne 5 ]; then
     dmake_fail "$0: Wrong arguments"
@@ -31,4 +33,3 @@ scp -r -P ${SSH_PORT} -o StrictHostKeyChecking=no ${TMP_DIR} ${USER}@${HOST}:~/$
 CMD="~/${APP_NAME}/start_app.sh"
 echo "Running: ssh -p ${SSH_PORT} -tt -o StrictHostKeyChecking=no ${USER}@${HOST} \"sudo $CMD\""
 ssh -p ${SSH_PORT} -tt -o StrictHostKeyChecking=no ${USER}@${HOST} "sudo $CMD"
-

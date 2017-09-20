@@ -7,6 +7,8 @@
 # Result:
 # Wait for links
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -ne 2 ]; then
     >&2 echo -e "$0: Missing arguments"
     exit 1
@@ -44,4 +46,3 @@ for PORT_RANGE in $(echo ${PORTS} | tr "," "\n"); do
         done
     fi
 done
-

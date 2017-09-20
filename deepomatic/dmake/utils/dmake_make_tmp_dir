@@ -6,6 +6,8 @@
 # Result:
 # Create a fresh temporary directory and returns its path
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 set -e
 
 while [ 1 ]; do

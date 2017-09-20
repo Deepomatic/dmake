@@ -41,6 +41,9 @@ def run_shell_command(commands, ignore_error=False, additional_env=None):
     env = os.environ.copy()
     env.update(additional_env)
 
+    # don't trace shell execution when run from dmake process: it would be detected as an error otherwise
+    env.pop('DMAKE_DEBUG', None)
+
     prev_p = None
     for cmd in commands:
         cmd = ['bash', '-c', cmd]
