@@ -10,6 +10,8 @@
 # Result:
 # Will build and cache the base docker images with libs.
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -ne 5 ]; then
     dmake_fail "$0: Wrong arguments"
     echo "exit 1"

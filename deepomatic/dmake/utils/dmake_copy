@@ -7,6 +7,8 @@
 # Copy a directory to the given destination and creates the directories if necessary.
 # Returns the file's MD5 or an aggregate md5 if it is a directory.
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -lt 2 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"

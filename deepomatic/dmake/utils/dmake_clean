@@ -6,6 +6,8 @@
 # Result:
 # Clean directory created with dmake_make_tmp_dir and linked dockers
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -ne 0 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"

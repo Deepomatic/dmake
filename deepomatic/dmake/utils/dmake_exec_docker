@@ -6,6 +6,8 @@
 # Result:
 # Execute a command in a container
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -lt 2 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"

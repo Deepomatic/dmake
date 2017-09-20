@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #   Use this script to test if a given TCP host/port are available
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 cmdname=$(basename $0)
 
 echoerr() { if [[ $QUIET -ne 1 ]]; then echo "$@" 1>&2; fi }

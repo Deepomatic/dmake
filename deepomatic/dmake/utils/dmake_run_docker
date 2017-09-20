@@ -8,6 +8,8 @@
 # If NAME is non empty, it will be named this way.
 # If TMP_DIR is specified, the container entry will be recorded in this directory for further suppression
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -lt 2 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"

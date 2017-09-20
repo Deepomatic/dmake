@@ -9,6 +9,8 @@
 # Returns the file's MD5.
 # TODO: a dependency system to include needed utils and libs
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -lt 2 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"

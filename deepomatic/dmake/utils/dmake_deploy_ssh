@@ -6,6 +6,8 @@
 # Result:
 # Will deploy on a server via SSH
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -ne 5 ]; then
     dmake_fail "$0: Wrong arguments"
     echo "exit 1"

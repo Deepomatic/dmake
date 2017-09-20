@@ -6,6 +6,8 @@
 # Result:
 # Will deploy on AWS
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -ne 4 ]; then
     dmake_fail "$0: Wrong arguments"
     echo "exit 1"

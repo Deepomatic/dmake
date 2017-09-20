@@ -6,6 +6,8 @@
 # Result:
 # Return the links for container previously launched with dmake_run_docker_link, e.g. "--link <container_id>:LINK_NAME"
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -lt 1 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"

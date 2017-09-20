@@ -6,6 +6,8 @@
 # Result:
 # Build a docker given a ${TMP_DIR}/Dockerfile
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -ne 2 ]; then
     dmake_fail "$0: Missing arguments"
     exit 1

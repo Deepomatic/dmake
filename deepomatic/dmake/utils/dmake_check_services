@@ -6,6 +6,8 @@
 # Result:
 # Check the service passed as arguments are still running
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ -z "${DMAKE_TMP_DIR}" ]; then
     dmake_fail "Missing environment variable DMAKE_TMP_DIR"
     exit 1

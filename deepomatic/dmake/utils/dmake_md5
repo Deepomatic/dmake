@@ -6,6 +6,8 @@
 # Result:
 # Returns the file's MD5.
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 if [ $# -lt 1 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"
