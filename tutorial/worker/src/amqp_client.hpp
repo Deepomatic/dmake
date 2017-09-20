@@ -31,7 +31,7 @@ template<class T>
 bool AMQPWrapper::recv(const std::string &queue, T &n)
 {
     std::string reply_queue;
-    recv(queue, n, reply_queue);
+    return recv(queue, n, reply_queue);
 }
 
 /*---------------------------------------------------------------------------*/

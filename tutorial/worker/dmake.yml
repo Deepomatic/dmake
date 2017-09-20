@@ -13,7 +13,7 @@ docker:
 env:
   default:
     variables:
-      AMQP_URL: amqp:///rabbitmq/dev
+      AMQP_URL: amqp://rabbitmq/dev
   branches:
     master:
       variables:

@@ -1,6 +1,9 @@
 # Script will fail on any error
 set -e
 
+export PARALLEL_BUILD=${PARALLEL_BUILD:-8}
+export MAKEFLAGS="${MAKEFLAGS} -j${PARALLEL_BUILD}"
+
 apt-get update
 apt-get --no-install-recommends -y install make cmake g++ wget tar
 
@@ -23,7 +26,6 @@ d=`ls -d rabbitmq-c-*`
 cd $d
 apt-get --no-install-recommends -y install libssl-dev
 cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr .
-make -j 8
 make install
 cd ..
 rm -rf $d
@@ -36,7 +38,6 @@ d=`ls -d SimpleAmqpClient-*`
 cd $d
 #sed -i -e "s/#define BROKER_HEARTBEAT 0/#define BROKER_HEARTBEAT 60/" src/ChannelImpl.cpp
 cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr .
-make -j 8
 make install
 cd ..
 rm -rf $d

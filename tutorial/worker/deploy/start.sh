@@ -1,1 +1,3 @@
-./bin/worker
+#!/bin/bash
+
+exec ./bin/worker
