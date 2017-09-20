@@ -645,9 +645,50 @@ class TestSerializer(YAML2PipelineSerializer):
                 index     = html['index'],
                 title     = html['title'])
 
+class NeededServiceSerializer(YAML2PipelineSerializer):
+    service_name    = FieldSerializer("string", help_text = "The name of the needed application part.", example = "worker-nn", no_slash_no_space = True)
+    env             = FieldSerializer("dict", child = "string", optional = True, default = {}, help_text = "List of environment variables that will be set when executing the needed service.", example = {'CNN_ID': '2'})
+
+    def __init__(self, **kwargs):
+        super(NeededServiceSerializer, self).__init__(**kwargs)
+        self._specialized = True
+
+    def __str__(self):
+        s = "%s" % (self.service_name)
+        if self._specialized:
+            s += " -- env: %s" % (self.env)
+        return s
+
+    def __eq__(self, other):
+        # NeededServiceSerializer objects are equal if equivalent, to deduplicate their instances at runtime
+        # objects are not comparable before the call to _validate_(), because fields are not populated yet
+        assert self.__has_value__, "NeededServiceSerializer objects are not comparable before validation"
+        return self.service_name == other.service_name and self.env == other.env
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        # env is not hashable, so skipping it, it's OK, it will just be negligibly less efficient
+        return hash(self.service_name)
+
+    def _validate_(self, path, data):
+        # also accept simple variant where data is a string: the service_name
+        if common.is_string(data):
+            data = {'service_name': data}
+            self._specialized = False
+        return super(NeededServiceSerializer, self)._validate_(path, data)
+
+    def populate_env(self, context_env):
+        for key, value in self.env.items():
+            self.env[key] = common.eval_str_in_env(value, context_env)
+
+    def get_service_name_unique_suffix(self):
+        return "--%s" % id(self) if self._specialized else ""
+
 class ServicesSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", default = "", help_text = "The name of the application part.", example = "api", no_slash_no_space = True)
-    needed_services = FieldSerializer("array", child = FieldSerializer("string", blank = False), default = [], help_text = "List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.", example = ["worker"])
+    needed_services = FieldSerializer("array", child = FieldSerializer(NeededServiceSerializer()), default = [], help_text = "List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.")
     sources         = FieldSerializer("array", child = FieldSerializer(["file", "dir"]), optional = True, help_text = "If specified, this service will be considered as updated only when the content of those directories or files have changed.", example = 'path/to/app')
     config          = DeployConfigSerializer(optional = True, help_text = "Deployment configuration.")
     tests           = TestSerializer(optional = True, help_text = "Unit tests list.")
@@ -708,6 +749,12 @@ class DMakeFile(DMakeFileSerializer):
                 else:
                     env.__fields__['source'].value = None
                 self.__fields__['env'] = env
+
+        # populate needed_services environment
+        runtime_env = self.__fields__['env'].get_replaced_variables()
+        for service in self.__fields__['services'].value:
+            for needed_service in service.needed_services:
+                needed_service.populate_env(runtime_env)
 
         self.docker_services_image = None
         self.app_package_dirs = {}
@@ -774,18 +821,27 @@ class DMakeFile(DMakeFileSerializer):
     def _get_check_needed_services_(self, commands, service):
         if common.options.dependencies and len(service.needed_services) > 0:
             app_name = self.app_name
-            needed_services = map(lambda service_name: "%s/%s" % (app_name, service_name), service.needed_services)
+            # daemon name: <app_name>/<service_name><optional_unique_suffix>; needed_service.service_name doesn't contain app_name
+            needed_services = map(lambda needed_service: "%s/%s%s" % (app_name, needed_service.service_name, needed_service.get_service_name_unique_suffix()), service.needed_services)
             append_command(commands, 'sh', shell = "dmake_check_services %s" % (' '.join(needed_services)))
 
     def generate_base(self, commands):
         self.docker._serialize_(commands, self.__path__)
 
-    def generate_run(self, commands, service_name, docker_links):
+    def generate_run(self, commands, service_name, docker_links, service_customization):
         service = self._get_service_(service_name)
         if service.config is None or service.config.docker_image.start_script is None:
             return
 
-        opts = self._launch_options_(commands, service, docker_links)
+
+        unique_service_name = service_name
+        customized_env = {}
+        if service_customization:
+            customized_env = service_customization.env
+            # daemon name: <app_name>/<service_name><optional_unique_suffix>; service_name already contains "<app_name>/"
+            unique_service_name += service_customization.get_service_name_unique_suffix()
+
+        opts = self._launch_options_(commands, service, docker_links, env=customized_env)
         env = self.env.get_replaced_variables()
         image_name = service.config.docker_image.get_image_name(service_name, env)
 
@@ -796,7 +852,7 @@ class DMakeFile(DMakeFileSerializer):
         # </DEPRECATED>
 
         daemon_opts = "%s %s" % (service.config.full_docker_opts(True), opts)
-        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (service_name, daemon_opts, image_name))
+        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, daemon_opts, image_name))
 
         cmd = service.config.readiness_probe.get_cmd()
         if cmd:

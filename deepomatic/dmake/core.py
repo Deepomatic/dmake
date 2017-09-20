@@ -120,11 +120,11 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
         root_image = dmake_file.docker.root_image
         base_image = dmake_file.docker.get_docker_base_image_name_tag()
         if root_image != base_image:
-            return [('base', base_image)]
+            return [('base', base_image, None)]
         else:
             return []
     elif command in file_deps:
-        node = (command, file)
+        node = (command, file, None)
         if node not in service_dependencies:
             service_dependencies[node] = activate_file(loaded_files, service_providers, service_dependencies, file_deps[command], file)
         return [node]
@@ -153,8 +153,16 @@ def activate_link(loaded_files, service_providers, service_dependencies, service
 
 ###############################################################################
 
-def activate_service(loaded_files, service_providers, service_dependencies, command, service):
-    node = (command, service)
+def activate_needed_services(loaded_files, service_providers, service_dependencies, needs):
+    children = []
+    for service, service_customization in needs:
+        children += activate_service(loaded_files, service_providers, service_dependencies, 'run', service, service_customization)
+    return children
+
+###############################################################################
+
+def activate_service(loaded_files, service_providers, service_dependencies, command, service, service_customization=None):
+    node = (command, service, service_customization)
     if command == 'test' and common.skip_tests:
         return []
 
@@ -167,15 +175,13 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         elif command == 'shell':
             children = []
             if getattr(common.options, 'dependencies', None) and needs is not None:
-                for n in needs:
-                    children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
+                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
             children += activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
         elif command == 'test':
             children = []
             if getattr(common.options, 'dependencies', None) and needs is not None:
-                for n in needs:
-                    children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
+                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
             children += activate_file(loaded_files, service_providers, service_dependencies, 'build', file)
             if getattr(common.options, 'dependencies', None):
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
@@ -184,8 +190,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         elif command == 'run':
             children = activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if getattr(common.options, 'dependencies', None) and needs is not None:
-                for n in needs:
-                    children += activate_service(loaded_files, service_providers, service_dependencies, 'run', n)
+                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'run_link':
             children = []
@@ -198,6 +203,13 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         service_dependencies[node] = children
 
     return [node]
+
+###############################################################################
+
+def display_command_node(node):
+    command, service, service_customization = node
+    # daemon name: <app_name>/<service_name><optional_unique_suffix>; service already contains "<app_name>/"
+    return "%s @ %s%s" % (command, service, service_customization.get_service_name_unique_suffix() if service_customization else "")
 
 ###############################################################################
 
@@ -276,7 +288,7 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
         base_image = dmake_file.docker.get_docker_base_image_name_tag()
         if root_image != base_image:
             add_service_provider(service_providers, base_image, file)
-            service_dependencies[('base', base_image)] = [('base', root_image)]
+            service_dependencies[('base', base_image, None)] = [('base', root_image, None)]
 
     if common.is_string(dmake_file.env):
         ref = dmake_file.env
@@ -423,6 +435,7 @@ def generate_command_bash(file, cmds):
     file.write('set -e\n')
     for cmd, kwargs in cmds:
         if cmd == "stage":
+            file.write("\n")
             file.write("echo %s\n" % kwargs['name'])
         elif cmd == "sh":
             commands = kwargs['shell']
@@ -526,7 +539,7 @@ def make(root_dir, sub_dir, command, app, options):
 
         app_services = services[app_name]
         for service in dmake_file.get_services():
-            needs = ["%s/%s" % (app_name, sa) for sa in service.needed_services]
+            needs = [("%s/%s" % (app_name, sa.service_name), sa) for sa in service.needed_services]
             full_service_name = "%s/%s" % (app_name, service.service_name)
             if service.service_name in app_services:
                 raise DMakeException("Duplicated sub-app name: '%s'" % full_service_name)
@@ -621,12 +634,13 @@ def make(root_dir, sub_dir, command, app, options):
         for stage, commands in ordered_build_files:
             if len(commands) > 0:
                 common.logger.info("## %s ##" % (stage))
-            for (command, service), order in commands:
+            for node, order in commands:
                 # Sanity check
-                sub_task_orders = [build_files_order[a] for a in service_dependencies[(command, service)]]
+                sub_task_orders = [build_files_order[a] for a in service_dependencies[node]]
                 if any(map(lambda o: order <= o, sub_task_orders)):
                     raise DMakeException('Bad ordering')
-                common.logger.info("- %s @ %s" % (command, service))
+
+                common.logger.info("- %s" % (display_command_node(node)))
 
     # Generate the list of command to run
     all_commands = []
@@ -639,8 +653,9 @@ def make(root_dir, sub_dir, command, app, options):
     for stage, commands in ordered_build_files:
         if len(commands) > 0:
             append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
-        for (command, service), order in commands:
-            append_command(all_commands, 'sh', shell = 'echo "Running %s @ %s"' % (command, service))
+        for node, order in commands:
+            command, service, service_customization = node
+            append_command(all_commands, 'sh', shell = 'echo "Running %s"' % (common.escape_cmd(display_command_node(node))))
             if command == 'build':
                 dmake_file = loaded_files[service]
             else:
@@ -657,7 +672,7 @@ def make(root_dir, sub_dir, command, app, options):
                 elif command == "test":
                     dmake_file.generate_test(all_commands, service, links)
                 elif command == "run":
-                    dmake_file.generate_run(all_commands, service, links)
+                    dmake_file.generate_run(all_commands, service, links, service_customization)
                 elif command == "run_link":
                     dmake_file.generate_run_link(all_commands, service, links)
                 elif command == "build":
@@ -711,5 +726,3 @@ def make(root_dir, sub_dir, command, app, options):
                 do_clean = False
         if do_clean:
             os.system('dmake_clean')
-
-
