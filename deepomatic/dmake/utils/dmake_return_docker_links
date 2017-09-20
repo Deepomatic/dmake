@@ -39,4 +39,3 @@ for LINK in "$@"; do
     fi
 done
 echo "${LINK_OPTS}"
-

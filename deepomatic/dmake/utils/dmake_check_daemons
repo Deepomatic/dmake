@@ -26,4 +26,3 @@ for FILTER in "$@"; do
         exit 1
     fi
 done
-

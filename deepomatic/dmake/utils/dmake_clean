@@ -37,4 +37,3 @@ fi
 dmake_remove_docker_containers_and_images ${DMAKE_TMP_DIR}
 
 rm -rf ${DMAKE_TMP_DIR}
-

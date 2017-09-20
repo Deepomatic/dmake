@@ -40,5 +40,3 @@ else
     # For a directory, it hashes the list of MD5s
     echo $(dmake_find $1 -type f -print0 | xargs -0 $CMD | cut -d ' ' -f $COLUMN | $CMD)
 fi
-
-

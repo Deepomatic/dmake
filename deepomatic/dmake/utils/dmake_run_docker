@@ -49,5 +49,3 @@ if [ ! -z "${TMP_DIR}" ]; then
 fi
 
 docker run --name ${NAME} "$@"
-
-

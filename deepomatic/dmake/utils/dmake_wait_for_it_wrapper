@@ -46,4 +46,3 @@ for PORT_RANGE in $(echo ${PORTS} | tr "," "\n"); do
         done
     fi
 done
-
