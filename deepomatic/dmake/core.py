@@ -425,8 +425,15 @@ def generate_command_pipeline(file, cmds):
             raise DMakeException("Unknown command %s" % cmd)
 
     file.write('}\n')
+    file.write('catch (error) {\n')
+    file.write('  if ( env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP == "1" ) {\n')
+    file.write('    slackSend channel: "#jenkins-dmake", message: "This jenkins build requires your attention: <${env.BUILD_URL}/console|${env.JOB_NAME} ${env.BUILD_NUMBER}>"\n')
+    file.write("    input message: 'An error occurred. DMake will stop and clean all the running containers upon any answer.'\n")
+    file.write('  }\n')
+    file.write('  throw error\n')
+    file.write('}\n')
     file.write('finally {\n')
-    file.write('sh("dmake_clean")\n')
+    file.write('  sh("dmake_clean")\n')
     file.write('}\n')
 
 ###############################################################################

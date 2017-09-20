@@ -47,6 +47,7 @@ node {
         env.CHANGE_BRANCH=""
         env.CHANGE_TARGET=""
         env.CHANGE_ID=""
+        env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
         dir('workspace') {
             sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
             sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
