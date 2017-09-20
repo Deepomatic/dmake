@@ -18,6 +18,8 @@ def append_command(commands, cmd, prepend = False, **args):
                 raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
     if cmd == "stage":
         check_cmd(args, ['name', 'concurrency'])
+    elif cmd == "echo":
+        check_cmd(args, ['message'])
     elif cmd == "sh":
         check_cmd(args, ['shell'])
     elif cmd == "read_sh":
