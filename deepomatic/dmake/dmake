@@ -37,15 +37,11 @@ if command == "help":
 elif command not in ["test", "run", "stop", "shell", "deploy"]:
     print_help()
 
-# Make sure we are in a repo
-if not check_is_git_repo():
-    sys.exit(1)
-
 # Find root
-root_dir = os.getenv('PWD')
-root_dir, sub_dir = common.find_repo_root(root_dir)
-if root_dir is None:
-    common.logger.error("Could no find '.git' directory.")
+try:
+    root_dir, sub_dir = common.find_repo_root()
+except common.ShellError as e:
+    common.logger.error("Current directory is not a Git repository:\n%s" % str(e))
     sys.exit(1)
 os.chdir(root_dir)
 
