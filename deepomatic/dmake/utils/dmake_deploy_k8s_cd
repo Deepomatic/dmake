@@ -61,6 +61,33 @@ if create_configmap_env:
     print("Creating new ConfigMap Environment %s" % (configmap_env_name))
     v1_client.create_namespaced_config_map(namespace, configmap)
 
+# also create/update DMake metadata ConfigMap defining default ConfigMap env, and image
+dmake_cm_name = 'dmake-metadata-%s' % (service)
+dmake_cm_data = {
+    'ConfigMapEnvName': configmap_env_name,
+    'Image': image
+}
+op_dmake_cm = None
+try:
+    api_response = v1_client.read_namespaced_config_map(dmake_cm_name, namespace)
+    if api_response.data != dmake_cm_data:
+        op_dmake_cm = 'update'
+except ApiException as e:
+    if e.status == 404:
+        op_dmake_cm = 'create'
+    else:
+        raise
+if op_dmake_cm is not None:
+    dmake_cm_metadata = {'name': dmake_cm_name}
+    dmake_cm = kubernetes.client.V1ConfigMap(data=dmake_cm_data, metadata=dmake_cm_metadata)
+    print("%s DMake metadata ConfigMap %s: %s" % (op_dmake_cm.capitalize(), dmake_cm_name, dmake_cm_data))
+    if op_dmake_cm == 'create':
+        v1_client.create_namespaced_config_map(namespace, dmake_cm)
+    elif op_dmake_cm == 'update':
+        v1_client.replace_namespaced_config_map(dmake_cm_name, namespace, dmake_cm)
+    else:
+        assert False
+
 deployments = []
 print("Deploying new image %s with ConfigMap env %s" % (image, configmap_env_name))
 for i in ret.items:
