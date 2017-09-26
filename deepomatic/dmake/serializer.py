@@ -78,7 +78,7 @@ class FieldSerializer(object):
             for t in self.data_type:
                 if isinstance(t, YAML2PipelineSerializer) or isinstance(t, FieldSerializer):
                     try:
-                        data = t._validate_(path, data)
+                        validated_data = t._validate_(path, data)
                         ok = True
                         break
                     except ValidationError as e:
@@ -86,7 +86,7 @@ class FieldSerializer(object):
                         continue
                 else:
                     try:
-                        data = self._validate_type_(path, t, data)
+                        validated_data = self._validate_type_(path, t, data)
                         ok = True
                         break
                     except WrongType as e:
@@ -97,7 +97,7 @@ class FieldSerializer(object):
                     raise ValidationError(err[0])
                 else:
                     raise ValidationError("The error is one of the followings:\n- " + ("\n- ".join(err)))
-        self.value = self.post_validation(data)
+        self.value = self.post_validation(validated_data)
         return self.value
 
     def _value_(self):
