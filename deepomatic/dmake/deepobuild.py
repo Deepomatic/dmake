@@ -776,7 +776,7 @@ class DMakeFile(DMakeFileSerializer):
                         raise Found
         except Found:
             common.is_release_branch = True
-            print "Release branch: %s" % common.is_release_branch
+            print("Release branch: %s" % common.is_release_branch)
 
     def get_path(self):
         return self.__path__
