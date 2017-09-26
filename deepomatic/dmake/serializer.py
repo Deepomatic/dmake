@@ -71,7 +71,7 @@ class FieldSerializer(object):
             if not self.optional:
                 raise ValidationError("got 'Null', expected a value of type %s" % (" -OR-\n".join([str(t) for t in self.data_type])))
             else:
-                data = copy.deepcopy(self.default)
+                validated_data = copy.deepcopy(self.default)
         else:
             ok = False
             err = []
