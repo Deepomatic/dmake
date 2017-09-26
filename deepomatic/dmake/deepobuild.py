@@ -83,7 +83,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
             else:
                 env = ''
 
-            variables = dict(self.variables.items() + additional_variables.items())
+            variables = dict(list(self.variables.items()) + list(additional_variables.items()))
             for var, value in variables.items():
                 # destructively remove newlines from environment variables values, as docker doesn't properly support them. It's fine for multiline jsons for example though.
                 replaced_variables[var] = common.run_shell_command(env + 'echo %s' % common.wrap_cmd(value)).replace('\n', '')
