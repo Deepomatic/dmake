@@ -762,21 +762,22 @@ class DMakeFile(DMakeFileSerializer):
         self.app_package_dirs = {}
 
         # set common.is_release_branch: does the current branch have a deployment in any dmake.yml file?
-        class Found(Exception):
-            pass
         if common.is_release_branch is None:
             common.is_release_branch = False
-        try:
-            for service in self.services:
-                if not service.deploy.has_value():
-                    continue
-                for stage in service.deploy.stages:
-                    branches = stage.branches
-                    if common.branch in branches or '*' in branches:
-                        raise Found
-        except Found:
-            common.is_release_branch = True
-            print("Release branch: %s" % common.is_release_branch)
+        if not common.is_release_branch:
+            class Found(Exception):
+                pass
+            try:
+                for service in self.services:
+                    if not service.deploy.has_value():
+                        continue
+                    for stage in service.deploy.stages:
+                        branches = stage.branches
+                        if common.branch in branches or '*' in branches:
+                            raise Found
+            except Found:
+                common.is_release_branch = True
+                print("Release branch: %s" % common.is_release_branch)
 
     def get_path(self):
         return self.__path__
