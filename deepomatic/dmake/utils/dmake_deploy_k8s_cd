@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Usage:
-# dmake_deploy_k8s_cd DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME IMAGE_NAME SELECTORS
+# dmake_deploy_k8s_cd DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME IMAGE_NAME CONFIGMAP_ENV_FILE SELECTORS
 #
 # Result:
 # Finds the k8s deployments running the image (those having label dmake_${SERVICE_NAME})
@@ -9,9 +9,11 @@
 
 import os, sys
 import kubernetes
+from kubernetes.client.rest import ApiException
 import time
+import yaml
 
-if len(sys.argv) < 7:
+if len(sys.argv) < 8:
     print("Missing args. Should be %s DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME IMAGE_NAME SELECTORS" % sys.argv[0])
     sys.exit(1)
 
@@ -20,8 +22,9 @@ context   = sys.argv[2]
 namespace = sys.argv[3]
 service   = sys.argv[4]
 image     = sys.argv[5]
+configmap_env_file = sys.argv[6]
 selectors = {}
-for s in sys.argv[6].split(","):
+for s in sys.argv[7].split(","):
     if len(s.strip()) == 0:
         continue
     s = s.split("=")
@@ -30,15 +33,63 @@ for s in sys.argv[6].split(","):
 os.system('kubectl get nodes') # refresh auth token for kubectl, otherwise next line might fail
 kubernetes.config.load_kube_config(context=context)
 
-client = kubernetes.client.ExtensionsV1beta1Api()
+if os.getenv('DMAKE_DEBUG') == '1':
+    kubernetes.config.kube_config.configuration.debug = True
+
+beta_v1_client = kubernetes.client.ExtensionsV1beta1Api()
 selector = "dmake_%s" % service
-ret = client.list_namespaced_deployment(namespace, label_selector=selector)
+ret = beta_v1_client.list_namespaced_deployment(namespace, label_selector=selector)
 if len(ret.items) == 0:
     print("No deployments found for namespace '%s' and selector '%s'" % (namespace, selector))
     sys.exit(0)
 
+# check existing env ConfigMap
+v1_client = kubernetes.client.CoreV1Api()
+with open(configmap_env_file) as f:
+    configmap = yaml.load(f)
+configmap_env_name = configmap['metadata']['name']
+
+create_configmap_env = True
+try:
+    api_response = v1_client.read_namespaced_config_map(configmap_env_name, namespace)
+    assert configmap['data'] == api_response.data, 'ConfigMap name should be unique per environment (configmap/%s)' % (configmap_env_name)
+    create_configmap_env = False
+except ApiException as e:
+    if e.status != 404:
+        raise
+if create_configmap_env:
+    print("Creating new ConfigMap Environment %s" % (configmap_env_name))
+    v1_client.create_namespaced_config_map(namespace, configmap)
+
+# also create/update DMake metadata ConfigMap defining default ConfigMap env, and image
+dmake_cm_name = 'dmake-metadata-%s' % (service)
+dmake_cm_data = {
+    'ConfigMapEnvName': configmap_env_name,
+    'Image': image
+}
+op_dmake_cm = None
+try:
+    api_response = v1_client.read_namespaced_config_map(dmake_cm_name, namespace)
+    if api_response.data != dmake_cm_data:
+        op_dmake_cm = 'update'
+except ApiException as e:
+    if e.status == 404:
+        op_dmake_cm = 'create'
+    else:
+        raise
+if op_dmake_cm is not None:
+    dmake_cm_metadata = {'name': dmake_cm_name}
+    dmake_cm = kubernetes.client.V1ConfigMap(data=dmake_cm_data, metadata=dmake_cm_metadata)
+    print("%s DMake metadata ConfigMap %s: %s" % (op_dmake_cm.capitalize(), dmake_cm_name, dmake_cm_data))
+    if op_dmake_cm == 'create':
+        v1_client.create_namespaced_config_map(namespace, dmake_cm)
+    elif op_dmake_cm == 'update':
+        v1_client.replace_namespaced_config_map(dmake_cm_name, namespace, dmake_cm)
+    else:
+        assert False
+
 deployments = []
-print("Deploying new image %s" % image)
+print("Deploying new image %s with ConfigMap env %s" % (image, configmap_env_name))
 for i in ret.items:
     name = i.metadata.name
     container = i.metadata.labels[selector]
@@ -49,9 +100,28 @@ for i in ret.items:
             break
     if not match:
         continue
-    body = {"spec":{"template":{"spec":{"containers":[{"image":image,"name":container}]}}}}
+
     print("- Pushing new image to %s" % name)
-    client.patch_namespaced_deployment(name, namespace, body)
+
+    # patch container image
+    json_patch = [
+        { "op": "replace", "path": "/spec/template/spec/containers/0/image", "value": image }
+    ]
+
+    # patch envFrom ConfigMap
+    # `env` takes precedence over `envFrom`
+    # does it already use a configMap?
+    existing_configmap_env_name = None
+    try:
+        existing_configmap_env_name = i.spec.template.spec.containers[0].env_from[0].config_map_ref.name
+    except:
+        pass
+    if existing_configmap_env_name is None:
+        json_patch.append({ "op": "add", "path": "/spec/template/spec/containers/0/envFrom", "value": [{"configMapRef": {"name": configmap_env_name}}] })
+    else:
+        json_patch.append({ "op": "replace", "path": "/spec/template/spec/containers/0/envFrom/0/configMapRef/name", "value": configmap_env_name })
+
+    beta_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
     deployments.append(name)
 
 # # Actually not a good solution: we would need to remove those entries if this file succeed
@@ -63,13 +133,10 @@ for i in ret.items:
 
 for name in deployments:
     while True:
-        api_response = client.read_namespaced_deployment(name, namespace)
+        api_response = beta_v1_client.read_namespaced_deployment(name, namespace)
         if api_response.spec.replicas > 0 and \
            api_response.status.available_replicas is None:
             print("- Waiting for %s to be ready" % name)
             time.sleep(5)
         else:
             break
-
-
-

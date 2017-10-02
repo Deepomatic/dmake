@@ -5,6 +5,7 @@ import random
 from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import deepomatic.dmake.common as common
 from deepomatic.dmake.common import DMakeException
+import deepomatic.dmake.kubernetes as k8s_utils
 
 ###############################################################################
 
@@ -389,7 +390,19 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
             selectors.append("%s=%s" % (key, value))
         selectors = ",".join(selectors)
 
-        cmd = 'dmake_deploy_k8s_cd "%s" "%s" "%s" "%s" "%s" "%s"' % (common.tmp_dir, common.eval_str_in_env(self.context, env), common.eval_str_in_env(self.namespace, env), app_name, image_name, selectors)
+        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+        configmap_env_file = os.path.join(tmp_dir, 'kubernetes-configmap-env.yaml')
+        k8s_utils.generate_config_map_file(env, app_name, configmap_env_file)
+
+        program = 'dmake_deploy_k8s_cd'
+        args = [common.tmp_dir,
+                common.eval_str_in_env(self.context, env),
+                common.eval_str_in_env(self.namespace, env),
+                app_name,
+                image_name,
+                configmap_env_file,
+                selectors]
+        cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
 
