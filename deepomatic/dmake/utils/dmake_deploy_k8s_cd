@@ -36,12 +36,6 @@ kubernetes.config.load_kube_config(context=context)
 if os.getenv('DMAKE_DEBUG') == '1':
     kubernetes.config.kube_config.configuration.debug = True
 
-beta_v1_client = kubernetes.client.ExtensionsV1beta1Api()
-selector = "dmake_%s" % service
-ret = beta_v1_client.list_namespaced_deployment(namespace, label_selector=selector)
-if len(ret.items) == 0:
-    print("No deployments found for namespace '%s' and selector '%s'" % (namespace, selector))
-    sys.exit(0)
 
 # check existing env ConfigMap
 v1_client = kubernetes.client.CoreV1Api()
@@ -57,6 +51,7 @@ try:
 except ApiException as e:
     if e.status != 404:
         raise
+# create env ConfigMap if needed
 if create_configmap_env:
     print("Creating new ConfigMap Environment %s" % (configmap_env_name))
     v1_client.create_namespaced_config_map(namespace, configmap)
@@ -87,6 +82,15 @@ if op_dmake_cm is not None:
         v1_client.replace_namespaced_config_map(dmake_cm_name, namespace, dmake_cm)
     else:
         assert False
+
+
+# patch deployments
+beta_v1_client = kubernetes.client.ExtensionsV1beta1Api()
+selector = "dmake_%s" % service
+ret = beta_v1_client.list_namespaced_deployment(namespace, label_selector=selector)
+if len(ret.items) == 0:
+    print("No deployments found for namespace '%s' and selector '%s'" % (namespace, selector))
+    sys.exit(0)
 
 deployments = []
 print("Deploying new image %s with ConfigMap env %s" % (image, configmap_env_name))
