@@ -405,10 +405,19 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
+class KuberentesConfigMapFromFileSerializer(YAML2PipelineSerializer):
+    key = FieldSerializer("string", example = "nginx.conf", help_text = "File key")
+    path = FieldSerializer("file", example = "deploy/nginx.conf", help_text = "File path")
+
+class KuberentesConfigMapSerializer(YAML2PipelineSerializer):
+    name = FieldSerializer("string", example = "nginx", help_text = "Kubernetes ConfigMap name")
+    from_files = FieldSerializer("array", child = KuberentesConfigMapFromFileSerializer(), default = [], help_text = "Kubernetes ConfigMap from files")
+
 class KubernetesDeploySerializer(YAML2PipelineSerializer):
     context   = FieldSerializer("string", help_text = "kubectl context to use.")
     namespace = FieldSerializer("string", optional = True, help_text = "Kubernetes namespace to target (overrides kubectl context default namespace")
     manifest  = FieldSerializer("file", example = "path/to/kubernetes-manifest.yaml", help_text = "Kubernetes manifest file (template) defining all the resources needed to deploy the service")
+    config_maps = FieldSerializer("array", child = KuberentesConfigMapSerializer(), default = [], help_text = "Additional Kubernetes ConfigMaps")
 
     def _serialize_(self, commands, app_name, image_name, env):
         if not self.has_value():
@@ -417,11 +426,27 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
 
         # generate ConfigMap containing runtime environment variables
-        configmap_name = k8s_utils.generate_config_map_file(env, app_name, os.path.join(tmp_dir, 'kubernetes-configmap-env.yaml'))
+        configmap_env_filename = 'kubernetes-configmap-env.yaml'
+        configmap_name = k8s_utils.generate_config_map_file(env, app_name, os.path.join(tmp_dir, configmap_env_filename))
+
+        # additional ConfigMaps
+        user_configmaps_filename = 'kubernetes-user-configmaps.yaml'
+        cm_datas = []
+        for cm in self.config_maps:
+            program = 'kubectl'
+            from_file_args = ["--from-file=%s=%s" % (file_source.key, file_source.path) for file_source in cm.from_files]
+            args = ['create', 'configmap', '--dry-run=true', '--output=yaml', cm.name] + from_file_args
+            cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
+            cm_data = common.run_shell_command(cmd)
+            cm_datas.append(cm_data)
+        with open(os.path.join(tmp_dir, user_configmaps_filename), 'w') as f:
+            f.write('\n\n---\n\n'.join(cm_datas))
+            f.write('\n')
 
         # copy/render template manifest file
+        user_manifest_filename = 'kubernetes-user-manifest.yaml'
         change_cause = "DMake deploy %s from repo %s#%s (%s)" % (app_name, common.repo, common.branch, common.commit_id)
-        common.run_shell_command('env; dmake_replace_vars %s %s' % (self.manifest, os.path.join(tmp_dir, 'kubernetes-user-manifest.yaml')),
+        common.run_shell_command('env; dmake_replace_vars %s %s' % (self.manifest, os.path.join(tmp_dir, user_manifest_filename)),
                                  additional_env = {
                                      'SERVICE_NAME': app_name,
                                      'CHANGE_CAUSE': change_cause,
@@ -440,7 +465,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 common.repo,
                 common.branch,
                 common.commit_id,
-                'kubernetes-configmap-env.yaml', 'kubernetes-user-manifest.yaml']
+                configmap_env_filename, user_configmaps_filename, user_manifest_filename]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
