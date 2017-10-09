@@ -6,6 +6,7 @@ from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2P
 import deepomatic.dmake.common as common
 from deepomatic.dmake.common import DMakeException
 import deepomatic.dmake.kubernetes as k8s_utils
+import deepomatic.dmake.docker_registry as docker_registry
 
 ###############################################################################
 
@@ -97,7 +98,7 @@ class EnvSerializer(YAML2PipelineSerializer):
 
 class DockerBaseSerializer(YAML2PipelineSerializer):
     name                 = FieldSerializer("string", help_text = "Base image name. If no docker user is indicated, the image will be kept locally")
-    version              = FieldSerializer("string", help_text = "Base image version. The branch name will be prefixed to form the docker image tag.", example = "v2", default = 'latest')
+    version              = FieldSerializer("string", help_text = "Deprecated, not used anymore, will be removed later.", default = 'latest')
     install_scripts      = FieldSerializer("array", default = [], child = FieldSerializer("file", executable = True, child_path_only = True), example = ["some/relative/script/to/run"])
     python_requirements  = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "")
     python3_requirements = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "requirements.txt")
@@ -164,29 +165,44 @@ class DockerSerializer(YAML2PipelineSerializer):
             for file in ["make_base.sh", "config.logrotate", "load_credentials.sh", "install_pip.sh", "install_pip3.sh"]:
                 md5s[file] = common.run_shell_command('%s dmake_copy_template docker-base/%s %s' % (local_env, file, os.path.join(tmp_dir, file)))
 
-            # Output md5s for comparison
-            with open(os.path.join(tmp_dir, 'md5s'), 'w') as f:
-                for md5 in md5s.items():
+            # Compute md5 `dmake_digest`
+            md5_file = os.path.join(tmp_dir, 'md5s')
+            with open(md5_file, 'w') as f:
+                # sorted for stability
+                for md5 in sorted(md5s.items()):
                     f.write('%s %s\n' % md5)
+            dmake_digest = common.run_shell_command('dmake_md5 %s' % (md5_file))
+
+            # Get root_image digest
+            root_image_digest = docker_registry.get_image_digest(self.root_image)
+
+            # Generate base image tag
+            self.base_image_tag = self._get_base_image_tag(root_image_digest, dmake_digest)
 
             # Append Docker Base build command
-            append_command(commands, 'sh', shell = 'dmake_build_base_docker "%s" "%s" "%s" "%s" "%s"' %
-                            (tmp_dir,
-                             self.root_image,
-                             self.base_image.name,
-                             self._get_tag_(),
-                             self.base_image.version))
+            program = 'dmake_build_base_docker'
+            args = [tmp_dir,
+                    self.root_image,
+                    root_image_digest,
+                    self.base_image.name,
+                    self.base_image_tag,
+                    dmake_digest]
+            cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
+            append_command(commands, 'sh', shell = cmd)
 
-    def _get_tag_(self):
-        if common.is_pr:
-            prefix = 'pr-%s' % common.pr_id
-        else:
-            prefix = common.branch
-        return 'base-' + prefix + '-' + self.base_image.version
+    def _get_base_image_tag(self, root_image_digest, dmake_digest):
+        tag = 'base-rid-%s-dd-%s' % (root_image_digest.replace(':', '-'), dmake_digest)
+        assert len(tag) <= 128, "docker tag limit"
+        return tag
+
+    def get_docker_base_image_service(self):
+        if self.base_image.has_value():
+            return self.base_image.name + '::base'
+        return None
 
     def get_docker_base_image_name_tag(self):
         if self.base_image.has_value():
-            image = self.base_image.name + ":" + self._get_tag_()
+            image = self.base_image.name + ":" + self.base_image_tag
             return image
         return self.root_image
 

@@ -2,17 +2,18 @@
 #
 # Usage:
 # dmake_build_base_docker TMP_DIR \
-#                             ROOT_IMAGE \
-#                             DOCKER_IMAGE_NAME \
-#                             DOCKER_IMAGE_TAG
-#                             DOCKER_IMAGE_VERSION
+#                         ROOT_IMAGE_NAME \
+#                         ROOT_IMAGE_DIGEST \
+#                         DOCKER_IMAGE_NAME \
+#                         DOCKER_IMAGE_TAG \
+#                         DMAKE_DIGEST
 #
 # Result:
 # Will build and cache the base docker images with libs.
 
 test "${DMAKE_DEBUG}" = "1" && set -x
 
-if [ $# -ne 5 ]; then
+if [ $# -ne 6 ]; then
     dmake_fail "$0: Wrong arguments"
     echo "exit 1"
     exit 1
@@ -20,16 +21,21 @@ fi
 
 set -e
 
-export TMP_DIR=$1
-export ROOT_IMAGE=$2
-export DOCKER_IMAGE_NAME=$3
-export DOCKER_IMAGE_TAG=$4
-DOCKER_IMAGE_VERSION=$5
+TMP_DIR=$1; shift
+ROOT_IMAGE_NAME=$1; shift
+ROOT_IMAGE_DIGEST=$1; shift
+DOCKER_IMAGE_NAME=$1; shift
+DOCKER_IMAGE_TAG=$1; shift
+DMAKE_DIGEST=$1; shift
+
 
 function docker_get_image_id() {
-    echo `docker images | sed "1d" | sed "s/  */ /g" | cut -d ' ' -f 1-3 | sed "s/ /:/" | grep "$1 " | cut -d ' ' -f 2`
+  docker image ls "$1" --format '{{.ID}}'
 }
 
+ROOT_IMAGE_NAME="${ROOT_IMAGE_NAME%:*}"  # strip tag if exists: we use the digest instead
+
+# Avoid multiple rebuilds of the same base image in parallel
 LOCK="/tmp/docker-${REPO}.lock"
 if [ `which lockfile | wc -l | sed "s/ *//"` != "0" ]; then
     lockfile -l 600 ${LOCK}
@@ -38,117 +44,61 @@ if [ `which lockfile | wc -l | sed "s/ *//"` != "0" ]; then
     fi
 fi
 
-# Retrieve the root image ID
-echo "Retrieving ID for ${ROOT_IMAGE}"
-if [[ "$ROOT_IMAGE" != *":"* ]]; then
-    FULL_ROOT_IMAGE="$ROOT_IMAGE:latest"
-else
-    FULL_ROOT_IMAGE="$ROOT_IMAGE"
-fi
-docker pull ${FULL_ROOT_IMAGE} || :
-ID_ROOT=$(docker_get_image_id ${FULL_ROOT_IMAGE})
-if [ -z "${ID_ROOT}" ]; then
-    dmake_fail "Could not find root image: ${FULL_ROOT_IMAGE}"
-fi
 
-# Retrieve the base image
-export BASE_IMAGE="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
-BASE_IMAGE_GENERAL="${DOCKER_IMAGE_NAME}:base-${DOCKER_IMAGE_VERSION}"
-echo "Retrieving ID for ${BASE_IMAGE}"
-if [[ "${BASE_IMAGE}" =~ .+/.+ ]]; then
+# Check if base image already exists
+BASE_IMAGE="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+echo "Checking cache for docker base image (${BASE_IMAGE})"
+# first locally
+BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
+if [ -z "${BASE_IMAGE_ID}" ]; then
+  # then remotely
+  if [[ "${BASE_IMAGE}" =~ .+/.+ ]]; then
     docker pull $BASE_IMAGE || :
+  fi
+  BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
 fi
-ID_BASE=$(docker_get_image_id $BASE_IMAGE)
-#If still not found, if may be because it is a newly created branch. We pull the general base image
-if [ -z "${ID_BASE}" ] && [[ "${BASE_IMAGE_GENERAL}" =~ .+/.+ ]]; then
-    echo "${BASE_IMAGE} not found on docker-hub, try pulling ${BASE_IMAGE_GENERAL}"
-    docker pull ${BASE_IMAGE_GENERAL} || :
-    ID_BASE=$(docker_get_image_id ${BASE_IMAGE_GENERAL})
-    if [ ! -z "${ID_BASE}" ]; then
-        docker tag ${BASE_IMAGE_GENERAL} ${BASE_IMAGE}
-    fi
-fi
-
-# Display IDs
-echo "${ROOT_IMAGE}: ${ID_ROOT}"
-echo "${BASE_IMAGE}: ${ID_BASE}"
-
-# Add ID_ROOT to md5s for comparison
-echo "${ID_ROOT}" >> ${TMP_DIR}/root_image_id
 
 # Check if we need to re-build
-BUILD_BASE_DOCKER="0"
-if [ "${ID_BASE}" = "" ]; then
-    echo "Base image not available, re-building base image"
-    BUILD_BASE_DOCKER="1"
-else
-    # Output previous md5s
-    set +e
-    echo "$(docker run --rm --entrypoint="cat" -i ${ID_BASE} /base/md5s || echo '')" > ${TMP_DIR}/prev_md5s
-    echo "$(docker run --rm --entrypoint="cat" -i ${ID_BASE} /base/root_image_id || echo '')" > ${TMP_DIR}/prev_root_image_id
-    PREV_ID_ROOT=`cat ${TMP_DIR}/prev_root_image_id`
-    set -e
-fi
-
-if [ "${BUILD_BASE_DOCKER}" = "0" ]; then
-    if [ "${ID_ROOT}" != "${PREV_ID_ROOT}" ]; then
-        echo "${ROOT_IMAGE} has been updated (was previously '${PREV_ID_ROOT}'), re-building base image"
-        BUILD_BASE_DOCKER="1"
-    fi
-fi
-
-if [ "${BUILD_BASE_DOCKER}" = "0" ]; then
-    echo "Looking for changes..."
-
-    # Different file systems may output file in different orders so we sort them
-    sort -o ${TMP_DIR}/md5s ${TMP_DIR}/md5s
-    sort -o ${TMP_DIR}/prev_md5s ${TMP_DIR}/prev_md5s
-
-    FILE_CHANGED=`diff ${TMP_DIR}/md5s ${TMP_DIR}/prev_md5s | sed "1d" | head -n1 | cut -d\  -f 2`
-    if [ ! -z "${FILE_CHANGED}" ]; then
-        echo "Re-build base image because '${FILE_CHANGED}' has changed"
-        BUILD_BASE_DOCKER="1"
-    fi
-fi
-
-if [ ${BUILD_BASE_DOCKER} = "1" ]; then
-    # Remove tmp file used for previous md5
-    rm -f ${TMP_DIR}/prev_md5s
-    rm -f ${TMP_DIR}/prev_root_image_id
-
-    echo "Removing docker image ${BASE_IMAGE}"
-    docker rmi ${BASE_IMAGE} 2> /dev/null || :
-
-    echo "Building docker image ${BASE_IMAGE}"
+if [ -z "${BASE_IMAGE_ID}" ]; then
+    echo "Docker base image not found in cache, building it (${BASE_IMAGE})"
 
     if [ `uname` = "Darwin" ] && [ ! -z "${DMAKE_SSH_KEY}" ]; then
         OTHER_OPTS="-v ${DMAKE_SSH_KEY}:/key"
     fi
 
-    echo "docker run -u 0 --cidfile ${TMP_DIR}/cid.txt -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK -v ${TMP_DIR}:/base_volume ${OTHER_OPTS} ${ROOT_IMAGE} bash /base_volume/make_base.sh"
-
     if [ ! -z "$SSH_AUTH_SOCK" ]; then
         SSH_AUTH_SOCK_VOLUME="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK"
     fi
 
+    DOCKER_RUN_ARGS=( run
+                      -u 0
+                      --cidfile ${TMP_DIR}/cid.txt $SSH_AUTH_SOCK_VOLUME
+                      -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK
+                      -v ${TMP_DIR}:/base_volume
+                      ${OTHER_OPTS}
+                      ${ROOT_IMAGE_NAME}@${ROOT_IMAGE_DIGEST}
+                      /bin/bash /base_volume/make_base.sh
+                    )
+
+    echo "Executing docker ${DOCKER_RUN_ARGS[@]}"
+
     rm -f ${TMP_DIR}/cid.txt
-    docker run -u 0 --cidfile ${TMP_DIR}/cid.txt $SSH_AUTH_SOCK_VOLUME -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK -v ${TMP_DIR}:/base_volume ${OTHER_OPTS} ${ROOT_IMAGE} bash /base_volume/make_base.sh
+    docker "${DOCKER_RUN_ARGS[@]}"
+
     CID=`cat ${TMP_DIR}/cid.txt`
     if [ ! -z "${DMAKE_TMP_DIR}" ]; then
         echo ${CID} >> ${DMAKE_TMP_DIR}/containers_to_remove.txt
     fi
+
     # We commit the container into the base image
     docker commit ${CID} ${BASE_IMAGE}
 
     if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ ]]; then
-        echo "Tagging ${BASE_IMAGE} as ${BASE_IMAGE_GENERAL}"
-        docker rmi ${BASE_IMAGE_GENERAL} || :
-        docker tag ${BASE_IMAGE} ${BASE_IMAGE_GENERAL}
+        echo "Pushing ${BASE_IMAGE}"
         docker push ${BASE_IMAGE}
-        docker push ${BASE_IMAGE_GENERAL}
     fi
 else
-    echo "No changes found."
+    echo "Docker base image found in cache, using it (${BASE_IMAGE})"
 fi
 
 rm -f ${LOCK}

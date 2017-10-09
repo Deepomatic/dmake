@@ -117,9 +117,8 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
 
     dmake_file = loaded_files[file]
     if command == 'base':
-        root_image = dmake_file.docker.root_image
-        base_image = dmake_file.docker.get_docker_base_image_name_tag()
-        if root_image != base_image:
+        base_image = dmake_file.docker.get_docker_base_image_service()
+        if base_image is not None:
             return [('base', base_image, None)]
         else:
             return []
@@ -277,7 +276,7 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
         if common.is_string(dmake_file.docker.root_image):
             ref = dmake_file.docker.root_image
             load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
-            dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.get_docker_base_image_name_tag()
+            dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.root_image
         else:
             root_image = dmake_file.docker.root_image
             root_image = common.eval_str_in_env(root_image.name + ":" + root_image.tag)
@@ -285,8 +284,8 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
 
         # If a base image is declared
         root_image = dmake_file.docker.root_image
-        base_image = dmake_file.docker.get_docker_base_image_name_tag()
-        if root_image != base_image:
+        base_image = dmake_file.docker.get_docker_base_image_service()
+        if base_image is not None:
             add_service_provider(service_providers, base_image, file)
             service_dependencies[('base', base_image, None)] = [('base', root_image, None)]
 
@@ -658,6 +657,7 @@ def make(root_dir, sub_dir, command, app, options):
                 common.logger.info("- %s" % (display_command_node(node)))
 
     # Generate the list of command to run
+    common.logger.info("Generating commands...")
     all_commands = []
     append_command(all_commands, 'env', var = "REPO", value = common.repo)
     append_command(all_commands, 'env', var = "COMMIT", value = common.commit_id)
