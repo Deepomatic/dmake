@@ -445,14 +445,23 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
 
         # copy/render template manifest file
         user_manifest_filename = 'kubernetes-user-manifest.yaml'
+        user_manifest_path = os.path.join(tmp_dir, user_manifest_filename)
         change_cause = "DMake deploy %s from repo %s#%s (%s)" % (app_name, common.repo, common.branch, common.commit_id)
-        common.run_shell_command('env; dmake_replace_vars %s %s' % (self.manifest, os.path.join(tmp_dir, user_manifest_filename)),
+        common.run_shell_command('dmake_replace_vars %s %s' % (self.manifest, user_manifest_path),
                                  additional_env = {
                                      'SERVICE_NAME': app_name,
                                      'CHANGE_CAUSE': change_cause,
                                      'DOCKER_IMAGE_NAME': image_name,
                                      'CONFIGMAP_ENV_NAME': configmap_name
                                  })
+        # verify the manifest file
+        program = 'kubectl'
+        args = ['apply', '--dry-run=true', '--validate=true', '--filename=%s' % user_manifest_path]
+        cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
+        try:
+            common.run_shell_command(cmd)
+        except common.ShellError as e:
+            raise DMakeException("%s: Invalid Kubernetes manifest file %s (rendered template: %s): %s" % (app_name, self.manifest, user_manifest_path, e))
 
         # generate call to kubernetes
         context = common.eval_str_in_env(self.context, env)
