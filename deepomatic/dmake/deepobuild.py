@@ -455,8 +455,8 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                                  })
 
         # generate call to kubernetes
-        context = common.eval_str_in_env(self.context)
-        namespace = common.eval_str_in_env(self.namespace) if self.namespace else ""
+        context = common.eval_str_in_env(self.context, env)
+        namespace = common.eval_str_in_env(self.namespace, env) if self.namespace else ""
         program = 'dmake_deploy_kubernetes'
         args = [tmp_dir,
                 context,
