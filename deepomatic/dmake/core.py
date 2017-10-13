@@ -443,6 +443,7 @@ def generate_command_pipeline(file, cmds):
 ###############################################################################
 
 def generate_command_bash(file, cmds):
+    file.write('test "${DMAKE_DEBUG}" = "1" && set -x\n')
     file.write('set -e\n')
     for cmd, kwargs in cmds:
         if cmd == "stage":
