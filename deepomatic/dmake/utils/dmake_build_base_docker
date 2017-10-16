@@ -37,11 +37,13 @@ ROOT_IMAGE_NAME="${ROOT_IMAGE_NAME%:*}"  # strip tag if exists: we use the diges
 
 # Avoid multiple rebuilds of the same base image in parallel
 LOCK="/tmp/docker-${REPO}.lock"
-if [ `which lockfile | wc -l | sed "s/ *//"` != "0" ]; then
-    lockfile -l 600 ${LOCK}
+LOCK_TIMEOUT=600
+if command -v lockfile >/dev/null 2>&1; then
     if [ ! -z "${DMAKE_TMP_DIR}" ]; then
         echo ${LOCK} >> ${DMAKE_TMP_DIR}/files_to_remove.txt
     fi
+    trap "rm -f ${LOCK}; exit $?" INT TERM EXIT
+    lockfile -1 -l ${LOCK_TIMEOUT} ${LOCK}
 fi
 
 
@@ -100,5 +102,3 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
 else
     echo "Docker base image found in cache, using it (${BASE_IMAGE})"
 fi
-
-rm -f ${LOCK}
