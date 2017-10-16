@@ -33,10 +33,11 @@ function docker_get_image_id() {
   docker image ls "$1" --format '{{.ID}}'
 }
 
+BASE_IMAGE="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
 ROOT_IMAGE_NAME="${ROOT_IMAGE_NAME%:*}"  # strip tag if exists: we use the digest instead
 
 # Avoid multiple rebuilds of the same base image in parallel
-LOCK="/tmp/docker-${REPO}.lock"
+LOCK="/tmp/dmake-build-docker-base-image-${BASE_IMAGE//\//_}.lock"  # replace `/` by `_` in base image name
 LOCK_TIMEOUT=600
 if command -v flock>/dev/null 2>&1; then
   LOCK=${LOCK}.flock
@@ -53,7 +54,6 @@ fi
 
 
 # Check if base image already exists
-BASE_IMAGE="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
 echo "Checking cache for docker base image (${BASE_IMAGE})"
 # first locally
 BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
