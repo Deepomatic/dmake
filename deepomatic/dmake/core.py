@@ -636,7 +636,7 @@ def make(root_dir, sub_dir, command, app, options):
         if len(base) + len(build) + len(test) + len(deploy) != len(ordered_build_files):
             raise Exception('Something went wrong when reorganizing build steps. One of the commands is probably missing.')
 
-        ordered_build_files = [('Building Docker', base),
+        ordered_build_files = [('Building Base', base),
                                ('Building App', build),
                                ('Testing App', test)]
 
