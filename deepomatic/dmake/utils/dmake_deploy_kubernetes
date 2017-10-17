@@ -7,6 +7,8 @@
 # Deploy resources on kubernetes, using ARGS as kubernetes manifest yaml files.
 # NAMESPACE can be emply, meaning using default namespace defined in KUBE_CONTEXT
 
+test "${DMAKE_DEBUG}" = "1" && set -x
+
 set -e
 
 if [ $# -lt 6 ]; then
