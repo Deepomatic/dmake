@@ -32,7 +32,7 @@ class NotGitRepositoryException(DMakeException):
 
 ###############################################################################
 
-def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=None):
+def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=None, raise_on_return_code=False):
     if not isinstance(commands, list):
         commands = [commands]
     if additional_env is None:
@@ -52,6 +52,8 @@ def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=N
     stdout, stderr = p.communicate(stdin)
     if len(stderr) > 0 and not ignore_error:
         raise ShellError(subprocess_output_to_string(stderr))
+    if raise_on_return_code and p.returncode != 0:
+        raise ShellError("return code: %s; stdout: %sstderr: %s" % (p.returncode, subprocess_output_to_string(stdout), subprocess_output_to_string(stderr)))
     return subprocess_output_to_string(stdout).strip()
 
 def array_to_env_vars(array):
