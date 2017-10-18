@@ -44,11 +44,11 @@ def run_shell_command(commands, ignore_error=False, additional_env=None):
     # don't trace shell execution when run from dmake process: it would be detected as an error otherwise
     env.pop('DMAKE_DEBUG', None)
 
-    prev_p = None
+    prev_stdout = None
     for cmd in commands:
         cmd = ['bash', '-c', cmd]
-        stdin = None if prev_p is None else prev_p.stdout
-        p = subprocess.Popen(cmd, stdin = stdin, stdout = subprocess.PIPE, stderr = subprocess.PIPE, env = env)
+        p = subprocess.Popen(cmd, stdin = prev_stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE, env = env)
+        prev_stdout = p.stdout
     stdout, stderr = p.communicate()
     if len(stderr) > 0 and not ignore_error:
         raise ShellError(subprocess_output_to_string(stderr))
