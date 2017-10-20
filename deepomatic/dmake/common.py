@@ -190,8 +190,10 @@ def init(_command, _root_dir, _app, _options):
 
     # Find repo
     repo_url = run_shell_command('git config --get remote.origin.url')
-    repo = re.search('/([^/]*)\.git', repo_url).groups()[0]
+    repo = re.search('/([^/]*?)(\.git)?$', repo_url).group(1)
+    assert repo
     repo_github_owner = re.search('github.com[:/](.*?)/', repo_url)
+    assert repo_github_owner
     commit_id = run_shell_command('git rev-parse HEAD')
 
     if repo_github_owner is not None:
