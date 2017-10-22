@@ -139,7 +139,7 @@ def init(_command, _root_dir, _app, _options):
         os.mkdir(cache_dir)
     except OSError:
         pass
-    do_pull_config_dir = os.getenv('DMAKE_PULL_CONFIG_DIR', '1') == '1'
+    do_pull_config_dir = os.getenv('DMAKE_PULL_CONFIG_DIR', '1') != '0'
 
     tmp_dir = run_shell_command("dmake_make_tmp_dir")
     os.environ['DMAKE_TMP_DIR'] = tmp_dir
