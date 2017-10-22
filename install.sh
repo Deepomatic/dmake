@@ -83,6 +83,7 @@ fi
 if [ ! -d "${DMAKE_CONFIG_DIR}" ]; then
     mkdir ${DMAKE_CONFIG_DIR}
 fi
+DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR:-1}
 CONFIG_FILE=${DMAKE_CONFIG_DIR}/config.sh
 
 # Deprecated: move old config file to new location
