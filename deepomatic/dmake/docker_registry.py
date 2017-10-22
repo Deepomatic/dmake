@@ -3,33 +3,13 @@ from requests_oauthlib import OAuth2Session
 import requests
 
 import argparse
-import json
-import os
 import re
 
 from deepomatic.dmake.common import DMakeException
+import deepomatic.dmake.docker_config as docker_config
 
 
 REGISTRY_URL = 'https://index.docker.io'
-
-
-def get_auth_headers(registry_url, dockercfg = '~/.docker/config.json'):
-    """Extracts docker registry auth from docker config file.
-
-    Return: authorization headers
-    """
-    # https://docs.docker.com/engine/reference/commandline/login/#privileged-user-requirement
-    dockercfg = os.path.expanduser(dockercfg)
-    with open(dockercfg, 'r') as f:
-        data = json.load(f)
-    for registry, value in data['auths'].items():
-        if registry.startswith(registry_url):
-            auth = value['auth']
-            break
-    else:
-        raise DMakeException('Auth not found for registry %s in docker config file %s' % (registry_url, dockercfg))
-
-    return {'Authorization': 'Basic %s' % auth}
 
 
 def create_authenticated_requests_session(registry_url, token_url, scope, service):
@@ -37,11 +17,10 @@ def create_authenticated_requests_session(registry_url, token_url, scope, servic
 
     Return: authenticated requests.Session
     """
-
     # https://docs.docker.com/registry/spec/auth/oauth/
-    auth_headers = get_auth_headers(registry_url)
+    auth_kwargs = docker_config.get_auth_kwargs(registry_url)
     client = OAuth2Session(client=LegacyApplicationClient(client_id='dmake'))
-    client.fetch_token(token_url=token_url, headers=auth_headers, method='GET', service=service, scope=unicode(scope))
+    client.fetch_token(token_url=token_url, method='GET', service=service, scope=unicode(scope), **auth_kwargs)
 
     return client
 

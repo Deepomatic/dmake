@@ -32,7 +32,7 @@ class NotGitRepositoryException(DMakeException):
 
 ###############################################################################
 
-def run_shell_command(commands, ignore_error=False, additional_env=None):
+def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=None, raise_on_return_code=False):
     if not isinstance(commands, list):
         commands = [commands]
     if additional_env is None:
@@ -44,14 +44,16 @@ def run_shell_command(commands, ignore_error=False, additional_env=None):
     # don't trace shell execution when run from dmake process: it would be detected as an error otherwise
     env.pop('DMAKE_DEBUG', None)
 
-    prev_p = None
+    prev_stdout = subprocess.PIPE if stdin else None
     for cmd in commands:
         cmd = ['bash', '-c', cmd]
-        stdin = None if prev_p is None else prev_p.stdout
-        p = subprocess.Popen(cmd, stdin = stdin, stdout = subprocess.PIPE, stderr = subprocess.PIPE, env = env)
-    stdout, stderr = p.communicate()
+        p = subprocess.Popen(cmd, stdin = prev_stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE, env = env)
+        prev_stdout = p.stdout
+    stdout, stderr = p.communicate(stdin)
     if len(stderr) > 0 and not ignore_error:
         raise ShellError(subprocess_output_to_string(stderr))
+    if raise_on_return_code and p.returncode != 0:
+        raise ShellError("return code: %s; stdout: %sstderr: %s" % (p.returncode, subprocess_output_to_string(stdout), subprocess_output_to_string(stderr)))
     return subprocess_output_to_string(stdout).strip()
 
 def array_to_env_vars(array):
