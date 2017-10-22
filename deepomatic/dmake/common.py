@@ -94,10 +94,6 @@ def find_repo_root(path=os.getcwd()):
 pulled_config_dirs = {}
 def pull_config_dir(root_dir):
     global pulled_config_dirs
-    global do_pull_config_dir
-
-    if not do_pull_config_dir:
-        return
 
     if not os.path.isdir(root_dir):
         raise DMakeException('Could not find directory: %s' % root_dir)
@@ -128,7 +124,6 @@ def init(_command, _root_dir, _app, _options):
     global repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global build_description
     global command, options, uname
-    global do_pull_config_dir
     root_dir = os.path.join(_root_dir, '')
     command = _command
     options = _options
@@ -141,7 +136,6 @@ def init(_command, _root_dir, _app, _options):
         os.mkdir(cache_dir)
     except OSError:
         pass
-    do_pull_config_dir = os.getenv('DMAKE_PULL_CONFIG_DIR', '1') == '1'
 
     tmp_dir = run_shell_command("dmake_make_tmp_dir")
     os.environ['DMAKE_TMP_DIR'] = tmp_dir
