@@ -25,5 +25,5 @@ NAME=$2
 
 cd ${TMP_DIR}
 
-docker build -t ${NAME} .
+docker image build --squash --tag ${NAME} .
 echo ${NAME} >> ${DMAKE_TMP_DIR}/images_to_remove.txt
