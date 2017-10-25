@@ -42,13 +42,13 @@ LOCK_TIMEOUT=600
 if command -v flock>/dev/null 2>&1; then
   LOCK=${LOCK}.flock
   exec 9>${LOCK}
-  trap "rm -f ${LOCK}; exit $?" INT TERM EXIT
+  trap "rm -f ${LOCK}" INT TERM EXIT
   flock --exclusive --timeout ${LOCK_TIMEOUT} 9
 elif command -v lockfile >/dev/null 2>&1; then
     if [ ! -z "${DMAKE_TMP_DIR}" ]; then
         echo ${LOCK} >> ${DMAKE_TMP_DIR}/files_to_remove.txt
     fi
-    trap "rm -f ${LOCK}; exit $?" INT TERM EXIT
+    trap "rm -f ${LOCK}" INT TERM EXIT
     lockfile -1 -l ${LOCK_TIMEOUT} ${LOCK}
 fi
 
