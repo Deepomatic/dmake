@@ -410,7 +410,7 @@ def generate_command_pipeline(file, cmds):
         elif cmd == "junit":
             file.write("junit '%s'\n" % kwargs['report'])
         elif cmd == "cobertura":
-            pass
+            file.write("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])\n" % (kwargs['report']))
         elif cmd == "publishHTML":
             file.write("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])\n" % (kwargs['directory'], kwargs['index'], kwargs['title'].replace("'", "\'")))
         elif cmd == "build":
