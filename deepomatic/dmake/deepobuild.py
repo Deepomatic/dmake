@@ -940,7 +940,6 @@ class DMakeFile(DMakeFileSerializer):
         if service.config is None or service.config.docker_image.start_script is None:
             return
 
-
         unique_service_name = service_name
         customized_env = {}
         if service_customization:
@@ -958,8 +957,7 @@ class DMakeFile(DMakeFileSerializer):
             append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
         # </DEPRECATED>
 
-        daemon_opts = "%s %s" % (service.config.full_docker_opts(True), opts)
-        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, daemon_opts, image_name))
+        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, opts, image_name))
 
         cmd = service.config.readiness_probe.get_cmd()
         if cmd:
