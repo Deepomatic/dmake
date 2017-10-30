@@ -218,10 +218,11 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
     probe_ports      = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
 
-    def get_options(self, path):
+    def get_options(self, path, env):
         options = self.testing_options
         if common.command == "shell":
             for vol in self.volumes:
+                vol = common.eval_str_in_env(vol, env)
                 vol = vol.split(':')
                 if len(vol) != 2:
                     raise DMakeException("Volumes shoud be in the form ./host/path:/absolute/container/path")
@@ -1055,7 +1056,7 @@ class DMakeFile(DMakeFileSerializer):
         link = docker_links[link_name]
         env = self.env.get_replaced_variables()
         image_name = common.eval_str_in_env(link.image_name, env)
-        options = common.eval_str_in_env(link.get_options(self.__path__), env)
+        options = link.get_options(self.__path__, env)
         append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, image_name, link.link_name, options, link.probe_ports_list()))
 
     def generate_deploy(self, commands, service, docker_links):
