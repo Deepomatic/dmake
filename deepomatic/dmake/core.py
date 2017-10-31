@@ -447,7 +447,7 @@ def generate_command_bash(file, cmds):
     for cmd, kwargs in cmds:
         if cmd == "stage":
             file.write("\n")
-            file.write("echo %s\n" % kwargs['name'])
+            file.write("echo -e '\n## %s ##'\n" % kwargs['name'])
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
             file.write("echo '%s'\n" % message)
@@ -670,7 +670,7 @@ def make(root_dir, sub_dir, command, app, options):
             append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
         for node, order in commands:
             command, service, service_customization = node
-            append_command(all_commands, 'echo', message = 'Running %s' % (display_command_node(node)))
+            append_command(all_commands, 'echo', message = '- Running %s' % (display_command_node(node)))
             if command == 'build':
                 dmake_file = loaded_files[service]
             else:
