@@ -729,7 +729,7 @@ class TestSerializer(YAML2PipelineSerializer):
     data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     junit_report       = FieldSerializer("string", optional = True, example = "test-reports/*.xml", help_text = "Uses JUnit plugin to generate unit test report.")
-    cobertura_report   = FieldSerializer("string", optional = True, example = "", help_text = "Publish a Cobertura report (not working for now).")
+    cobertura_report   = FieldSerializer("string", optional = True, example = "**/coverage.xml", help_text = "Publish a Cobertura report. **WARNING** only one is allowed per repository.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
 
     def generate_test(self, commands, app_name, docker_cmd, docker_links):
