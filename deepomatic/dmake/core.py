@@ -502,7 +502,7 @@ def make(root_dir, sub_dir, command, app, options):
         app = None
 
     if common.command == "stop":
-        common.run_shell_command("docker rm -f `docker ps -q -f name=%s.%s.%s`" % (app, common.branch, common.build_id))
+        common.run_shell_command("docker rm -f `docker ps -q -f name=%s.%s.%s`" % (common.repo, common.branch, common.build_id))
         return
 
     # Format args
