@@ -896,7 +896,7 @@ class DMakeFile(DMakeFileSerializer):
     def get_docker_links(self):
         return self.docker_links
 
-    def _generate_docker_cmd_(self, docker_base, service=None, env=None):
+    def _generate_docker_cmd_(self, docker_base, service=None, env=None, mount_root_dir=True):
         if env is None:
             env = {}
         mount_point = docker_base.mount_point
@@ -908,7 +908,11 @@ class DMakeFile(DMakeFileSerializer):
         else:
             workdir = os.path.join(mount_point, self.__path__)
 
-        docker_cmd = "-v %s:%s -w %s " % (common.join_without_slash(common.root_dir), mount_point, workdir)
+        docker_cmd = ""
+        if mount_root_dir:
+            docker_cmd += "-v %s:%s " % (common.join_without_slash(common.root_dir), mount_point)
+        docker_cmd += "-w %s " % (workdir)
+
         env_file = generate_env_file(common.tmp_dir, env)
         docker_cmd += '--env-file ' + env_file
         return docker_cmd
@@ -948,7 +952,7 @@ class DMakeFile(DMakeFileSerializer):
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; service_name already contains "<app_name>/"
             unique_service_name += service_customization.get_service_name_unique_suffix()
 
-        opts = self._launch_options_(commands, service, docker_links, customized_env, run_base_image=False)
+        opts = self._launch_options_(commands, service, docker_links, customized_env, run_base_image=False, mount_root_dir=False)
         env = self.env.get_replaced_variables()
         image_name = service.config.docker_image.get_image_name(service_name, env)
 
@@ -991,7 +995,7 @@ class DMakeFile(DMakeFileSerializer):
         tmp_dir = service.deploy.generate_build_docker(commands, self.__path__, service_name, self.docker, self.build, service.config)
         self.app_package_dirs[service.service_name] = tmp_dir
 
-    def _launch_options_(self, commands, service, docker_links, env, run_base_image):
+    def _launch_options_(self, commands, service, docker_links, env, run_base_image, mount_root_dir):
         if run_base_image and \
            service.config.has_value() and service.config.docker_image.has_value() and \
            service.config.docker_image.entrypoint:
@@ -1003,7 +1007,7 @@ class DMakeFile(DMakeFileSerializer):
             entrypoint_opt = ''
 
         env = self.env.get_replaced_variables(env)
-        docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env)
+        docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env, mount_root_dir=mount_root_dir)
         docker_opts += entrypoint_opt
 
         self._get_check_needed_services_(commands, service)
@@ -1014,7 +1018,7 @@ class DMakeFile(DMakeFileSerializer):
         return docker_opts
 
     def _generate_test_docker_cmd_(self, commands, service, docker_links):
-        docker_opts  = self._launch_options_(commands, service, docker_links, self.build.env, run_base_image=True)
+        docker_opts  = self._launch_options_(commands, service, docker_links, self.build.env, run_base_image=True, mount_root_dir=True)
 
         if service.tests.has_value():
             opts=[]
