@@ -98,7 +98,7 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
     fi
 
     # We commit the container into the base image
-    docker commit ${CID} ${BASE_IMAGE}
+    docker commit --change='CMD ["/bin/bash"]' ${CID} ${BASE_IMAGE}
 
     if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ ]]; then
         echo "Pushing ${BASE_IMAGE}"
