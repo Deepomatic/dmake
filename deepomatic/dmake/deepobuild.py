@@ -552,9 +552,7 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
 
         generate_copy_command(commands, tmp_dir, path_dir)
         for d in self.copy_directories:
-            if d == path_dir:
-                continue
-            generate_copy_command(commands, tmp_dir, d)
+            generate_copy_command(commands, tmp_dir, os.path.join(path_dir, '..', d))
 
         mount_point = docker_base.mount_point
         dockerfile = os.path.join(tmp_dir, 'Dockerfile')
