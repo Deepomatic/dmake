@@ -37,7 +37,7 @@ fi
 if [ "${DOCKER_CMD}" = "nvidia-docker" ]; then
     if [ ! `which nvidia-smi` ]; then
         apt-get update
-        apt-get install nvidia-375
+        apt-get install nvidia-384
     fi
     # Make sure modules are loaded
     modprobe nvidia
