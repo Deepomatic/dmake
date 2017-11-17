@@ -87,8 +87,8 @@ if [ ! -z "${MID_DEPLOY_HOOKS}" ]; then
     $RUN_COMMAND_HOOKS ${MID_DEPLOY_HOOKS}
 fi
 
-docker stop ${APP_NAME} 1&>2 2> /dev/null || :
-docker rm -f ${APP_NAME} 1&>2 2> /dev/null || :
+docker stop ${APP_NAME} &> /dev/null || :
+docker rm -f ${APP_NAME} &> /dev/null || :
 docker rename ${APP_NAME}-tmp ${APP_NAME}
 
 # Remove unused images
@@ -104,4 +104,3 @@ if [ ! -z "${POST_DEPLOY_HOOKS}" ]; then
     echo "Running post-deploy script ${POST_DEPLOY_HOOKS}"
     $RUN_COMMAND_HOOKS ${POST_DEPLOY_HOOKS}
 fi
-
