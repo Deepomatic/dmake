@@ -7,7 +7,7 @@ from ruamel.yaml import YAML
 
 # Set logger
 logger = logging.getLogger("deepomatic.dmake")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.INFO) #TODO configurable
 logger.addHandler(logging.StreamHandler())
 
 ###############################################################################

@@ -100,34 +100,21 @@ def load_dmake_files_list():
 
 ###############################################################################
 
-def add_service_provider(service_providers, service, file, needs = None):
+def add_service_provider(service_providers, service, file, needs = None, base_variant = None):
+    """'service', 'needs' and 'base_variant' are all service names."""
+    common.logger.debug("add_service_provider: service: %s, variant: %s" % (service, base_variant))
     if service in service_providers:
-        existing_service_provider, _ = service_providers[service]
+        existing_service_provider, _, _ = service_providers[service]
         if existing_service_provider != file:
             raise DMakeException('Service %s re-defined in %s. First defined in %s' % (service, file, existing_service_provider))
     else:
-        service_providers[service] = (file, needs)
+        service_providers[service] = (file, needs, base_variant)
 
 ###############################################################################
 
 def activate_file(loaded_files, service_providers, service_dependencies, command, file):
-    file_deps = {
-        'build': 'base',
-    }
-
     dmake_file = loaded_files[file]
-    if command == 'base':
-        base_image = dmake_file.docker.get_docker_base_image_service()
-        if base_image is not None:
-            return [('base', base_image, None)]
-        else:
-            return []
-    elif command in file_deps:
-        node = (command, file, None)
-        if node not in service_dependencies:
-            service_dependencies[node] = activate_file(loaded_files, service_providers, service_dependencies, file_deps[command], file)
-        return [node]
-    elif command in ['test', 'run', 'deploy']:
+    if command in ['test', 'run', 'deploy']:
         nodes = []
         for service in dmake_file.get_services():
             full_service_name = "%s/%s" % (dmake_file.app_name, service.service_name)
@@ -138,8 +125,13 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
 
 ###############################################################################
 
+def activate_base(base_variant):
+    return [('base', base_variant, None)]
+
+###############################################################################
+
 def activate_link(loaded_files, service_providers, service_dependencies, service):
-    file, _ = service_providers[service]
+    file, _, _ = service_providers[service]
     dmake = loaded_files[file]
     s = dmake._get_service_(service)
 
@@ -164,30 +156,32 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
     if command == 'test' and common.skip_tests:
         return []
 
+    with_dependencies = getattr(common.options, 'dependencies', None)
+
     if node not in service_dependencies:
         if service not in service_providers:
             raise DMakeException("Cannot find service: %s" % service)
-        file, needs = service_providers[service]
-        if command == 'base':
-            children = activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
-        elif command == 'shell':
+        file, needs, base_variant = service_providers[service]
+        if command == 'shell':
             children = []
-            if getattr(common.options, 'dependencies', None) and needs is not None:
+            if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
-            children += activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
+            children += activate_base(base_variant)
         elif command == 'test':
             children = []
-            if getattr(common.options, 'dependencies', None) and needs is not None:
+            if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
-            children += activate_file(loaded_files, service_providers, service_dependencies, 'build', file)
-            if getattr(common.options, 'dependencies', None):
+            children += activate_service(loaded_files, service_providers, service_dependencies, 'build', service)
+            if with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
+        elif command == 'build':
+            children = activate_base(base_variant)
         elif command == 'build_docker':
-            children = activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
+            children = activate_base(base_variant)
         elif command == 'run':
             children = activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
-            if getattr(common.options, 'dependencies', None) and needs is not None:
+            if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'run_link':
@@ -279,22 +273,21 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
             dmake_file.docker.__fields__['root_image'] = default_root_image
 
         default_root_image = dmake_file.docker.root_image
-        base_image = dmake_file.docker.get_docker_base_image_service()
-        # If a base image is declared
-        if base_image is not None:
-            root_image = dmake_file.docker.base_image.root_image
+        for base_image in dmake_file.docker.base_image:
+            base_image_service = base_image.get_service_name()
+            base_image_name = base_image.get_name_variant()
+            root_image = base_image.root_image
             if root_image is None:
                 # set default root_image
                 if default_root_image is None:
-                    raise DMakeException("Missing field 'root_image' (and default 'docker.root_image') for base_image '%s' in '%s'" % (dmake_file.docker.base_image.name, file))
+                    raise DMakeException("Missing field 'root_image' (and default 'docker.root_image') for base_image '%s' in '%s'" % (base_image_name, file))
                 root_image = default_root_image
-                dmake_file.docker.base_image.__fields__['root_image'] = root_image
+                base_image.__fields__['root_image'] = root_image
 
-            add_service_provider(service_providers, base_image, file)
-            service_dependencies[('base', base_image, None)] = [('base', root_image, None)]
-        else:
-            if default_root_image is None:
-                raise DMakeException("Missing field 'docker.root_image' in '%s'" % (file))
+            add_service_provider(service_providers, base_image_service, file)
+            service_dependencies[('base', base_image_service, None)] = [('base', root_image, None)]
+        if len(dmake_file.docker.base_image) == 0 and default_root_image is None:
+            raise DMakeException("Missing field 'docker.root_image' in '%s'" % (file))
 
     if common.is_string(dmake_file.env):
         ref = dmake_file.env
@@ -583,11 +576,21 @@ def make(root_dir, sub_dir, command, app, options):
 
         app_services = services[app_name]
         for service in dmake_file.get_services():
-            needs = [("%s/%s" % (app_name, sa.service_name), sa) for sa in service.needed_services]
             full_service_name = "%s/%s" % (app_name, service.service_name)
             if service.service_name in app_services:
                 raise DMakeException("Duplicated sub-app name: '%s'" % full_service_name)
-            add_service_provider(service_providers, full_service_name, file, needs)
+
+            needs = [("%s/%s" % (app_name, sa.service_name), sa) for sa in service.needed_services]
+
+            base_variant = None
+            try:
+                base_image = dmake_file.docker.get_base_image(variant=service.get_base_image_variant())
+            except DMakeException as e:
+                raise DMakeException("%s, for service '%s' in file '%s'" % (e, full_service_name, file))
+            if base_image is not None:
+                base_variant = base_image.get_service_name()
+
+            add_service_provider(service_providers, full_service_name, file, needs, base_variant)
             app_services[service.service_name] = service
 
             if auto_complete:
@@ -639,7 +642,7 @@ def make(root_dir, sub_dir, command, app, options):
             app_services = services[auto_completed_app]
             for service in app_services.values():
                 full_service_name = "%s/%s" % (auto_completed_app, service.service_name)
-                file, _ = service_providers[full_service_name]
+                file, _, _ = service_providers[full_service_name]
                 active_file.add(file)
             for file in active_file:
                 activate_file(loaded_files, service_providers, service_dependencies, common.command, file)
@@ -702,18 +705,15 @@ def make(root_dir, sub_dir, command, app, options):
         append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
         for node, order in commands:
             command, service, service_customization = node
-            if command == 'build':
-                dmake_file = loaded_files[service]
-            else:
-                file, _ = service_providers[service]
-                dmake_file = loaded_files[file]
+            file, _, _ = service_providers[service]
+            dmake_file = loaded_files[file]
             app_name = dmake_file.get_app_name()
             links = docker_links[app_name]
 
             step_commands = []
             try:
                 if command == "base":
-                    dmake_file.generate_base(step_commands)
+                    dmake_file.generate_base(step_commands, service)
                 elif command == "shell":
                     dmake_file.generate_shell(step_commands, service, links)
                 elif command == "test":
@@ -723,7 +723,7 @@ def make(root_dir, sub_dir, command, app, options):
                 elif command == "run_link":
                     dmake_file.generate_run_link(step_commands, service, links)
                 elif command == "build":
-                    dmake_file.generate_build(step_commands)
+                    dmake_file.generate_build(step_commands, service)
                 elif command == "build_docker":
                     dmake_file.generate_build_docker(step_commands, service)
                 elif command == "deploy":
