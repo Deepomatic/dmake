@@ -111,6 +111,7 @@ class EnvSerializer(YAML2PipelineSerializer):
 
 class DockerBaseSerializer(YAML2PipelineSerializer):
     name                 = FieldSerializer("string", help_text = "Base image name. If no docker user is indicated, the image will be kept locally")
+    root_image           = FieldSerializer("string", optional = True, help_text = "The source image to build on. Defaults to docker.root_image", example = "ubuntu:16.04")
     version              = FieldSerializer("string", help_text = "Deprecated, not used anymore, will be removed later.", default = 'latest')
     install_scripts      = FieldSerializer("array", default = [], child = FieldSerializer("file", executable = True, child_path_only = True), example = ["some/relative/script/to/run"])
     python_requirements  = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "")
@@ -119,10 +120,10 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
 
 class DockerRootImageSerializer(YAML2PipelineSerializer):
     name = FieldSerializer("string", help_text = "Root image name.", example = "library/ubuntu")
-    tag  = FieldSerializer("string", help_text = "Root image tag (you can use environment variables).")
+    tag  = FieldSerializer("string", help_text = "Root image tag (you can use environment variables).", example = "16.04")
 
 class DockerSerializer(YAML2PipelineSerializer):
-    root_image   = FieldSerializer([FieldSerializer("file", help_text = "to another dmake file, in which base the root_image will be this file's base_image."), DockerRootImageSerializer()], help_text = "The source image name to build on.", example = "ubuntu:16.04")
+    root_image   = FieldSerializer([FieldSerializer("file", help_text = "to another dmake file, in which base the root_image will be this file's base_image."), DockerRootImageSerializer()], optional = True, help_text = "The default source image name to build on.")
     base_image   = DockerBaseSerializer(optional = True, help_text = "Base (intermediate) image to speed-up builds.")
     mount_point  = FieldSerializer("string", default = "/app", help_text = "Mount point of the app in the built docker image. Needs to be an absolute path.")
     command      = FieldSerializer("string", default = "bash", help_text = "Only used when running 'dmake shell': set the command of the container")
@@ -169,7 +170,7 @@ class DockerSerializer(YAML2PipelineSerializer):
 
             # Local environment for templates
             local_env = []
-            local_env.append("export ROOT_IMAGE=%s" % self.root_image)
+            local_env.append("export ROOT_IMAGE=%s" % self.base_image.root_image)
             local_env = ' && '.join(local_env)
             if len(local_env) > 0:
                 local_env += ' && '
@@ -188,18 +189,18 @@ class DockerSerializer(YAML2PipelineSerializer):
 
             # Get root_image digest
             try:
-                root_image_digest = docker_registry.get_image_digest(self.root_image)
+                root_image_digest = docker_registry.get_image_digest(self.base_image.root_image)
             except requests.exceptions.ConnectionError as e:
                 if not common.is_local:
                     raise e
                 common.logger.warning("""I could not reach the docker registry, you are probably offline.""")
                 common.logger.warning("""As a consequence, I cannot check if '{}' is outdated but I will try to continue.""")
-                common.logger.warning("""Now trying to find a possibly outdated version of '{}' locally""".format(self.root_image))
+                common.logger.warning("""Now trying to find a possibly outdated version of '{}' locally""".format(self.base_image.root_image))
                 try:
-                    response = common.run_shell_command('docker image inspect {}'.format(self.root_image))
+                    response = common.run_shell_command('docker image inspect {}'.format(self.base_image.root_image))
                     root_image_digest = json.loads(response)[0]['RepoDigests'][0].split('@')[1].replace(':', '-')
                 except Exception as e:
-                    common.logger.info('Failed to find {} locally with the following error:'.format(self.root_image))
+                    common.logger.info('Failed to find {} locally with the following error:'.format(self.base_image.root_image))
                     raise e
 
             # Generate base image tag
@@ -208,7 +209,7 @@ class DockerSerializer(YAML2PipelineSerializer):
             # Append Docker Base build command
             program = 'dmake_build_base_docker'
             args = [tmp_dir,
-                    self.root_image,
+                    self.base_image.root_image,
                     root_image_digest,
                     self.base_image.name,
                     self.base_image_tag,

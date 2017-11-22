@@ -273,17 +273,28 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
             ref = dmake_file.docker.root_image
             load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
             dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.root_image
-        else:
-            root_image = dmake_file.docker.root_image
-            root_image = common.eval_str_in_env(root_image.name + ":" + root_image.tag)
-            dmake_file.docker.__fields__['root_image'] = root_image
+        elif dmake_file.docker.root_image is not None:
+            default_root_image = dmake_file.docker.root_image
+            default_root_image = common.eval_str_in_env(default_root_image.name + ":" + default_root_image.tag)
+            dmake_file.docker.__fields__['root_image'] = default_root_image
 
-        # If a base image is declared
-        root_image = dmake_file.docker.root_image
+        default_root_image = dmake_file.docker.root_image
         base_image = dmake_file.docker.get_docker_base_image_service()
+        # If a base image is declared
         if base_image is not None:
+            root_image = dmake_file.docker.base_image.root_image
+            if root_image is None:
+                # set default root_image
+                if default_root_image is None:
+                    raise DMakeException("Missing field 'root_image' (and default 'docker.root_image') for base_image '%s' in '%s'" % (dmake_file.docker.base_image.name, file))
+                root_image = default_root_image
+                dmake_file.docker.base_image.__fields__['root_image'] = root_image
+
             add_service_provider(service_providers, base_image, file)
             service_dependencies[('base', base_image, None)] = [('base', root_image, None)]
+        else:
+            if default_root_image is None:
+                raise DMakeException("Missing field 'docker.root_image' in '%s'" % (file))
 
     if common.is_string(dmake_file.env):
         ref = dmake_file.env
