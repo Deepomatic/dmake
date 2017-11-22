@@ -102,8 +102,9 @@ def load_dmake_files_list():
 
 def add_service_provider(service_providers, service, file, needs = None):
     if service in service_providers:
-        if service_providers[service] != file:
-            raise DMakeException('Service %s re-defined in %s. First defined in %s' % (service, file, service_providers[service]))
+        existing_service_provider, _ = service_providers[service]
+        if existing_service_provider != file:
+            raise DMakeException('Service %s re-defined in %s. First defined in %s' % (service, file, existing_service_provider))
     else:
         service_providers[service] = (file, needs)
 
