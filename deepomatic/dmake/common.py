@@ -120,7 +120,7 @@ def get_dmake_build_type():
     assert(is_release_branch is not None)
     return "release" if is_release_branch else "testing"
 
-def get_docker_run_cmd(self, need_gpu):
+def get_docker_run_cmd(need_gpu):
     global has_nvidia_docker
     if need_gpu:
         if has_nvidia_docker:
