@@ -55,10 +55,10 @@ node {
       env.DMAKE_DEBUG=1
     }
     stage('Python 2.x') {
-      sh "virtualenv --relocatable venv2"
-      sh ". venv2/bin/activate && pip install -r requirements.txt"
+      sh "virtualenv --relocatable workspace/.venv2"
+      sh ". workspace/.venv2/bin/activate && pip install -r requirements.txt"
       dir('workspace') {
-        sh ".. venv2/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
+        sh ". .venv2/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
         sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                     env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
           load 'DMakefile'
@@ -67,10 +67,10 @@ node {
     }
 
     stage('Python 3.x') {
-      sh "virtualenv -p python3 --relocatable venv3"
-      sh ". venv3/bin/activate && pip install -r requirements.txt"
+      sh "virtualenv -p python3 --relocatable workspace/.venv3"
+      sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
       dir('workspace') {
-        sh ".. venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
+        sh ". .venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
         sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                     env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
           load 'DMakefile'
