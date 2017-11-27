@@ -13,9 +13,9 @@ logger.addHandler(logging.StreamHandler())
 ###############################################################################
 
 if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import StringIO, is_string, read_input, subprocess_output_to_string
+    from deepomatic.dmake.python_3x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
 else:
-    from deepomatic.dmake.python_2x import StringIO, is_string, read_input, subprocess_output_to_string
+    from deepomatic.dmake.python_2x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
 
 ###############################################################################
 
