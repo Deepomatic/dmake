@@ -694,7 +694,7 @@ def make(root_dir, sub_dir, command, app, options):
                 elif command == "build_docker":
                     dmake_file.generate_build_docker(all_commands, service)
                 elif command == "deploy":
-                    dmake_file.generate_deploy(all_commands, service, links)
+                    dmake_file.generate_deploy(all_commands, service)
                 else:
                    raise Exception("Unkown command '%s'" % command)
             except DMakeException as e:
