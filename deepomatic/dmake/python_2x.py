@@ -10,3 +10,4 @@ def read_input(msg):
 def subprocess_output_to_string(output):
     """Returns a python 2 str (bytes characters string)"""
     return output
+

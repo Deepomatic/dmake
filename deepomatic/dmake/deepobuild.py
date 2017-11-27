@@ -851,7 +851,7 @@ class DMakeFile(DMakeFileSerializer):
                     data = m.patch(data)
             if migrated:
                 with open(file, 'w') as f:
-                    yaml.dump(data, f, default_flow_style=False, indent=2)
+                    common.yaml_ordered_dump(data, stream=f, Dumper=yaml.SafeDumper, default_flow_style=False, indent=2)
 
         except ValidationError as e:
             raise DMakeException(("Error in %s:\n" % file) + str(e))

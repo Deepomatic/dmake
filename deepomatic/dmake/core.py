@@ -243,7 +243,7 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
     # Load YAML and check version
     try:
         with open(file, 'r') as stream:
-            data = yaml.load(stream)
+            data = common.yaml_ordered_load(stream, yaml.SafeLoader)
     except yaml.parser.ParserError as e:
         raise DMakeException(str(e))
     if 'dmake_version' not in data:
