@@ -793,7 +793,7 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
 class ServicesSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", default = "", help_text = "The name of the application part.", example = "api", no_slash_no_space = True)
     needed_services = FieldSerializer("array", child = FieldSerializer(NeededServiceSerializer()), default = [], help_text = "List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.")
-    docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
+    needed_links    = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     sources         = FieldSerializer("array", child = FieldSerializer(["file", "dir"]), optional = True, help_text = "If specified, this service will be considered as updated only when the content of those directories or files have changed.", example = 'path/to/app')
     config          = DeployConfigSerializer(optional = True, help_text = "Deployment configuration.")
     tests           = TestSerializer(optional = True, help_text = "Unit tests list.")
@@ -924,9 +924,9 @@ class DMakeFile(DMakeFileSerializer):
 
     def _get_link_opts_(self, commands, service):
         if common.options.dependencies:
-            docker_links_names = service.docker_links_names
-            if len(docker_links_names) > 0:
-                append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(docker_links_names)), fail_if_empty = True)
+            needed_links = service.needed_links
+            if len(needed_links) > 0:
+                append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(needed_links)), fail_if_empty = True)
 
     def _get_check_needed_services_(self, commands, service):
         if common.options.dependencies and len(service.needed_services) > 0:
