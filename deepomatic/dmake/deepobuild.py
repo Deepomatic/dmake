@@ -75,10 +75,10 @@ def generate_env_file(tmp_dir, env):
 # ###############################################################################
 
 class EnvBranchSerializer(YAML2PipelineSerializer):
-    source    = FieldSerializer('string', optional = True, help_text = 'Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.')
-    variables = FieldSerializer('dict', child = "string", default = {}, help_text = "Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).", example = {'ENV_TYPE': 'dev'})
+    source    = FieldSerializer('string', optional=True, help_text='Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.')
+    variables = FieldSerializer('dict', child="string", default={}, help_text="Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).", example={'ENV_TYPE': 'dev'})
 
-    def get_replaced_variables(self, additional_variables = {}):
+    def get_replaced_variables(self, additional_variables={}, docker_links=None):
         replaced_variables = {}
         if self.has_value() and (len(self.variables) or len(additional_variables)):
             if self.source is not None:
@@ -91,6 +91,10 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                 # destructively remove newlines from environment variables values, as docker doesn't properly support them. It's fine for multiline jsons for example though.
                 replaced_variables[var] = common.run_shell_command(env + 'echo %s' % common.wrap_cmd(value)).replace('\n', '')
 
+        if docker_links is not None and getattr(common.options, 'dependencies', None):
+            for link in docker_links.values():
+                for var, value in link.env_exports.items():
+                    replaced_variables[var] = value
         return replaced_variables
 
 class EnvSerializer(YAML2PipelineSerializer):
@@ -216,8 +220,10 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     image_name       = FieldSerializer("string", example = "mongo:3.2", help_text = "Name and tag of the image to launch.")
     link_name        = FieldSerializer("string", example = "mongo", help_text = "Link name.")
     volumes          = FieldSerializer("array", child = "string", default = [], help_text = "For the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.")
+    # TODO: This field is badly named. Link are used by the run command also, nothing to do with testing or not. It should rather be: 'docker_options'
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
     probe_ports      = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
+    env_exports      = FieldSerializer("dict", child = "string", default = {}, help_text = "A set of environment variables that will be exported in services that use this link when testing.")
 
     def get_options(self, path, env):
         options = self.testing_options
@@ -679,7 +685,7 @@ class DeploySerializer(YAML2PipelineSerializer):
         if config.docker_image.has_value():
             config.docker_image.generate_build_docker(commands, path_dir, service_name, docker_base, build, config)
 
-    def generate_deploy(self, commands, app_name, service_name, package_dir, docker_links, env, config):
+    def generate_deploy(self, commands, app_name, service_name, package_dir, env, config):
         deploy_env = env.get_replaced_variables()
         if self.deploy_name is not None:
             app_name = self.deploy_name
@@ -972,7 +978,7 @@ class DMakeFile(DMakeFileSerializer):
             unique_service_name += service_customization.get_service_name_unique_suffix()
 
         opts = self._launch_options_(commands, service, docker_links, customized_env, run_base_image=False, mount_root_dir=False)
-        env = self.env.get_replaced_variables()
+        env = self.env.get_replaced_variables(docker_links=docker_links)
         image_name = service.config.docker_image.get_image_name(service_name, env)
 
         # <DEPRECATED>
@@ -1025,7 +1031,7 @@ class DMakeFile(DMakeFileSerializer):
         else:
             entrypoint_opt = ''
 
-        env = self.env.get_replaced_variables(env)
+        env = self.env.get_replaced_variables(env, docker_links=docker_links)
         docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env, mount_root_dir=mount_root_dir)
         docker_opts += entrypoint_opt
 
@@ -1049,7 +1055,7 @@ class DMakeFile(DMakeFileSerializer):
 
         docker_cmd = "dmake_run_docker_command %s " % docker_opts
 
-        if service.config.need_gpu:
+        if service.config.has_value() and service.config.need_gpu:
             docker_cmd = 'DOCKER_CMD=nvidia-docker ' + docker_cmd
 
         return docker_cmd
@@ -1085,11 +1091,11 @@ class DMakeFile(DMakeFileSerializer):
         options = link.get_options(self.__path__, env)
         append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, image_name, link.link_name, options, link.probe_ports_list()))
 
-    def generate_deploy(self, commands, service, docker_links):
+    def generate_deploy(self, commands, service):
         service = self._get_service_(service)
         if not service.deploy.has_value():
             return
         if not service.config.has_value():
             raise DMakeException("You need to specify a 'config' when deploying.")
         assert(service.service_name in self.app_package_dirs)
-        service.deploy.generate_deploy(commands, self.app_name, service.service_name, self.app_package_dirs[service.service_name], docker_links, self.env, service.config)
+        service.deploy.generate_deploy(commands, self.app_name, service.service_name, self.app_package_dirs[service.service_name], self.env, service.config)
