@@ -110,15 +110,7 @@ fi
 if [ -z "${DMAKE_SSH_KEY}" ]; then
     declare -a KEYS=($(ls ${HOME}/.ssh/*.pub))
     if [ -z "${KEYS}" ]; then
-        while [ true ]; do
-            DMAKE_SSH_KEY=
-            prompt "Please type in the path to the SSH key we should use to clone private repositories ?" "DMAKE_SSH_KEY"
-            if [ -f "${DMAKE_SSH_KEY}" ]; then
-                break
-            else
-                echo "No such file: ${DMAKE_SSH_KEY} ! Again:"
-            fi
-        done
+        DMAKE_SSH_KEY='${DMAKE_SSH_KEY:-}'
     else
         prompt "Which SSH key should we use to clone private repositories ? (enter number)" "DMAKE_SSH_KEY" KEYS[@]
     fi
