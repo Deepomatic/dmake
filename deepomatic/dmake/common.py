@@ -268,4 +268,3 @@ def init(_command, _root_dir, _app, _options):
 
     # Check if nvidia-docker is install
     has_nvidia_docker = run_shell_command('which nvidia-docker').strip() != ""
-    print has_nvidia_docker
