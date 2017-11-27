@@ -120,6 +120,13 @@ def get_dmake_build_type():
     assert(is_release_branch is not None)
     return "release" if is_release_branch else "testing"
 
+def get_docker_run_cmd(self, need_gpu):
+    global has_nvidia_docker
+    if need_gpu:
+        if has_nvidia_docker:
+            return 'nvidia-docker run '
+    return 'docker run '
+
 ###############################################################################
 
 def init(_command, _root_dir, _app, _options):
@@ -129,6 +136,7 @@ def init(_command, _root_dir, _app, _options):
     global build_description
     global command, options, uname
     global do_pull_config_dir
+    global has_nvidia_docker
     root_dir = os.path.join(_root_dir, '')
     command = _command
     options = _options
@@ -257,3 +265,7 @@ def init(_command, _root_dir, _app, _options):
         else:
             logger.warning("WARNING: DMAKE_SSH_KEY does not point to a valid file. You won't be able to clone private repositories.")
             key_file = None
+
+    # Check if nvidia-docker is install
+    has_nvidia_docker = run_shell_command('which nvidia-docker').strip() != ""
+    print has_nvidia_docker
