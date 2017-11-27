@@ -1,6 +1,5 @@
 import os, sys
 import copy
-import yaml
 from collections import OrderedDict
 from deepomatic.dmake.common import DMakeException
 import deepomatic.dmake.common as common
@@ -270,7 +269,7 @@ class FieldSerializer(object):
         infos.append(type_str)
 
         if self.default is not None:
-            infos.append('default = %s' % yaml.dump(self.default, default_flow_style = True).strip())
+            infos.append('default = %s' % common.yaml_ordered_dump(self.default, default_flow_style=True).strip())
 
         return infos, help_text, doc_string
 

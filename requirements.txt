@@ -1,4 +1,4 @@
-PyYAML==3.12
+ruamel.yaml==0.15.34
 kubernetes>=1.0.2
 urllib3>=1.20
 backports.ssl-match-hostname>=3.5.0.1

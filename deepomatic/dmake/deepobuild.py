@@ -1,7 +1,6 @@
 import os
 import copy
 import json
-import yaml
 import random
 import importlib
 from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
@@ -9,7 +8,6 @@ import deepomatic.dmake.common as common
 from deepomatic.dmake.common import DMakeException
 import deepomatic.dmake.kubernetes as k8s_utils
 import deepomatic.dmake.docker_registry as docker_registry
-import migrations
 
 ###############################################################################
 
@@ -851,7 +849,7 @@ class DMakeFile(DMakeFileSerializer):
                     data = m.patch(data)
             if migrated:
                 with open(file, 'w') as f:
-                    common.yaml_ordered_dump(data, stream=f, Dumper=yaml.SafeDumper, default_flow_style=False, indent=2)
+                    common.yaml_ordered_dump(data, f)
 
         except ValidationError as e:
             raise DMakeException(("Error in %s:\n" % file) + str(e))
