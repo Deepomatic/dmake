@@ -947,7 +947,7 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_run(self, commands, service_name, docker_links, service_customization):
         service = self._get_service_(service_name)
-        if not service.config.has_value() or service.config.docker_image.start_script is None:
+        if not service.config.has_value() or not service.config.docker_image.has_value() or service.config.docker_image.start_script is None:
             return
 
         docker_run_prefix = "DOCKER_RUN_CMD='%s'" % common.get_docker_run_cmd(service.config.need_gpu)
