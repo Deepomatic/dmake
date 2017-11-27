@@ -1,5 +1,5 @@
-from deepomatic.dmake.common import DMakeException
-import deepomatic.dmake.common as common
+from   dmake.common import DMakeException
+import dmake.common as common
 
 import json
 import os

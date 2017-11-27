@@ -5,8 +5,8 @@ import requests
 import argparse
 import re
 
-from deepomatic.dmake.common import DMakeException
-import deepomatic.dmake.docker_config as docker_config
+from   dmake.common import DMakeException
+import dmake.docker_config as docker_config
 
 
 REGISTRY_URL = 'https://index.docker.io'
@@ -20,7 +20,7 @@ def create_authenticated_requests_session(registry_url, token_url, scope, servic
     # https://docs.docker.com/registry/spec/auth/oauth/
     auth_kwargs = docker_config.get_auth_kwargs(registry_url)
     client = OAuth2Session(client=LegacyApplicationClient(client_id='dmake'))
-    client.fetch_token(token_url=token_url, method='GET', service=service, scope=unicode(scope), **auth_kwargs)
+    client.fetch_token(token_url=token_url, method='GET', service=service, scope=scope.encode('ascii'), **auth_kwargs)
 
     return client
 

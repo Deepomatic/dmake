@@ -5,16 +5,16 @@ import subprocess
 import re
 
 # Set logger
-logger = logging.getLogger("deepomatic.dmake")
+logger = logging.getLogger("dmake")
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 ###############################################################################
 
 if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import is_string, read_input, subprocess_output_to_string
+    from dmake.python_3x import is_string, read_input, subprocess_output_to_string
 else:
-    from deepomatic.dmake.python_2x import is_string, read_input, subprocess_output_to_string
+    from dmake.python_2x import is_string, read_input, subprocess_output_to_string
 
 ###############################################################################
 
