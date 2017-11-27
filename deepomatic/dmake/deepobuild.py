@@ -950,7 +950,7 @@ class DMakeFile(DMakeFileSerializer):
         if not service.config.has_value() or not service.config.docker_image.has_value() or service.config.docker_image.start_script is None:
             return
 
-        docker_run_prefix = "DOCKER_RUN_CMD='%s' " % common.get_docker_run_cmd(service.config.need_gpu)
+        docker_run_prefix = 'DOCKER_RUN_CMD="%s" ' % common.get_docker_run_cmd(service.config.need_gpu)
 
         unique_service_name = service_name
         customized_env = {}
@@ -1036,7 +1036,7 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts += " -i %s" % self.docker.get_docker_base_image_name_tag()
 
         need_gpu = service.config.has_value() and service.config.need_gpu
-        return "DOCKER_RUN_CMD='%s' dmake_run_docker_command %s " % (common.get_docker_run_cmd(need_gpu), docker_opts)
+        return 'DOCKER_RUN_CMD="%s" dmake_run_docker_command %s ' % (common.get_docker_run_cmd(need_gpu), docker_opts)
 
     def generate_shell(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
