@@ -55,8 +55,8 @@ node {
 
     stage('Testing') {
       sh "virtualenv venv2"
-      sh "venv2/bin/activate"
-      sh "pip install -r requirements.txt"
+      sh "source venv2/bin/activate && pip install -r requirements.txt"
+      sh "which python"
       dir('workspace') {
         sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
         sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
