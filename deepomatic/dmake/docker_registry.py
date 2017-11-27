@@ -20,7 +20,7 @@ def create_authenticated_requests_session(registry_url, token_url, scope, servic
     # https://docs.docker.com/registry/spec/auth/oauth/
     auth_kwargs = docker_config.get_auth_kwargs(registry_url)
     client = OAuth2Session(client=LegacyApplicationClient(client_id='dmake'))
-    client.fetch_token(token_url=token_url, method='GET', service=service, scope=scope.encode('ascii'), **auth_kwargs)
+    client.fetch_token(token_url=token_url, method='GET', service=service, scope=str(scope), **auth_kwargs)
 
     return client
 
