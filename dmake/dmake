@@ -2,9 +2,10 @@
 
 import sys, os
 import argparse
-import deepomatic.dmake.core as core
-import deepomatic.dmake.common as common
-from   deepomatic.dmake.common import DMakeException
+
+import dmake.core as core
+import dmake.common as common
+from   dmake.common import DMakeException
 
 def print_help():
     print("Syntax:")
