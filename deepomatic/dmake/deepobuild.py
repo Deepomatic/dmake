@@ -844,7 +844,7 @@ class DMakeFile(DMakeFileSerializer):
 
             while True:
                 needed_migrations = []
-                self._validate_(file, needed_migrations, data)
+                self._validate_(file, needed_migrations=needed_migrations, data=data)
                 if len(needed_migrations) == 0:
                     break
                 migrated = True
@@ -861,8 +861,9 @@ class DMakeFile(DMakeFileSerializer):
             raise DMakeException(("Error in %s:\n" % file) + str(e))
 
         if self.env is None:
+            fake_needed_migrations = []
             env = EnvBranchSerializer()
-            env._validate_(file, {'variables': {}})
+            env._validate_(file, needed_migrations=fake_needed_migrations, data={'variables': {}})
             self.__fields__['env'] = env
         else:
             if isinstance(self.env, EnvSerializer):
