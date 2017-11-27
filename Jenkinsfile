@@ -13,35 +13,20 @@ properties([
     pipelineTriggers([])
 ])
 
-pipeline {
-    agent none
-    stages {
-      stage('checkout') {
-        checkout scm
-        try {
-            sh 'git submodule update --init'
-        } catch(error) {
-            deleteDir()
-            checkout scm
-            sh 'git submodule update --init'
-        }
-      }
-
-      stage('python2') {
-        agent {
-            dockerfile {
-                dir 'vulcain'
-                args '-v ${CONFIG_DIR}:/app/env'
-            }
-        }
-      }
 
 node {
-
+    checkout scm
+    try {
+        sh 'git submodule update --init'
+    } catch(error) {
+        deleteDir()
+        checkout scm
+        sh 'git submodule update --init'
+    }
 
     // Use this version of dmake
     env.PYTHONPATH = "${env.WORKSPACE}:${env.PYTHONPATH}"
-    env.PATH = "${env.WORKSPACE}/dmake:${env.WORKSPACE}/dmake/utils:${env.PATH}"
+    env.PATH = "${env.WORKSPACE}/deepomatic/dmake:${env.WORKSPACE}/deepomatic/dmake/utils:${env.PATH}"
 
     stage('Testing') {
         sh ("echo 'Cloning ${params.BRANCH_TO_TEST} from https://github.com/${params.REPO_TO_TEST}.git'")
