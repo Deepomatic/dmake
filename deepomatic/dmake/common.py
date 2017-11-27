@@ -45,6 +45,7 @@ def yaml_ordered_load(stream):
 def yaml_ordered_dump(data, stream=None, default_flow_style=False):
     yaml=YAML()
     yaml.default_flow_style = default_flow_style
+    yaml.width = 4096
     yaml.indent(mapping=2, sequence=4, offset=2)
     string_value = StringIO.StringIO()
     yaml.dump(data, string_value)

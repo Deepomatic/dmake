@@ -31,14 +31,13 @@ build:
     - make
 
 services:
-  -
-    service_name: worker
+  - service_name: worker
     config:
       docker_image:
         entrypoint: deploy/entrypoint.sh
         start_script: deploy/start.sh
     tests:
-      docker_links_names:
-        - rabbitmq
       commands:
         - ./bin/worker_test
+    needed_links:
+      - rabbitmq
