@@ -55,7 +55,7 @@ node {
       env.DMAKE_DEBUG=1
     }
     stage('Python 2.x') {
-      sh "virtualenv --relocatable workspace/.venv2"
+      sh "virtualenv workspace/.venv2"
       sh ". workspace/.venv2/bin/activate && pip install -r requirements.txt"
       dir('workspace') {
         sh ". .venv2/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
@@ -67,7 +67,7 @@ node {
     }
 
     stage('Python 3.x') {
-      sh "virtualenv -p python3 --relocatable workspace/.venv3"
+      sh "virtualenv -p python3 workspace/.venv3"
       sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
       dir('workspace') {
         sh ". .venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
