@@ -1,3 +1,5 @@
+from StringIO import StringIO
+
 class BaseYAML2PipelineSerializer(object):
     pass
 

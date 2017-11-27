@@ -1,3 +1,5 @@
+from io import StringIO
+
 from collections import OrderedDict
 
 class MetaYAML2PipelineSerialize(type):
