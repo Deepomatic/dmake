@@ -950,7 +950,7 @@ class DMakeFile(DMakeFileSerializer):
         if not service.config.has_value() or not service.config.docker_image.has_value() or service.config.docker_image.start_script is None:
             return
 
-        docker_run_prefix = "DOCKER_RUN_CMD='%s'" % common.get_docker_run_cmd(service.config.need_gpu)
+        docker_run_prefix = "DOCKER_RUN_CMD='%s' " % common.get_docker_run_cmd(service.config.need_gpu)
 
         unique_service_name = service_name
         customized_env = {}
