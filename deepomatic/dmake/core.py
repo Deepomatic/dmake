@@ -144,7 +144,7 @@ def activate_link(loaded_files, service_providers, service_dependencies, service
     s = dmake._get_service_(service)
 
     children = []
-    for link in s.needed_links:
+    for link in s.needed_links + s.tests.docker_links_names:
         children += activate_service(loaded_files, service_providers, service_dependencies, 'run_link', 'links/%s/%s' % (dmake.get_app_name(), link))
 
     return children
