@@ -5,8 +5,8 @@ import requests
 import argparse
 import re
 
-from deepomatic.dmake.common import DMakeException
-import deepomatic.dmake.docker_config as docker_config
+from   dmake.common import DMakeException
+import dmake.docker_config as docker_config
 
 
 REGISTRY_URL = 'https://index.docker.io'

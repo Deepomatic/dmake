@@ -1,6 +1,7 @@
 import yaml
 from collections import OrderedDict
-from deepomatic.dmake.deepobuild import DMakeFileSerializer
+
+from dmake.deepobuild import DMakeFileSerializer
 
 def generate():
     doc_root = DMakeFileSerializer()

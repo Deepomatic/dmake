@@ -2,11 +2,12 @@ import os
 import copy
 import json
 import random
-from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
-import deepomatic.dmake.common as common
-from deepomatic.dmake.common import DMakeException
-import deepomatic.dmake.kubernetes as k8s_utils
-import deepomatic.dmake.docker_registry as docker_registry
+
+from   dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
+import dmake.common as common
+from   dmake.common import DMakeException
+import dmake.kubernetes as k8s_utils
+import dmake.docker_registry as docker_registry
 
 ###############################################################################
 
