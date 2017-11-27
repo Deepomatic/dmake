@@ -1,12 +1,15 @@
 import os
 import copy
 import json
+import yaml
 import random
+import importlib
 from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import deepomatic.dmake.common as common
 from deepomatic.dmake.common import DMakeException
 import deepomatic.dmake.kubernetes as k8s_utils
 import deepomatic.dmake.docker_registry as docker_registry
+import migrations
 
 ###############################################################################
 
@@ -723,7 +726,7 @@ class DataVolumeSerializer(YAML2PipelineSerializer):
         return '-v %s:%s' % (path, self.container_volume)
 
 class TestSerializer(YAML2PipelineSerializer):
-    docker_links_names = FieldSerializer("array", child = "string", default = [], deprecated="Use 'services:needed_links' instead", example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
+    docker_links_names = FieldSerializer(deprecated="Use 'services:needed_links' instead", data_type="array", child = "string", migration='0001_docker_links_names_to_needed_links', default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     junit_report       = FieldSerializer("string", optional = True, example = "test-reports/*.xml", help_text = "Uses JUnit plugin to generate unit test report.")
@@ -777,12 +780,12 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         # env is not hashable, so skipping it, it's OK, it will just be negligibly less efficient
         return hash(self.service_name)
 
-    def _validate_(self, file, data, field_name):
+    def _validate_(self, file, migrations, data, field_name):
         # also accept simple variant where data is a string: the service_name
         if common.is_string(data):
             data = {'service_name': data}
             self._specialized = False
-        return super(NeededServiceSerializer, self)._validate_(file, data, field_name=field_name)
+        return super(NeededServiceSerializer, self)._validate_(file, migrations=migrations, data=data, field_name=field_name)
 
     def populate_env(self, context_env):
         for key, value in self.env.items():
@@ -804,8 +807,8 @@ class BuildSerializer(YAML2PipelineSerializer):
     env      = FieldSerializer("dict", child = "string", default = {}, help_text = "List of environment variables used when building applications (excluding base_image).", example = {'BUILD': '${BUILD}'})
     commands = FieldSerializer("array", default = [], child = FieldSerializer(["string", "array"], child = "string", post_validation = lambda x: [x] if common.is_string(x) else x), help_text ="Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.", example = ["cmake .", "make"])
 
-    def _validate_(self, file, data, field_name):
-        super(BuildSerializer, self)._validate_(file, data, field_name=field_name)
+    def _validate_(self, file, migrations, data, field_name):
+        super(BuildSerializer, self)._validate_(file, migrations=migrations, data=data, field_name=field_name)
         # populate env
         env = self.__fields__['env'].value
         # variable substitution on env values from dmake process environment
@@ -833,7 +836,23 @@ class DMakeFile(DMakeFileSerializer):
         self.__path__ = os.path.join(os.path.dirname(file), '')
 
         try:
-            self._validate_(file, data)
+            migrated = False
+
+            while True:
+                needed_migrations = []
+                self._validate_(file, needed_migrations, data)
+                if len(needed_migrations) == 0:
+                    break
+                migrated = True
+                needed_migrations.sort()
+                for m in needed_migrations:
+                    common.logger.info("Applying migration '{}' to '{}'".format(m, file))
+                    m = importlib.import_module('migrations.{}'.format(m))
+                    data = m.patch(data)
+            if migrated:
+                with open(file, 'w') as f:
+                    yaml.dump(data, f, default_flow_style=False, indent=2)
+
         except ValidationError as e:
             raise DMakeException(("Error in %s:\n" % file) + str(e))
 
