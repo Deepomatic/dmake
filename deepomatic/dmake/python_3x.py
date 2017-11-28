@@ -1,3 +1,5 @@
+from io import StringIO
+
 from collections import OrderedDict
 
 class MetaYAML2PipelineSerialize(type):
@@ -18,6 +20,9 @@ class BaseYAML2PipelineSerializer(object, metaclass = MetaYAML2PipelineSerialize
 
 def is_string(x):
     return isinstance(x, str)
+
+def to_string(x):
+    return str(x)
 
 def read_input(msg):
     return input(msg + ' ')

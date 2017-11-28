@@ -1,6 +1,5 @@
 import os, sys
 import copy
-import yaml
 from collections import OrderedDict
 from deepomatic.dmake.common import DMakeException
 import deepomatic.dmake.common as common
@@ -24,17 +23,19 @@ class WrongType(ValidationError):
 class FieldSerializer(object):
     def __init__(self,
             data_type,
-            optional = False,
-            default = None,
-            blank = False,
-            child = None,
-            post_validation = lambda x: x,
-            child_path_only = False,
-            check_path = True,
-            executable = False,
-            no_slash_no_space = False,
-            help_text = "",
-            example = None):
+            optional=False,
+            default=None,
+            blank=False,
+            child=None,
+            post_validation=lambda x: x,
+            child_path_only=False,
+            check_path=True,
+            executable=False,
+            no_slash_no_space=False,
+            help_text="",
+            example=None,
+            deprecated=None,
+            migration=None):
         self.allowed_types = ["bool", "int", "path", "file", "dir", "string", "array", "dict"]
 
         if not isinstance(data_type, list):
@@ -62,23 +63,30 @@ class FieldSerializer(object):
         self.no_slash_no_space = no_slash_no_space
         self.help_text = help_text
         self.example = example
+        self.deprecated = deprecated
+        self.migration = migration
 
         self.child = child
         self.value = None
 
-    def _validate_(self, path, data):
+    def _validate_(self, file, needed_migrations, data, field_name):
         if data is None:
             if not self.optional:
                 raise ValidationError("got 'Null', expected a value of type %s" % (" -OR-\n".join([str(t) for t in self.data_type])))
             else:
                 validated_data = copy.deepcopy(self.default)
         else:
+            if self.migration:
+                needed_migrations.append(self.migration)
+            if self.deprecated:
+                common.logger.warning("[DEPRECATION WARNING]: Field '{}' in '{}' is deprecated: {}".format(file, field_name, self.deprecated))
+
             ok = False
             err = []
             for t in self.data_type:
                 if isinstance(t, YAML2PipelineSerializer) or isinstance(t, FieldSerializer):
                     try:
-                        validated_data = t._validate_(path, data)
+                        validated_data = t._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
                         ok = True
                         break
                     except ValidationError as e:
@@ -86,7 +94,7 @@ class FieldSerializer(object):
                         continue
                 else:
                     try:
-                        validated_data = self._validate_type_(path, t, data)
+                        validated_data = self._validate_type_(file, needed_migrations=needed_migrations, data_type=t, data=data, field_name=field_name)
                         ok = True
                         break
                     except WrongType as e:
@@ -108,7 +116,7 @@ class FieldSerializer(object):
             raise ValidationError('Not default value provided.')
         return self.default
 
-    def _validate_type_(self, path, data_type, data):
+    def _validate_type_(self, file, needed_migrations, data_type, data, field_name):
         if data_type == "bool":
             if not isinstance(data, bool):
                 raise WrongType("Expecting bool")
@@ -132,6 +140,7 @@ class FieldSerializer(object):
                         raise ValidationError("Character '%s' not allowed" % c)
             return data
         elif data_type in ["path", "file", "dir"]:
+            path = os.path.join(os.path.dirname(file), '')
             if not common.is_string(data):
                 raise WrongType("Expecting string")
             if len(data) > 0 and data[0] == '/':
@@ -170,7 +179,7 @@ class FieldSerializer(object):
             valid_data = []
             for d in data:
                 child = copy.deepcopy(self.child)
-                valid_data.append(child._validate_(path, d))
+                valid_data.append(child._validate_(file, needed_migrations=needed_migrations, data=d, field_name=field_name))
             return valid_data
         elif data_type == "dict":
             if not isinstance(data, dict):
@@ -179,7 +188,7 @@ class FieldSerializer(object):
             for k, d in data.items():
                 child = copy.deepcopy(self.child)
                 try:
-                    valid_data[k] = child._validate_(path, d)
+                    valid_data[k] = child._validate_(file, needed_migrations=needed_migrations, data=d, field_name=field_name)
                 except ValidationError as e:
                     raise ValidationError("Error with field '%s': %s" % (k, str(e)))
             return valid_data
@@ -260,7 +269,7 @@ class FieldSerializer(object):
         infos.append(type_str)
 
         if self.default is not None:
-            infos.append('default = %s' % yaml.dump(self.default, default_flow_style = True).strip())
+            infos.append('default = %s' % common.yaml_ordered_dump(self.default, default_flow_style=True).strip())
 
         return infos, help_text, doc_string
 
@@ -314,14 +323,17 @@ class YAML2PipelineSerializer(BaseYAML2PipelineSerializer):
                 fields[k] = copy.deepcopy(v)
         self.__fields__ = fields
 
-    def _validate_(self, path, data):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         if data is None:
             if self.__optional__:
                 return None
             data = {}
         for name, serializer in self.__fields__.items():
             try:
-                serializer._validate_(path, data[name] if name in data else None)
+                serializer._validate_(file,
+                                      needed_migrations=needed_migrations,
+                                      data=data[name] if name in data else None,
+                                      field_name=field_name + ':' + name if field_name else name)
             except ValidationError as e:
                 raise ValidationError("Error with field '%s': %s" % (name, str(e)))
         for key in data:

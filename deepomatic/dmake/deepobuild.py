@@ -2,6 +2,7 @@ import os
 import copy
 import json
 import random
+import importlib
 from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import deepomatic.dmake.common as common
 from deepomatic.dmake.common import DMakeException
@@ -729,7 +730,7 @@ class DataVolumeSerializer(YAML2PipelineSerializer):
         return '-v %s:%s' % (path, self.container_volume)
 
 class TestSerializer(YAML2PipelineSerializer):
-    docker_links_names = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
+    docker_links_names = FieldSerializer(deprecated="Use 'services:needed_links' instead", data_type="array", child = "string", migration='0001_docker_links_names_to_needed_links', default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     junit_report       = FieldSerializer("string", optional = True, example = "test-reports/*.xml", help_text = "Uses JUnit plugin to generate unit test report.")
@@ -783,12 +784,12 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         # env is not hashable, so skipping it, it's OK, it will just be negligibly less efficient
         return hash(self.service_name)
 
-    def _validate_(self, path, data):
+    def _validate_(self, file, needed_migrations, data, field_name):
         # also accept simple variant where data is a string: the service_name
         if common.is_string(data):
             data = {'service_name': data}
             self._specialized = False
-        return super(NeededServiceSerializer, self)._validate_(path, data)
+        return super(NeededServiceSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
 
     def populate_env(self, context_env):
         for key, value in self.env.items():
@@ -800,6 +801,7 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
 class ServicesSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", default = "", help_text = "The name of the application part.", example = "api", no_slash_no_space = True)
     needed_services = FieldSerializer("array", child = FieldSerializer(NeededServiceSerializer()), default = [], help_text = "List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.")
+    needed_links    = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     sources         = FieldSerializer("array", child = FieldSerializer(["file", "dir"]), optional = True, help_text = "If specified, this service will be considered as updated only when the content of those directories or files have changed.", example = 'path/to/app')
     config          = DeployConfigSerializer(optional = True, help_text = "Deployment configuration.")
     tests           = TestSerializer(optional = True, help_text = "Unit tests list.")
@@ -809,8 +811,8 @@ class BuildSerializer(YAML2PipelineSerializer):
     env      = FieldSerializer("dict", child = "string", default = {}, help_text = "List of environment variables used when building applications (excluding base_image).", example = {'BUILD': '${BUILD}'})
     commands = FieldSerializer("array", default = [], child = FieldSerializer(["string", "array"], child = "string", post_validation = lambda x: [x] if common.is_string(x) else x), help_text ="Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.", example = ["cmake .", "make"])
 
-    def _validate_(self, path, data):
-        super(BuildSerializer, self)._validate_(path, data)
+    def _validate_(self, file, needed_migrations, data, field_name):
+        super(BuildSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         # populate env
         env = self.__fields__['env'].value
         # variable substitution on env values from dmake process environment
@@ -838,14 +840,30 @@ class DMakeFile(DMakeFileSerializer):
         self.__path__ = os.path.join(os.path.dirname(file), '')
 
         try:
-            path = os.path.join(os.path.dirname(file), '')
-            self._validate_(path, data)
+            migrated = False
+
+            while True:
+                needed_migrations = []
+                self._validate_(file, needed_migrations=needed_migrations, data=data)
+                if len(needed_migrations) == 0:
+                    break
+                migrated = True
+                needed_migrations.sort()
+                for m in needed_migrations:
+                    common.logger.info("Applying migration '{}' to '{}'".format(m, file))
+                    m = importlib.import_module('migrations.{}'.format(m))
+                    data = m.patch(data)
+            if migrated:
+                with open(file, 'w') as f:
+                    common.yaml_ordered_dump(data, f)
+
         except ValidationError as e:
             raise DMakeException(("Error in %s:\n" % file) + str(e))
 
         if self.env is None:
+            fake_needed_migrations = []
             env = EnvBranchSerializer()
-            env._validate_(self.__path__, {'variables': {}})
+            env._validate_(file, needed_migrations=fake_needed_migrations, data={'variables': {}})
             self.__fields__['env'] = env
         else:
             if isinstance(self.env, EnvSerializer):
@@ -929,10 +947,10 @@ class DMakeFile(DMakeFileSerializer):
         raise DMakeException("Could not find service '%s'" % service)
 
     def _get_link_opts_(self, commands, service):
-        if common.options.dependencies and service.tests.has_value():
-            docker_links_names = service.tests.docker_links_names
-            if len(docker_links_names) > 0:
-                append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(docker_links_names)), fail_if_empty = True)
+        if common.options.dependencies:
+            needed_links = service.needed_links
+            if len(needed_links) > 0:
+                append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(needed_links)), fail_if_empty = True)
 
     def _get_check_needed_services_(self, commands, service):
         if common.options.dependencies and len(service.needed_services) > 0:
@@ -946,7 +964,7 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_run(self, commands, service_name, docker_links, service_customization):
         service = self._get_service_(service_name)
-        if service.config is None or service.config.docker_image.start_script is None:
+        if not service.config.has_value() or not service.config.docker_image.has_value() or service.config.docker_image.start_script is None:
             return
 
         docker_run_prefix = ''

@@ -1,5 +1,4 @@
 import os, sys
-import yaml
 
 import deepomatic.dmake.common as common
 from   deepomatic.dmake.common import DMakeException
@@ -144,9 +143,8 @@ def activate_link(loaded_files, service_providers, service_dependencies, service
     s = dmake._get_service_(service)
 
     children = []
-    if s.tests.has_value():
-        for link in s.tests.docker_links_names:
-            children += activate_service(loaded_files, service_providers, service_dependencies, 'run_link', 'links/%s/%s' % (dmake.get_app_name(), link))
+    for link in s.needed_links:
+        children += activate_service(loaded_files, service_providers, service_dependencies, 'run_link', 'links/%s/%s' % (dmake.get_app_name(), link))
 
     return children
 
@@ -242,11 +240,8 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
         return
 
     # Load YAML and check version
-    try:
-        with open(file, 'r') as stream:
-            data = yaml.load(stream)
-    except yaml.parser.ParserError as e:
-        raise DMakeException(str(e))
+    with open(file, 'r') as stream:
+        data = common.yaml_ordered_load(stream)
     if 'dmake_version' not in data:
         raise DMakeException("Missing field 'dmake_version' in %s" % file)
     version = str(data['dmake_version'])

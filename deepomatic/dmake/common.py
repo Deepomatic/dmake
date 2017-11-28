@@ -3,6 +3,7 @@ import sys
 import logging
 import subprocess
 import re
+from ruamel.yaml import YAML
 
 # Set logger
 logger = logging.getLogger("deepomatic.dmake")
@@ -12,9 +13,9 @@ logger.addHandler(logging.StreamHandler())
 ###############################################################################
 
 if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import is_string, read_input, subprocess_output_to_string
+    from deepomatic.dmake.python_3x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
 else:
-    from deepomatic.dmake.python_2x import is_string, read_input, subprocess_output_to_string
+    from deepomatic.dmake.python_2x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
 
 ###############################################################################
 
@@ -29,6 +30,29 @@ class DMakeException(Exception):
 class NotGitRepositoryException(DMakeException):
     def __init__(self):
         super(NotGitRepositoryException, self).__init__('Not a GIT repository')
+
+###############################################################################
+
+def yaml_ordered_load(stream):
+    try:
+        yaml = YAML(pure=True)
+        data = yaml.load(stream)
+        return data
+    except yaml.parser.ParserError as e:
+        raise DMakeException(str(e))
+
+def yaml_ordered_dump(data, stream=None, default_flow_style=False):
+    yaml=YAML()
+    yaml.default_flow_style = default_flow_style
+    yaml.width = 4096
+    yaml.indent(mapping=2, sequence=4, offset=2)
+    string_value = StringIO()
+    yaml.dump(data, string_value)
+    string_value = string_value.getvalue()
+    if stream:
+        stream.write(string_value)
+    else:
+        return string_value
 
 ###############################################################################
 

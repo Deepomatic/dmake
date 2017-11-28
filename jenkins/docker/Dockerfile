@@ -4,7 +4,7 @@ MAINTAINER Vincent Delaitre <vincent@deepomatic.com>
 USER root
 
 # Install libs
-RUN apt-get update && apt-get --no-install-recommends -y install python-pip
+RUN apt-get update && apt-get --no-install-recommends -y install python-pip python3-pip
 
 # Install docker client
 RUN cd /tmp && wget -O docker.tgz https://get.docker.com/builds/Linux/x86_64/docker-1.12.2.tgz && tar -zxvf docker.tgz && cp docker/docker /usr/local/bin/ && rm -rf /tmp/*
