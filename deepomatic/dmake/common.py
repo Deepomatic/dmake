@@ -38,7 +38,7 @@ def yaml_ordered_load(stream):
         yaml = YAML(pure=True)
         data = yaml.load(stream)
         return data
-    except yaml.parser.ParserError as e:
+    except Exception as e:
         raise DMakeException(str(e))
 
 def yaml_ordered_dump(data, stream=None, default_flow_style=False):
