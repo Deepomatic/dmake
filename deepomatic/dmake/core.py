@@ -346,21 +346,29 @@ def order_dependencies(dependencies, sorted_leaves):
 ###############################################################################
 
 def generate_command_pipeline(file, cmds):
+    indent_level = 0
+
+    def write_line(data):
+        if len(data) > 0:
+            file.write('  ' * indent_level)
+        file.write(data + '\n')
+
     if common.build_description is not None:
-        file.write("currentBuild.description = '%s'\n" % common.build_description.replace("'", "\\'"))
-    file.write('try {\n')
+        write_line("currentBuild.description = '%s'" % common.build_description.replace("'", "\\'"))
+    write_line('try {')
+    indent_level += 1
 
     for cmd, kwargs in cmds:
         if cmd == "stage":
             name = kwargs['name'].replace("'", "\\'")
-            file.write('\n')
+            write_line('')
             if kwargs['concurrency'] is not None:
-                file.write("stage concurrency: %s, name: '%s'\n" % (str(kwargs['concurrency']), name))
+                write_line("stage concurrency: %s, name: '%s'" % (str(kwargs['concurrency']), name))
             else:
-                file.write("stage '%s'\n" % name)
+                write_line("stage '%s'" % name)
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
-            file.write("echo '%s'\n" % message)
+            write_line("echo '%s'" % message)
         elif cmd == "sh":
             commands = kwargs['shell']
             if common.is_string(commands):
@@ -369,52 +377,52 @@ def generate_command_pipeline(file, cmds):
             if len(commands) == 0:
                 return
             if len(commands) == 1:
-                file.write('sh("%s")\n' % commands[0])
+                write_line('sh("%s")' % commands[0])
             else:
-                file.write('parallel (\n')
+                write_line('parallel (')
                 commands_list = []
                 for c in enumerate(commands):
                     commands_list.append("cmd%d: { sh('%s') }" % c)
-                file.write(',\n'.join(commands_list))
-                file.write(')\n')
+                write_line(','.join(commands_list))
+                write_line(')')
         elif cmd == "read_sh":
             file_output = os.path.join(common.root_dir, ".dmake", "output_%d" % kwargs['id'])
-            file.write("sh('%s > %s')\n" % (kwargs['shell'], file_output))
-            file.write("env.%s = readFile '%s'\n" % (kwargs['var'], file_output));
+            write_line("sh('%s > %s')" % (kwargs['shell'], file_output))
+            write_line("env.%s = readFile '%s'" % (kwargs['var'], file_output));
             if kwargs['fail_if_empty']:
-                file.write("sh('if [ -z \"${%s}\" ]; then exit 1; fi')\n" % kwargs['var'])
+                write_line("sh('if [ -z \"${%s}\" ]; then exit 1; fi')" % kwargs['var'])
         elif cmd == "env":
-            file.write('env.%s = "%s"\n' % (kwargs['var'], kwargs['value']))
+            write_line('env.%s = "%s"' % (kwargs['var'], kwargs['value']))
         elif cmd == "git_tag":
             if common.repo_url is not None:
-                file.write("sh('git tag --force %s')\n" % kwargs['tag'])
-                file.write('try {\n')
+                write_line("sh('git tag --force %s')" % kwargs['tag'])
+                write_line('try {')
                 if common.repo_url.startswith('https://') or common.repo_url.startswith('http://'):
                     i = common.repo_url.find(':')
                     prefix = common.repo_url[:i]
                     host = common.repo_url[(i + 3):]
-                    file.write("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: env.DMAKE_JENKINS_HTTP_CREDENTIALS, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {\n")
-                    file.write('try {\n')
-                    file.write("sh(\"git push --force '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' refs/tags/%s\")\n" % (prefix, host, kwargs['tag']))
-                    file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
-                    file.write("}\n")
-                    file.write("""} catch(error) {\nsh('echo "Define \\'User/Password\\' credentials and set their ID in the \\'DMAKE_JENKINS_HTTP_CREDENTIALS\\' environment variable to be able to build and deploy only changed parts of the app."')\n}\n""")
+                    write_line("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: env.DMAKE_JENKINS_HTTP_CREDENTIALS, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {")
+                    write_line('try {')
+                    write_line("sh(\"git push --force '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' refs/tags/%s\")" % (prefix, host, kwargs['tag']))
+                    write_line("""} catch(error) {\nsh('echo "%s"')\n}""" % tag_push_error_msg.replace("'", "\\'"))
+                    write_line("}")
+                    write_line("""} catch(error) {\nsh('echo "Define \\'User/Password\\' credentials and set their ID in the \\'DMAKE_JENKINS_HTTP_CREDENTIALS\\' environment variable to be able to build and deploy only changed parts of the app."')\n}""")
                 else:
-                    file.write("sh('git push --force origin refs/tags/%s')\n" % kwargs['tag'])
-                    file.write("""} catch(error) {\nsh('echo "%s"')\n}\n""" % tag_push_error_msg.replace("'", "\\'"))
+                    write_line("sh('git push --force origin refs/tags/%s')" % kwargs['tag'])
+                    write_line("""} catch(error) {\nsh('echo "%s"')\n}""" % tag_push_error_msg.replace("'", "\\'"))
         elif cmd == "junit":
-            file.write("junit '%s'\n" % kwargs['report'])
+            write_line("junit '%s'" % kwargs['report'])
         elif cmd == "cobertura":
-            file.write("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])\n" % (kwargs['report']))
+            write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (kwargs['report']))
         elif cmd == "publishHTML":
-            file.write("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])\n" % (kwargs['directory'], kwargs['index'], kwargs['title'].replace("'", "\'")))
+            write_line("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])" % (kwargs['directory'], kwargs['index'], kwargs['title'].replace("'", "\'")))
         elif cmd == "build":
             parameters = []
             for var, value in kwargs['parameters'].items():
                 value = common.eval_str_in_env(value)
                 parameters.append("string(name: '%s', value: '%s')" % (var.replace("'", "\\'"), value.replace("'", "\\'")))
             parameters = ','.join(parameters)
-            file.write("build job: '%s', parameters: [%s], propagate: %s, wait: %s\n" % (
+            write_line("build job: '%s', parameters: [%s], propagate: %s, wait: %s" % (
                     kwargs['job'].replace("'", "\\'"),
                     parameters,
                     "true" if kwargs['propagate'] else "false",
@@ -422,17 +430,18 @@ def generate_command_pipeline(file, cmds):
         else:
             raise DMakeException("Unknown command %s" % cmd)
 
-    file.write('}\n')
-    file.write('catch (error) {\n')
-    file.write('  if ( env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP == "1" ) {\n')
-    file.write('    slackSend channel: "#jenkins-dmake", message: "This jenkins build requires your attention: <${env.BUILD_URL}/console|${env.JOB_NAME} ${env.BUILD_NUMBER}>"\n')
-    file.write("    input message: 'An error occurred. DMake will stop and clean all the running containers upon any answer.'\n")
-    file.write('  }\n')
-    file.write('  throw error\n')
-    file.write('}\n')
-    file.write('finally {\n')
-    file.write('  sh("dmake_clean")\n')
-    file.write('}\n')
+    indent_level -= 1
+    write_line('}')
+    write_line('catch (error) {')
+    write_line('  if ( env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP == "1" ) {')
+    write_line('    slackSend channel: "#jenkins-dmake", message: "This jenkins build requires your attention: <${env.BUILD_URL}/console|${env.JOB_NAME} ${env.BUILD_NUMBER}>"')
+    write_line("    input message: 'An error occurred. DMake will stop and clean all the running containers upon any answer.'")
+    write_line('  }')
+    write_line('  throw error')
+    write_line('}')
+    write_line('finally {')
+    write_line('  sh("dmake_clean")')
+    write_line('}')
 
 ###############################################################################
 
