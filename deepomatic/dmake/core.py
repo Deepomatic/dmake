@@ -362,10 +362,13 @@ def generate_command_pipeline(file, cmds):
         if cmd == "stage":
             name = kwargs['name'].replace("'", "\\'")
             write_line('')
-            if kwargs['concurrency'] is not None:
-                write_line("stage concurrency: %s, name: '%s'" % (str(kwargs['concurrency']), name))
-            else:
-                write_line("stage '%s'" % name)
+            if kwargs['concurrency'] is not None and kwargs['concurrency'] > 1:
+                raise DMakeException("Unsupported stage concurrency: %s > 1" % kwargs['concurrency'])
+            write_line("stage('%s') {" % name)
+            indent_level += 1
+        elif cmd == "stage_end":
+            indent_level -= 1
+            write_line("}")
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
             write_line("echo '%s'" % message)
@@ -452,6 +455,8 @@ def generate_command_bash(file, cmds):
         if cmd == "stage":
             file.write("\n")
             file.write("echo -e '\n## %s ##'\n" % kwargs['name'])
+        elif cmd == "stage_end":
+            pass
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
             file.write("echo '%s'\n" % message)
