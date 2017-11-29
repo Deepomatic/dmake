@@ -11,7 +11,7 @@ apt-get --no-install-recommends -y install make cmake g++ wget tar
 apt-get --no-install-recommends -y install librabbitmq-dev
 
 # Boost
-apt-get --no-install-recommends -y install libboost1.58-dev libboost-chrono-dev libboost-system-dev
+apt-get --no-install-recommends -y install libboost-dev libboost-chrono-dev libboost-system-dev
 
 # Google Logging
 apt-get --no-install-recommends -y install libgoogle-glog-dev

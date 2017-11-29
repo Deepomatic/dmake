@@ -25,7 +25,8 @@ services:
     needed_links:
       - rabbitmq
     needed_services:
-      - worker
+      - worker:ubuntu-1604
+      - worker:ubuntu-1804
     config:
       docker_image:
         entrypoint: deploy/entrypoint.sh
@@ -35,4 +36,4 @@ services:
           host_port: 8000
     tests:
       commands:
-        - ./manage.py test
+        - ./manage.py test --verbosity=2
