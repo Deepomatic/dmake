@@ -34,7 +34,11 @@ AMQPWrapper::AMQPWrapper()
 
 void AMQPWrapper::declareQueue(const std::string &queue)
 {
-    _channel->DeclareQueue(queue);
+    bool passive = false;
+    bool durable = false;
+    bool exclusive = false;
+    bool auto_delete = true;
+    _channel->DeclareQueue(queue, passive, durable, exclusive, auto_delete);
     _channel->BindQueue(queue, "amq.direct", queue);
 }
 

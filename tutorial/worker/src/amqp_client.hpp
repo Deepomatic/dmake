@@ -39,9 +39,13 @@ bool AMQPWrapper::recv(const std::string &queue, T &n)
 template<class T>
 bool AMQPWrapper::recv(const std::string &queue, T &n, std::string &reply_queue)
 {
+    const std::string consumer_tag = "";
+    bool no_local = true;
+    bool no_ack = true;
+    bool exclusive = false;
     auto it = _consumer_tags.find(queue);
     if (it == _consumer_tags.end()) {
-        it = _consumer_tags.emplace(queue, _channel->BasicConsume(queue)).first;
+        it = _consumer_tags.emplace(queue, _channel->BasicConsume(queue, consumer_tag, no_local, no_ack, exclusive)).first;
     }
 
     amqp_bytes_t buffer;
