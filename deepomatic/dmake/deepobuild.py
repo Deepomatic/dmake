@@ -391,7 +391,8 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
               ('export MID_DEPLOY_HOOKS="%s" && ' % config.mid_deploy_script) + \
               ('export POST_DEPLOY_HOOKS="%s" && ' % config.post_deploy_script) + \
               ('export READYNESS_PROBE="%s" && ' % common.escape_cmd(config.readiness_probe.get_cmd())) + \
-              ('export DOCKER_CMD="%s" && ' % ('nvidia-docker' if config.need_gpu else 'docker')) + \
+              ('export INSTALL_NVIDIA_DRIVERS="%s" && ' % ('1' if config.need_gpu else '')) + \
+              ('export DOCKER_RUN_CMD="%s" && ' % ('nvidia-docker' if config.need_gpu and common.has_nvidia_docker else 'docker')) + \
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
         common.run_shell_command(cmd)
 
@@ -967,9 +968,7 @@ class DMakeFile(DMakeFileSerializer):
         if not service.config.has_value() or not service.config.docker_image.has_value() or service.config.docker_image.start_script is None:
             return
 
-        docker_run_prefix = ''
-        if service.config.need_gpu:
-            docker_run_prefix = 'DOCKER_CMD=nvidia-docker '
+        docker_run_prefix = 'DOCKER_RUN_CMD="%s" ' % common.get_docker_run_cmd(service.config.need_gpu)
 
         unique_service_name = service_name
         customized_env = {}
@@ -1054,12 +1053,8 @@ class DMakeFile(DMakeFileSerializer):
 
         docker_opts += " -i %s" % self.docker.get_docker_base_image_name_tag()
 
-        docker_cmd = "dmake_run_docker_command %s " % docker_opts
-
-        if service.config.has_value() and service.config.need_gpu:
-            docker_cmd = 'DOCKER_CMD=nvidia-docker ' + docker_cmd
-
-        return docker_cmd
+        need_gpu = service.config.has_value() and service.config.need_gpu
+        return 'DOCKER_RUN_CMD="%s" dmake_run_docker_command %s ' % (common.get_docker_run_cmd(need_gpu), docker_opts)
 
     def generate_shell(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
