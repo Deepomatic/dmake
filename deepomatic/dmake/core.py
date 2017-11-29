@@ -362,10 +362,13 @@ def generate_command_pipeline(file, cmds):
         if cmd == "stage":
             name = kwargs['name'].replace("'", "\\'")
             write_line('')
-            if kwargs['concurrency'] is not None:
-                write_line("stage concurrency: %s, name: '%s'" % (str(kwargs['concurrency']), name))
-            else:
-                write_line("stage '%s'" % name)
+            if kwargs['concurrency'] is not None and kwargs['concurrency'] > 1:
+                raise DMakeException("Unsupported stage concurrency: %s > 1" % kwargs['concurrency'])
+            write_line("stage('%s') {" % name)
+            indent_level += 1
+        elif cmd == "stage_end":
+            indent_level -= 1
+            write_line("}")
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
             write_line("echo '%s'" % message)
@@ -461,6 +464,8 @@ def generate_command_bash(file, cmds):
         if cmd == "stage":
             file.write("\n")
             file.write("echo -e '\n## %s ##'\n" % kwargs['name'])
+        elif cmd == "stage_end":
+            pass
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
             file.write("echo '%s'\n" % message)
@@ -679,8 +684,10 @@ def make(root_dir, sub_dir, command, app, options):
     append_command(all_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
 
     for stage, commands in ordered_build_files:
-        if len(commands) > 0:
-            append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
+        if len(commands) == 0:
+            continue
+
+        append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
         for node, order in commands:
             command, service, service_customization = node
             if command == 'build':
@@ -710,14 +717,17 @@ def make(root_dir, sub_dir, command, app, options):
                 elif command == "deploy":
                     dmake_file.generate_deploy(step_commands, service)
                 else:
-                   raise Exception("Unkown command '%s'" % command)
+                    raise Exception("Unknown command '%s'" % command)
             except DMakeException as e:
-               print(('ERROR in file %s:\n' % file) + str(e))
-               sys.exit(1)
+                print(('ERROR in file %s:\n' % file) + str(e))
+                sys.exit(1)
 
             if len(step_commands) > 0:
                 append_command(all_commands, 'echo', message = '- Running %s' % (display_command_node(node)))
                 all_commands += step_commands
+
+        append_command(all_commands, 'stage_end')
+
 
     # Check stages do not appear twice (otherwise it may block Jenkins)
     stage_names = set()
