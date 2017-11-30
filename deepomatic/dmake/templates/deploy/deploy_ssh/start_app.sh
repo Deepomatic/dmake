@@ -37,16 +37,21 @@ fi
 if [ "${DOCKER_CMD}" = "nvidia-docker" ]; then
     if [ ! `which nvidia-smi` ]; then
         apt-get update
-        apt-get install nvidia-375
+        apt-get install nvidia-384
     fi
     # Make sure modules are loaded
     modprobe nvidia
     modprobe nvidia_uvm
     if [ ! `which nvidia-docker` ]; then
+        # install nvidia-docker v2
+        curl -L https://nvidia.github.io/nvidia-docker/gpgkey | apt-key add -
+        tee /etc/apt/sources.list.d/nvidia-docker.list <<< \
+"deb https://nvidia.github.io/libnvidia-container/ubuntu16.04/amd64 /
+deb https://nvidia.github.io/nvidia-container-runtime/ubuntu16.04/amd64 /
+deb https://nvidia.github.io/nvidia-docker/ubuntu16.04/amd64 /"
         apt-get update
-        apt-get install nvidia-modprobe
-        wget -P /tmp https://github.com/NVIDIA/nvidia-docker/releases/download/v1.0.1/nvidia-docker_1.0.1-1_amd64.deb
-        sudo dpkg -i /tmp/nvidia-docker*.deb && rm /tmp/nvidia-docker*.deb
+        apt-get install nvidia-docker2
+        systemctl reload docker
     fi
 fi
 
