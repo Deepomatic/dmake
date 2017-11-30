@@ -21,8 +21,9 @@ docker:
     python_requirements: requirements.txt
 
 services:
-  -
-    service_name: web
+  - service_name: web
+    needed_links:
+      - rabbitmq
     needed_services:
       - worker
     config:
@@ -33,7 +34,5 @@ services:
         - container_port: 8000
           host_port: 8000
     tests:
-      docker_links_names:
-        - rabbitmq
       commands:
         - ./manage.py test
