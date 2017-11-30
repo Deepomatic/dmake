@@ -21,6 +21,8 @@ def append_command(commands, cmd, prepend = False, **args):
                 raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
     if cmd == "stage":
         check_cmd(args, ['name', 'concurrency'])
+    elif cmd == "stage_end":
+        check_cmd(args, [])
     elif cmd == "echo":
         check_cmd(args, ['message'])
     elif cmd == "sh":
@@ -43,7 +45,7 @@ def append_command(commands, cmd, prepend = False, **args):
     elif cmd == "build":
         check_cmd(args, ['job', 'parameters', 'propagate', 'wait'])
     else:
-        raise DMakeException("Unknow command %s" %cmd)
+        raise DMakeException("Unknown command %s" % cmd)
     cmd = (cmd, args)
     if prepend:
         commands.insert(0, cmd)
