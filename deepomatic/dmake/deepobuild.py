@@ -556,9 +556,6 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         return image_name
 
     def generate_build_docker(self, commands, path_dir, service_name, docker_base, build, config):
-        if common.command == "deploy" and self.name is None:
-            raise DMakeException('You need to specify an image name for %s in order to deploy the service.' % service_name)
-
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
         common.run_shell_command('mkdir %s' % os.path.join(tmp_dir, 'app'))
 
@@ -698,7 +695,11 @@ class DeploySerializer(YAML2PipelineSerializer):
             app_name = "%s-%s" % (app_name, service_name)
         app_name = common.eval_str_in_env(app_name, deploy_env)
 
-        image_name = config.docker_image.get_image_name(service_name, deploy_env)
+        image_name = config.docker_image.get_image_name(app_name, deploy_env)
+        # When deploying, we need to push the image. We make sure that the image has a user
+        if len(image_name.split('/')) == 1:
+            image_name_without_tag = image_name.split(':')[0]
+            raise DMakeException("Service '{}' declares a docker image without a user name in config::docker_image::name so I cannot deploy it. I suggest to change it to 'your_company/{}'".format(service_name, image_name_without_tag))
         append_command(commands, 'sh', shell = 'dmake_push_docker_image "%s" "%s"' % (image_name, "1" if config.docker_image.check_private else "0"))
         image_latest = config.docker_image.get_image_name(service_name, deploy_env, latest = True)
         append_command(commands, 'sh', shell = 'docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, "1" if config.docker_image.check_private else "0"))
@@ -910,7 +911,7 @@ class DMakeFile(DMakeFileSerializer):
                             raise Found
             except Found:
                 common.is_release_branch = True
-                print("Release branch: %s" % common.is_release_branch)
+                common.logger("Release branch: %s" % common.is_release_branch)
 
     def get_path(self):
         return self.__path__

@@ -665,7 +665,6 @@ def make(root_dir, sub_dir, command, app, options):
             append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
         for node, order in commands:
             command, service, service_customization = node
-            append_command(all_commands, 'echo', message = '- Running %s' % (display_command_node(node)))
             if command == 'build':
                 dmake_file = loaded_files[service]
             else:
@@ -674,28 +673,33 @@ def make(root_dir, sub_dir, command, app, options):
             app_name = dmake_file.get_app_name()
             links = docker_links[app_name]
 
+            step_commands = []
             try:
                 if command == "base":
-                    dmake_file.generate_base(all_commands)
+                    dmake_file.generate_base(step_commands)
                 elif command == "shell":
-                    dmake_file.generate_shell(all_commands, service, links)
+                    dmake_file.generate_shell(step_commands, service, links)
                 elif command == "test":
-                    dmake_file.generate_test(all_commands, service, links)
+                    dmake_file.generate_test(step_commands, service, links)
                 elif command == "run":
-                    dmake_file.generate_run(all_commands, service, links, service_customization)
+                    dmake_file.generate_run(step_commands, service, links, service_customization)
                 elif command == "run_link":
-                    dmake_file.generate_run_link(all_commands, service, links)
+                    dmake_file.generate_run_link(step_commands, service, links)
                 elif command == "build":
-                    dmake_file.generate_build(all_commands)
+                    dmake_file.generate_build(step_commands)
                 elif command == "build_docker":
-                    dmake_file.generate_build_docker(all_commands, service)
+                    dmake_file.generate_build_docker(step_commands, service)
                 elif command == "deploy":
-                    dmake_file.generate_deploy(all_commands, service)
+                    dmake_file.generate_deploy(step_commands, service)
                 else:
                    raise Exception("Unkown command '%s'" % command)
             except DMakeException as e:
                print(('ERROR in file %s:\n' % file) + str(e))
                sys.exit(1)
+
+            if len(step_commands) > 0:
+                append_command(all_commands, 'echo', message = '- Running %s' % (display_command_node(node)))
+                all_commands += step_commands
 
     # Check stages do not appear twice (otherwise it may block Jenkins)
     stage_names = set()
