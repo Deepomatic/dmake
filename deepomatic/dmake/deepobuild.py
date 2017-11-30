@@ -856,6 +856,7 @@ class DMakeFile(DMakeFileSerializer):
             if migrated:
                 with open(file, 'w') as f:
                     common.yaml_ordered_dump(data, f)
+                    common.logger.info("Migrations applied, please verify changes in '{}' and commit them.".format(file))
 
         except ValidationError as e:
             raise DMakeException(("Error in %s:\n" % file) + str(e))
