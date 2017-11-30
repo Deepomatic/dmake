@@ -122,6 +122,9 @@ echo "Deployment pushed to AWS, waiting for environment to be ready !"
 aws_wait_env_not_ready $AWS_REGION $AWS_ENV # There may be a lag before deployment starts, we wait until it is in deployment
 aws_wait_env_ready $AWS_REGION $AWS_ENV
 
+echo "Waiting for information to propagate"
+sleep 5
+
 # Check that env has deployed the correct version
 DEPLOYED_APP_LABEL=`aws elasticbeanstalk describe-environments --region ${AWS_REGION} --environment-names ${AWS_ENV} --no-include-deleted | grep "\"VersionLabel\"" | cut -d: -f2 | sed "s/.*\"\(.*\)\".*/\1/"`
 if [ "${APP_LABEL}" =  "${DEPLOYED_APP_LABEL}" ]; then
