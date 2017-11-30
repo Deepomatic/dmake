@@ -78,7 +78,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
     source    = FieldSerializer('string', optional=True, help_text='Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.')
     variables = FieldSerializer('dict', child="string", default={}, help_text="Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).", example={'ENV_TYPE': 'dev'})
 
-    def get_replaced_variables(self, additional_variables={}, docker_links=None):
+    def get_replaced_variables(self, additional_variables={}, docker_links=None, needed_links=None):
         replaced_variables = {}
         if self.has_value() and (len(self.variables) or len(additional_variables)):
             if self.source is not None:
@@ -92,7 +92,12 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                 replaced_variables[var] = common.run_shell_command(env + 'echo %s' % common.wrap_cmd(value)).replace('\n', '')
 
         if docker_links is not None and getattr(common.options, 'dependencies', None):
-            for link in docker_links.values():
+            # docker_links is a dictionnary of all declared links, we want to export only
+            # env_export of linked services
+            if needed_links is None:
+                raise Exception('You need to define needed_links when using docker_links')
+            for link_name in needed_links:
+                link = docker_links[link_name]
                 for var, value in link.env_exports.items():
                     replaced_variables[var] = value
         return replaced_variables
@@ -979,7 +984,7 @@ class DMakeFile(DMakeFileSerializer):
             unique_service_name += service_customization.get_service_name_unique_suffix()
 
         opts = self._launch_options_(commands, service, docker_links, customized_env, run_base_image=False, mount_root_dir=False)
-        env = self.env.get_replaced_variables(docker_links=docker_links)
+        env = self.env.get_replaced_variables(docker_links=docker_links, needed_links=service.needed_links)
         image_name = service.config.docker_image.get_image_name(service_name, env)
 
         # <DEPRECATED>
@@ -1032,7 +1037,7 @@ class DMakeFile(DMakeFileSerializer):
         else:
             entrypoint_opt = ''
 
-        env = self.env.get_replaced_variables(env, docker_links=docker_links)
+        env = self.env.get_replaced_variables(env, docker_links=docker_links, needed_links=service.needed_links)
         docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env, mount_root_dir=mount_root_dir)
         docker_opts += entrypoint_opt
 
