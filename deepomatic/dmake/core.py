@@ -397,19 +397,28 @@ def generate_command_pipeline(file, cmds):
             if common.repo_url is not None:
                 write_line("sh('git tag --force %s')" % kwargs['tag'])
                 write_line('try {')
+                indent_level += 1
                 if common.repo_url.startswith('https://') or common.repo_url.startswith('http://'):
                     i = common.repo_url.find(':')
                     prefix = common.repo_url[:i]
                     host = common.repo_url[(i + 3):]
                     write_line("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: env.DMAKE_JENKINS_HTTP_CREDENTIALS, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {")
+                    indent_level += 1
                     write_line('try {')
-                    write_line("sh(\"git push --force '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' refs/tags/%s\")" % (prefix, host, kwargs['tag']))
-                    write_line("""} catch(error) {\nsh('echo "%s"')\n}""" % tag_push_error_msg.replace("'", "\\'"))
-                    write_line("}")
-                    write_line("""} catch(error) {\nsh('echo "Define \\'User/Password\\' credentials and set their ID in the \\'DMAKE_JENKINS_HTTP_CREDENTIALS\\' environment variable to be able to build and deploy only changed parts of the app."')\n}""")
+                    write_line("""  sh("git push --force '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' refs/tags/%s")""" % (prefix, host, kwargs['tag']))
+                    write_line('} catch(error) {')
+                    write_line("""  sh('echo "%s"')""" % tag_push_error_msg.replace("'", "\\'"))
+                    write_line('}')
+                    error_msg = "Define 'User/Password' credentials and set their ID in the 'DMAKE_JENKINS_HTTP_CREDENTIALS' environment variable to be able to build and deploy only changed parts of the app."
+                    indent_level -= 1
+                    write_line('}')
                 else:
                     write_line("sh('git push --force origin refs/tags/%s')" % kwargs['tag'])
-                    write_line("""} catch(error) {\nsh('echo "%s"')\n}""" % tag_push_error_msg.replace("'", "\\'"))
+                    error_msg = tag_push_error_msg
+                indent_level -= 1
+                write_line('} catch(error) {')
+                write_line("""  sh('echo "%s"')""" % error_msg.replace("'", "\\'"))
+                write_line('}')
         elif cmd == "junit":
             write_line("junit '%s'" % kwargs['report'])
         elif cmd == "cobertura":
