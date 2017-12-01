@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# Usage:
+# dmake_test_get_results SERVICE_NAME SRC_PATH DEST_PATH
+#
+# Result:
+# docker cp test output for SERVICE_NAME
+
+test "${DMAKE_DEBUG}" = "1" && set -x
+
+if [ $# -ne 3 ]; then
+    dmake_fail "$0: Wrong arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+if [ -z "${DMAKE_TMP_DIR}" ]; then
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
+    exit 1
+fi
+
+set -e
+
+SERVICE_NAME=$1; shift
+SRC_PATH=$1; shift
+DEST_PATH=$1; shift
+
+echo "Tests results for '${SERVICE_NAME}': '${DEST_PATH}'"
+
+LINE=`cat ${DMAKE_TMP_DIR}/test_ids.txt | grep " ${SERVICE_NAME}\$" || :`
+if [ -z "${LINE}" ]; then
+  dmake_fail "Unexpected error: unknown service ${SERVICE_NAME}"
+  exit 1
+fi
+CONTAINER_ID=`echo ${LINE} | cut -d\  -f 1`
+
+mkdir -p $(dirname ${DEST_PATH})
+docker cp ${CONTAINER_ID}:${SRC_PATH} ${DEST_PATH}

@@ -172,11 +172,9 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children = []
             if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
-            children += activate_service(loaded_files, service_providers, service_dependencies, 'build', service)
+            children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
-        elif command == 'build':
-            children = activate_base(base_variant)
         elif command == 'build_docker':
             children = activate_base(base_variant)
         elif command == 'run':
@@ -187,8 +185,8 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         elif command == 'run_link':
             children = []
         elif command == 'deploy':
-            children  = activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
-            children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
+            children  = activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
+            children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
         else:
             raise Exception("Unknown command '%s'" % command)
 
@@ -350,6 +348,17 @@ def order_dependencies(dependencies, sorted_leaves):
 
 ###############################################################################
 
+def make_path_unique_per_variant(path, service_name):
+    """If multi variant: prefix filename with `<variant>-`"""
+    service_name_parts = service_name.split(':')
+    if len(service_name_parts) == 2:
+        variant = service_name_parts[1]
+        head, tail = os.path.split(path)
+        path = os.path.join(head, '%s-%s' % (variant, tail))
+    return path
+
+###############################################################################
+
 def generate_command_pipeline(file, cmds):
     indent_level = 0
 
@@ -362,6 +371,9 @@ def generate_command_pipeline(file, cmds):
         write_line("currentBuild.description = '%s'" % common.build_description.replace("'", "\\'"))
     write_line('try {')
     indent_level += 1
+
+    cobertura_tests_results_dir = os.path.join(common.relative_cache_dir, 'cobertura_tests_results')
+    emit_cobertura = False
 
     for cmd, kwargs in cmds:
         if cmd == "stage":
@@ -428,11 +440,25 @@ def generate_command_pipeline(file, cmds):
                 write_line("""  sh('echo "%s"')""" % error_msg.replace("'", "\\'"))
                 write_line('}')
         elif cmd == "junit":
-            write_line("junit '%s'" % kwargs['report'])
+            container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
+            host_report = os.path.join(common.relative_cache_dir, 'tests_results', str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['report'])
+            write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_report, host_report))
+            write_line("junit '%s'" % host_report)
+            write_line('''sh('rm -rf "%s"')''' % host_report)
         elif cmd == "cobertura":
-            write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (kwargs['report']))
+            # coberturaPublisher plugin only supports one step, so we delay generating it, and make it get all reports
+            container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
+            host_report = os.path.join(cobertura_tests_results_dir, str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['report'])
+            if not host_report.endswith('.xml'):
+                raise DMakeException("`cobertura_report` must end with '.xml' in service '%s'" % kwargs['service_name'])
+            write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_report, host_report))
+            emit_cobertura = True
         elif cmd == "publishHTML":
-            write_line("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])" % (kwargs['directory'], kwargs['index'], kwargs['title'].replace("'", "\'")))
+            container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
+            host_html_directory = os.path.join(common.cache_dir, 'tests_results', str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['directory'])
+            write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_html_directory, host_html_directory))
+            write_line("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])" % (host_html_directory, kwargs['index'], kwargs['title'].replace("'", "\'")))
+            write_line('''sh('rm -rf "%s"')''' % host_html_directory)
         elif cmd == "build":
             parameters = []
             for var, value in kwargs['parameters'].items():
@@ -446,6 +472,10 @@ def generate_command_pipeline(file, cmds):
                     "true" if kwargs['wait'] else "false"))
         else:
             raise DMakeException("Unknown command %s" % cmd)
+
+    if emit_cobertura:
+        write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
+        write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
 
     indent_level -= 1
     write_line('}')
@@ -489,12 +519,14 @@ def generate_command_bash(file, cmds):
         elif cmd == "git_tag":
             file.write('git tag --force %s\n' % kwargs['tag'])
             file.write('git push --force origin refs/tags/%s || echo %s\n' % (kwargs['tag'], tag_push_error_msg))
-        elif cmd == "junit":
-            pass  # Should be configured with GUI
-        elif cmd == "cobertura":
-            pass  # Should be configured with GUI
+        elif cmd == "junit" or cmd == "cobertura":
+            container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
+            host_report = make_path_unique_per_variant(kwargs['report'], kwargs['service_name'])
+            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_report, host_report))
         elif cmd == "publishHTML":
-            pass  # Should be configured with GUI
+            container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
+            host_html_directory = make_path_unique_per_variant(kwargs['directory'], kwargs['service_name'])
+            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_html_directory, host_html_directory))
         elif cmd == "build":
             pass  # Should be configured with GUI
         else:

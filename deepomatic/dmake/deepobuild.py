@@ -38,11 +38,11 @@ def append_command(commands, cmd, prepend = False, **args):
     elif cmd == "git_tag":
         check_cmd(args, ['tag'])
     elif cmd == "junit":
-        check_cmd(args, ['report'])
+        check_cmd(args, ['report', 'service_name', 'mount_point'])
     elif cmd == "cobertura":
-        check_cmd(args, ['report'])
+        check_cmd(args, ['report', 'service_name', 'mount_point'])
     elif cmd == "publishHTML":
-        check_cmd(args, ['directory', 'index', 'title'])
+        check_cmd(args, ['directory', 'index', 'title', 'service_name', 'mount_point'])
     elif cmd == "build":
         check_cmd(args, ['job', 'parameters', 'propagate', 'wait'])
     else:
@@ -81,7 +81,9 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
     source    = FieldSerializer('string', optional=True, help_text='Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.')
     variables = FieldSerializer('dict', child="string", default={}, help_text="Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).", example={'ENV_TYPE': 'dev'})
 
-    def get_replaced_variables(self, additional_variables={}, docker_links=None, needed_links=None):
+    def get_replaced_variables(self, additional_variables=None, docker_links=None, needed_links=None):
+        if additional_variables is None:
+            additional_variables = {}
         replaced_variables = {}
         if self.has_value() and (len(self.variables) or len(additional_variables)):
             if self.source is not None:
@@ -851,25 +853,25 @@ class TestSerializer(YAML2PipelineSerializer):
     cobertura_report   = FieldSerializer("string", optional = True, example = "**/coverage.xml", help_text = "Publish a Cobertura report. **WARNING** only one is allowed per repository.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
 
-    def generate_test(self, commands, app_name, docker_cmd, docker_links):
-        if not self.has_value():
+    def generate_test(self, commands, service_name, docker_cmd, docker_links, mount_point):
+        if not self.has_value() or len(self.commands) == 0:
             return
 
-        for cmd in self.commands:
-            append_command(commands, 'sh', shell = docker_cmd + cmd)
+        tests_cmd = '/bin/bash -c %s' % common.wrap_cmd(' && '.join(self.commands))
+        append_command(commands, 'sh', shell = docker_cmd + tests_cmd)
 
         if self.junit_report is not None:
-            append_command(commands, 'junit', report = self.junit_report)
+            append_command(commands, 'junit', report = self.junit_report, service_name = service_name, mount_point = mount_point)
 
         if self.cobertura_report is not None:
-            append_command(commands, 'cobertura', report = self.cobertura_report)
+            append_command(commands, 'cobertura', report = self.cobertura_report, service_name = service_name, mount_point = mount_point)
 
         html = self.html_report._value_()
         if html is not None:
-            append_command(commands, 'publishHTML',
-                directory = html['directory'],
-                index     = html['index'],
-                title     = html['title'])
+            append_command(commands, 'publishHTML', service_name = service_name, mount_point = mount_point,
+                           directory = html['directory'],
+                           index     = html['index'],
+                           title     = html['title'],)
 
 class NeededServiceSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", help_text = "The name of the needed application part.", example = "worker-nn", no_slash_no_space = True)
@@ -1203,11 +1205,11 @@ class DMakeFile(DMakeFileSerializer):
 
         return docker_opts
 
-    def _generate_test_docker_cmd_(self, commands, service, docker_links):
+    def _generate_shell_docker_cmd_(self, commands, service, docker_links):
         docker_opts  = self._launch_options_(commands, service, docker_links, self.build.env, run_base_image=True, mount_root_dir=True)
 
         if service.tests.has_value():
-            opts=[]
+            opts = []
             for data_volume in service.tests.data_volumes:
                 opts.append(data_volume.get_mount_opt())
             docker_opts += " " + (" ".join(opts))
@@ -1217,17 +1219,36 @@ class DMakeFile(DMakeFileSerializer):
 
         return "dmake_run_docker_command %s " % docker_opts
 
+    def _generate_test_docker_cmd_(self, commands, service, service_name, docker_links):
+        docker_opts  = self._launch_options_(commands, service, docker_links, env=None, run_base_image=False, mount_root_dir=False)
+
+        if service.tests.has_value():
+            opts = []
+            for data_volume in service.tests.data_volumes:
+                opts.append(data_volume.get_mount_opt())
+            docker_opts += " " + (" ".join(opts))
+
+        env = self.env.get_replaced_variables(docker_links=docker_links, needed_links=service.needed_links)
+        image_name = service.config.docker_image.get_image_name(env = env)
+        docker_opts += " -i %s" % image_name
+
+        return 'dmake_run_docker_test %s "" %s ' % (service_name, docker_opts)
+
     def generate_shell(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
-        docker_cmd = self._generate_test_docker_cmd_(commands, service, docker_links)
+        docker_cmd = self._generate_shell_docker_cmd_(commands, service, docker_links)
         append_command(commands, 'sh', shell = docker_cmd + self.docker.command)
 
     def generate_test(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
-        docker_cmd = self._generate_test_docker_cmd_(commands, service, docker_links)
+        if not service.tests.has_value():
+            return
+        if not service.config.docker_image.has_value():
+            raise DMakeException("You need to specify a 'config.docker_image' when testing.")
+        docker_cmd = self._generate_test_docker_cmd_(commands, service, service_name, docker_links)
 
         # Run test commands
-        service.tests.generate_test(commands, self.app_name, docker_cmd, docker_links)
+        service.tests.generate_test(commands, service_name, docker_cmd, docker_links, self.docker.mount_point)
 
     def generate_run_link(self, commands, service, docker_links):
         service = service.split('/')
