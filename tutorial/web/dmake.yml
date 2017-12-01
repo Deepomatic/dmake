@@ -36,6 +36,8 @@ services:
           host_port: 8000
     tests:
       commands:
+        - touch 'tag' # test shared environment for multiple commands test
+        - test -f "tag"  # test command escaping
         - >-
           ./manage.py test
           --verbosity=2 --noinput
