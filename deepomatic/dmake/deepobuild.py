@@ -719,23 +719,42 @@ class DeploySerializer(YAML2PipelineSerializer):
 
 class DataVolumeSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
-    source            = FieldSerializer("string", example = "s3://my-bucket/some/folder", help_text = "Remote bucket to mount. Only s3 is supported for now and the path must start with 's3://'")
+    source            = FieldSerializer("string", example = "s3://my-bucket/some/folder", help_text = "Only host path and s3 URLs are supported for now.")
+    read_only         = FieldSerializer("bool",   default = False,  help_text = "Flag to set the volume as read-only")
 
-    def get_mount_opt(self):
+    def get_mount_opt(self, env=None):
+        if env is None:
+            env = {}
+
         scheme = None
         path = ""
-        i = self.source.find('://')
-        if i >= 0:
-            scheme = self.source[:i]
-            path = self.source[(i + 3):]
 
-        if scheme == "s3":
-            path = os.path.join(common.config_dir, 'data_volumes', 's3', path)
-            common.run_shell_command('aws s3 sync %s %s' % (self.source, path))
+        source = common.eval_str_in_env(self.source, env)
+        container_volume = common.eval_str_in_env(self.container_volume, env)
+
+        if source[0:1] in ['/', '.']:
+            scheme = 'file'
+            path = source
         else:
-            raise DMakeException("Field source is expected to start with 's3://'")
+            i = source.find('://')
+            if i >= 0:
+                scheme = source[:i]
+                path = source[(i + 3):]
 
-        return '-v %s:%s' % (path, self.container_volume)
+        if scheme == "file":
+            # nothing special to do
+            pass
+        elif scheme == "s3":
+            path = os.path.join(common.config_dir, 'data_volumes', 's3', path)
+            common.run_shell_command('aws s3 sync %s %s' % (source, path))
+        else:
+            raise DMakeException("Field source must be a host path or start with 's3://'")
+
+        options = '-v %s:%s' % (path, container_volume)
+        if self.read_only:
+            options += ':ro'
+        return options
+
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer(deprecated="Use 'services:needed_links' instead", data_type="array", child = "string", migration='0001_docker_links_names_to_needed_links', default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
