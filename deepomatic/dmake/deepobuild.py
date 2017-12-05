@@ -995,10 +995,6 @@ class DMakeFile(DMakeFileSerializer):
         if not service.config.has_value() or not service.config.docker_image.has_value() or service.config.docker_image.start_script is None:
             return
 
-        docker_run_prefix = ''
-        if service.config.need_gpu:
-            docker_run_prefix = 'DOCKER_CMD=nvidia-docker '
-
         unique_service_name = service_name
         customized_env = {}
         if service_customization:
@@ -1013,10 +1009,10 @@ class DMakeFile(DMakeFileSerializer):
         # <DEPRECATED>
         if service.config.pre_deploy_script:
             cmd = service.config.pre_deploy_script
-            append_command(commands, 'sh', shell = docker_run_prefix + "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
+            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
         # </DEPRECATED>
 
-        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = docker_run_prefix + 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, opts, image_name))
+        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, opts, image_name))
 
         cmd = service.config.readiness_probe.get_cmd()
         if cmd:
@@ -1031,7 +1027,7 @@ class DMakeFile(DMakeFileSerializer):
         cmd = " && ".join(cmd)
         if cmd:
             cmd = 'bash -c %s' % common.wrap_cmd(cmd)
-            append_command(commands, 'sh', shell = docker_run_prefix + "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
+            append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
         # </DEPRECATED>
 
     def generate_build(self, commands):
@@ -1082,12 +1078,7 @@ class DMakeFile(DMakeFileSerializer):
 
         docker_opts += " -i %s" % self.docker.get_docker_base_image_name_tag()
 
-        docker_cmd = "dmake_run_docker_command %s " % docker_opts
-
-        if service.config.has_value() and service.config.need_gpu:
-            docker_cmd = 'DOCKER_CMD=nvidia-docker ' + docker_cmd
-
-        return docker_cmd
+        return "dmake_run_docker_command %s " % docker_opts
 
     def generate_shell(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
