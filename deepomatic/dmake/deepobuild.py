@@ -468,7 +468,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             from_file_args = ["--from-file=%s=%s" % (file_source.key, file_source.path) for file_source in cm.from_files]
             args = ['create', 'configmap', '--dry-run=true', '--output=yaml', cm.name] + from_file_args
             cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
-            cm_data = common.run_shell_command(cmd)
+            cm_data = common.run_shell_command(cmd, raise_on_return_code=True)
             cm_datas.append(cm_data)
         with open(os.path.join(tmp_dir, user_configmaps_filename), 'w') as f:
             f.write('\n\n---\n\n'.join(cm_datas))
@@ -490,7 +490,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         args = ['apply', '--dry-run=true', '--validate=true', '--filename=%s' % user_manifest_path]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         try:
-            common.run_shell_command(cmd)
+            common.run_shell_command(cmd, raise_on_return_code=True)
         except common.ShellError as e:
             raise DMakeException("%s: Invalid Kubernetes manifest file %s (rendered template: %s): %s" % (app_name, self.manifest, user_manifest_path, e))
 
