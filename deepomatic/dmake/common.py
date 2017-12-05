@@ -74,7 +74,7 @@ def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=N
         p = subprocess.Popen(cmd, stdin = prev_stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE, env = env)
         prev_stdout = p.stdout
     stdout, stderr = p.communicate(stdin)
-    if len(stderr) > 0 and not ignore_error:
+    if len(stderr) > 0 and not ignore_error and not raise_on_return_code:
         raise ShellError(subprocess_output_to_string(stderr))
     if raise_on_return_code and p.returncode != 0:
         raise ShellError("return code: %s; stdout: %sstderr: %s" % (p.returncode, subprocess_output_to_string(stdout), subprocess_output_to_string(stderr)))
