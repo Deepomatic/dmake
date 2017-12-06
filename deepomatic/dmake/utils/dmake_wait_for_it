@@ -11,10 +11,10 @@ usage()
 {
     cat << USAGE >&2
 Usage:
-    $cmdname host:port [-s] [-t timeout] [-- command args]
+    $cmdname host:port|scheme://hostname:port/path [-s] [-t timeout] [-- command args]
     -h HOST | --host=HOST       Host or IP under test
     -p PORT | --port=PORT       TCP port under test
-                                Alternatively, you specify the host and port as host:port
+                                Alternatively, you can specify the host and port as host:port, or a full URI with explicit port
     -s | --strict               Only execute subcommand if the test succeeds
     -q | --quiet                Don't output any status messages
     -t TIMEOUT | --timeout=TIMEOUT
@@ -22,6 +22,11 @@ Usage:
     -- COMMAND ARGS             Execute command with args after the test finishes
 USAGE
     exit 1
+}
+
+function get_hostname_port() {
+  local URI_OR_HOSTPORT="$1"
+  echo "$URI_OR_HOSTPORT" | sed -e 's,\(.*\?://\)\?\(.*\?@\)\?\([^/]*\).*,\3,'
 }
 
 wait_for()
@@ -69,7 +74,8 @@ while [[ $# -gt 0 ]]
 do
     case "$1" in
         *:* )
-        hostport=(${1//:/ })
+        hostport=$(get_hostname_port "$1")
+        hostport=(${hostport//:/ })
         HOST=${hostport[0]}
         PORT=${hostport[1]}
         shift 1
