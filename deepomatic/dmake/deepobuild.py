@@ -965,8 +965,8 @@ class DMakeFileSerializer(YAML2PipelineSerializer):
     docker             = FieldSerializer([FieldSerializer("file", help_text = "to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field."), DockerSerializer()], help_text = "The environment in which to build and deploy.")
     docker_links       = FieldSerializer("array", child = DockerLinkSerializer(), default = [], help_text = "List of link to create, they are shared across the whole application, so potentially across multiple dmake files.")
     build              = BuildSerializer(help_text = "Commands to run for building the application.")
-    pre_test_commands  = FieldSerializer("array", default = [], child = "string", help_text = "Command list to run before running tests.")
-    post_test_commands = FieldSerializer("array", default = [], child = "string", help_text = "Command list to run after running tests.")
+    pre_test_commands  = FieldSerializer("array", default = [], child = "string", help_text = "Deprecated, not used anymore, will be removed later. Use `tests.commands` instead.")
+    post_test_commands = FieldSerializer("array", default = [], child = "string", help_text = "Deprecated, not used anymore, will be removed later. Use `tests.commands` instead.")
     services           = FieldSerializer("array", child = ServicesSerializer(), default = [], help_text = "Service list.")
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
@@ -1221,14 +1221,8 @@ class DMakeFile(DMakeFileSerializer):
         service = self._get_service_(service_name)
         docker_cmd = self._generate_test_docker_cmd_(commands, service, docker_links)
 
-        # Run pre-test commands
-        for cmd in self.pre_test_commands:
-            append_command(commands, 'sh', shell = docker_cmd + cmd)
         # Run test commands
         service.tests.generate_test(commands, self.app_name, docker_cmd, docker_links)
-        # Run post-test commands
-        for cmd in self.post_test_commands:
-            append_command(commands, 'sh', shell = docker_cmd + cmd)
 
     def generate_run_link(self, commands, service, docker_links):
         service = service.split('/')
