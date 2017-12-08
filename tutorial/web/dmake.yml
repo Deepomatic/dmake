@@ -36,4 +36,15 @@ services:
           host_port: 8000
     tests:
       commands:
-        - ./manage.py test --verbosity=2
+        - >-
+          ./manage.py test
+          --verbosity=2 --noinput
+          --with-coverage --cover-package=. --cover-branches --cover-erase --cover-html --cover-html-dir cover --cover-xml --cover-xml-file coverage.xml
+          --with-xunit --xunit-file nosetests.xml
+          --nologcapture
+          --with-id
+      junit_report: tutorial/web/nosetests.xml
+      html_report:
+        directory: tutorial/web/cover
+        title: Web HTML coverage report
+      cobertura_report: 'tutorial/web/coverage.xml'
