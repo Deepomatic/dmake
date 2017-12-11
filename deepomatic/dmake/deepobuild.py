@@ -795,7 +795,7 @@ class DataVolumeSerializer(YAML2PipelineSerializer):
     source            = FieldSerializer("string", example = "s3://my-bucket/some/folder", help_text = "Only host path and s3 URLs are supported for now.")
     read_only         = FieldSerializer("bool",   default = False,  help_text = "Flag to set the volume as read-only")
 
-    def get_mount_opt(self, env=None):
+    def get_mount_opt(self, service_name, env=None):
         if env is None:
             env = {}
 
@@ -818,7 +818,7 @@ class DataVolumeSerializer(YAML2PipelineSerializer):
             # nothing special to do
             pass
         elif scheme == "s3":
-            path = os.path.join(common.config_dir, 'data_volumes', 's3', path)
+            path = os.path.join(common.config_dir, 'data_volumes', 's3', service_name.replace(':', '-'), path)
             common.run_shell_command('aws s3 sync %s %s' % (source, path))
         else:
             raise DMakeException("Field source must be a host path or start with 's3://'")
@@ -1186,13 +1186,13 @@ class DMakeFile(DMakeFileSerializer):
 
         return docker_opts
 
-    def _generate_shell_docker_cmd_(self, commands, service, docker_links):
+    def _generate_shell_docker_cmd_(self, commands, service, service_name, docker_links):
         docker_opts  = self._launch_options_(commands, service, docker_links, self.build.env, run_base_image=True, mount_root_dir=True)
 
         if service.tests.has_value():
             opts = []
             for data_volume in service.tests.data_volumes:
-                opts.append(data_volume.get_mount_opt())
+                opts.append(data_volume.get_mount_opt(service_name))
             docker_opts += " " + (" ".join(opts))
 
         docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
@@ -1206,7 +1206,7 @@ class DMakeFile(DMakeFileSerializer):
         if service.tests.has_value():
             opts = []
             for data_volume in service.tests.data_volumes:
-                opts.append(data_volume.get_mount_opt())
+                opts.append(data_volume.get_mount_opt(service_name))
             docker_opts += " " + (" ".join(opts))
 
         env = self.env.get_replaced_variables(docker_links=docker_links, needed_links=service.needed_links)
@@ -1217,7 +1217,7 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_shell(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
-        docker_cmd = self._generate_shell_docker_cmd_(commands, service, docker_links)
+        docker_cmd = self._generate_shell_docker_cmd_(commands, service, service_name, docker_links)
         append_command(commands, 'sh', shell = docker_cmd + self.docker.command)
 
     def generate_test(self, commands, service_name, docker_links):
