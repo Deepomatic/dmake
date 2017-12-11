@@ -1,4 +1,5 @@
 import os, sys
+import uuid
 
 import deepomatic.dmake.common as common
 from   deepomatic.dmake.common import DMakeException
@@ -406,7 +407,7 @@ def generate_command_pipeline(file, cmds):
                 write_line(','.join(commands_list))
                 write_line(')')
         elif cmd == "read_sh":
-            file_output = os.path.join(common.root_dir, ".dmake", "output_%d" % kwargs['id'])
+            file_output = os.path.join(common.cache_dir, "output_%s" % uuid.uuid4())
             write_line("sh('%s > %s')" % (kwargs['shell'], file_output))
             write_line("env.%s = readFile '%s'" % (kwargs['var'], file_output));
             if kwargs['fail_if_empty']:

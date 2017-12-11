@@ -1,7 +1,7 @@
 import os
 import copy
 import json
-import random
+import uuid
 import importlib
 from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import deepomatic.dmake.common as common
@@ -29,7 +29,6 @@ def append_command(commands, cmd, prepend = False, **args):
         check_cmd(args, ['shell'])
     elif cmd == "read_sh":
         check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
-        args['id'] = len(commands)
         if 'fail_if_empty' not in args:
             args['fail_if_empty'] = False
     elif cmd == "env":
@@ -64,7 +63,7 @@ def generate_copy_command(commands, tmp_dir, src):
 
 def generate_env_file(tmp_dir, env):
     while True:
-        file = os.path.join(tmp_dir, 'env.txt.%d' % random.randint(0, 999999))
+        file = os.path.join(tmp_dir, 'env.txt.%s' % uuid.uuid4())
         if not os.path.isfile(file):
             break
     with open(file, 'w') as f:
