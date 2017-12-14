@@ -792,12 +792,6 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         super(NeededServiceSerializer, self).__init__(**kwargs)
         self._specialized = True
 
-    # def __str__(self):
-    #     s = "%s" % (self.service_name)
-    #     if self._specialized:
-    #         s += " -- env: %s" % (self.env)
-    #     return s
-
     def __eq__(self, other):
         # NeededServiceSerializer objects are equal if equivalent, to deduplicate their instances at runtime
         # objects are not comparable before the call to _validate_(), because fields are not populated yet
