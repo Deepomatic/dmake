@@ -128,19 +128,18 @@ for i in ret.items:
     beta_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
     deployments.append(name)
 
-# # Actually not a good solution: we would need to remove those entries if this file succeed
-# # Removing is not so easy as there might some concurreny writes in this file
-# # As it is unlikely to fail here anyway, for now we do not roll back deployment in case of failure
-# with open(os.path.join(tmp_dir, 'k8s_deployments.txt'), 'a') as f:
-#     for name in deployments:
-#         f.write('"%s" deployment/%s\n' % (namespace, name))
+    if len(deployments) > 20:
+        for name in deployments:
+            while True:
+                api_response = beta_v1_client.read_namespaced_deployment(name, namespace)
+                if api_response.spec.replicas > 0 and \
+                   api_response.status.available_replicas is None:
+                    print("- Waiting for %s to be ready" % name)
+                    time.sleep(5)
+                else:
+                    break
+        deployments = []
 
-for name in deployments:
-    while True:
-        api_response = beta_v1_client.read_namespaced_deployment(name, namespace)
-        if api_response.spec.replicas > 0 and \
-           api_response.status.available_replicas is None:
-            print("- Waiting for %s to be ready" % name)
-            time.sleep(5)
-        else:
-            break
+
+
+
