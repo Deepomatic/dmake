@@ -850,7 +850,7 @@ class TestSerializer(YAML2PipelineSerializer):
     cobertura_report   = FieldSerializer("string", optional = True, example = "**/coverage.xml", help_text = "Publish a Cobertura report. **WARNING** only one is allowed per repository.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
 
-    def generate_test(self, commands, service_name, docker_cmd, docker_links, mount_point):
+    def generate_test(self, commands, path, service_name, docker_cmd, docker_links, mount_point):
         if not self.has_value() or len(self.commands) == 0:
             return
 
@@ -858,15 +858,15 @@ class TestSerializer(YAML2PipelineSerializer):
         append_command(commands, 'sh', shell = docker_cmd + tests_cmd)
 
         if self.junit_report is not None:
-            append_command(commands, 'junit', report = self.junit_report, service_name = service_name, mount_point = mount_point)
+            append_command(commands, 'junit', report = os.path.join(path, self.junit_report), service_name = service_name, mount_point = mount_point)
 
         if self.cobertura_report is not None:
-            append_command(commands, 'cobertura', report = self.cobertura_report, service_name = service_name, mount_point = mount_point)
+            append_command(commands, 'cobertura', report = os.path.join(path, self.cobertura_report), service_name = service_name, mount_point = mount_point)
 
         html = self.html_report._value_()
         if html is not None:
             append_command(commands, 'publishHTML', service_name = service_name, mount_point = mount_point,
-                           directory = html['directory'],
+                           directory = os.path.join(path, html['directory']),
                            index     = html['index'],
                            title     = html['title'],)
 
@@ -1233,7 +1233,7 @@ class DMakeFile(DMakeFileSerializer):
         docker_cmd = self._generate_test_docker_cmd_(commands, service, service_name, docker_links)
 
         # Run test commands
-        service.tests.generate_test(commands, service_name, docker_cmd, docker_links, self.docker.mount_point)
+        service.tests.generate_test(commands, self.__path__, service_name, docker_cmd, docker_links, self.docker.mount_point)
 
     def generate_run_link(self, commands, service, docker_links):
         service = service.split('/')
