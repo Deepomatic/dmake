@@ -838,6 +838,14 @@ class TestSerializer(YAML2PipelineSerializer):
     cobertura_report   = FieldSerializer("string", optional = True, example = "**/coverage.xml", help_text = "Publish a Cobertura report. **WARNING** only one is allowed per repository.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
 
+    def get_mounts_opt(self, service_name):
+        if not self.has_value():
+            return ''
+        opts = []
+        for data_volume in self.data_volumes:
+            opts.append(data_volume.get_mount_opt(service_name))
+        return ' ' + ' '.join(opts)
+
     def generate_test(self, commands, path, service_name, docker_cmd, docker_links, mount_point):
         if not self.has_value() or len(self.commands) == 0:
             return
@@ -1111,6 +1119,16 @@ class DMakeFile(DMakeFileSerializer):
         base_image = self.docker.get_base_image_from_service_name(base_image_service_name)
         base_image._serialize_(commands, self.__path__)
 
+    def _generate_run_docker_opts_(self, commands, service, docker_links, env=None):
+        if env is None:
+            env = {}
+        docker_opts = self._launch_options_(commands, service, docker_links, env=env, run_base_image=False, mount_root_dir=False)
+
+        env = self.env.get_replaced_variables(docker_links=docker_links, needed_links=service.needed_links)
+        image_name = service.config.docker_image.get_image_name(env=env)
+
+        return docker_opts, image_name
+
     def generate_run(self, commands, service_name, docker_links, service_customization):
         service = self._get_service_(service_name)
         if not service.config.has_value() or not service.config.docker_image.has_value() or service.config.docker_image.start_script is None:
@@ -1124,11 +1142,14 @@ class DMakeFile(DMakeFileSerializer):
             customized_env = service_customization.get_env(context_env)
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; service_name already contains "<app_name>/"
             unique_service_name += service_customization.get_service_name_unique_suffix()
-        opts = self._launch_options_(commands, service, docker_links, customized_env, run_base_image=False, mount_root_dir=False)
-        image_name = service.config.docker_image.get_image_name(env=context_env)
 
-        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, opts, image_name))
+        docker_opts, image_name = self._generate_run_docker_opts_(commands, service, docker_links, customized_env)
+        docker_cmd = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, docker_opts, image_name)
 
+        # Run daemon
+        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = docker_cmd)
+
+        # Wait for daemon to be ready
         cmd = service.config.readiness_probe.get_cmd()
         if cmd:
             append_command(commands, 'sh', shell = 'dmake_exec_docker "$DAEMON_ID" %s' % cmd)
@@ -1160,38 +1181,17 @@ class DMakeFile(DMakeFileSerializer):
 
         return docker_opts
 
-    def _generate_shell_docker_cmd_(self, commands, service, service_name, docker_links):
-        docker_opts  = self._launch_options_(commands, service, docker_links, self.build.env, run_base_image=True, mount_root_dir=True)
+    def generate_shell(self, commands, service_name, docker_links):
+        service = self._get_service_(service_name)
 
-        if service.tests.has_value():
-            opts = []
-            for data_volume in service.tests.data_volumes:
-                opts.append(data_volume.get_mount_opt(service_name))
-            docker_opts += " " + (" ".join(opts))
+        docker_opts = self._launch_options_(commands, service, docker_links, self.build.env, run_base_image=True, mount_root_dir=True)
+        docker_opts += service.tests.get_mounts_opt(service_name)
 
         docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
         docker_opts += " -i %s" % docker_base_image
 
-        return "dmake_run_docker_command %s " % docker_opts
+        docker_cmd = "dmake_run_docker_command %s " % docker_opts
 
-    def _generate_test_docker_cmd_(self, commands, service, service_name, docker_links):
-        docker_opts  = self._launch_options_(commands, service, docker_links, env=None, run_base_image=False, mount_root_dir=False)
-
-        if service.tests.has_value():
-            opts = []
-            for data_volume in service.tests.data_volumes:
-                opts.append(data_volume.get_mount_opt(service_name))
-            docker_opts += " " + (" ".join(opts))
-
-        env = self.env.get_replaced_variables(docker_links=docker_links, needed_links=service.needed_links)
-        image_name = service.config.docker_image.get_image_name(env = env)
-        docker_opts += " -i %s" % image_name
-
-        return 'dmake_run_docker_test %s "" %s ' % (service_name, docker_opts)
-
-    def generate_shell(self, commands, service_name, docker_links):
-        service = self._get_service_(service_name)
-        docker_cmd = self._generate_shell_docker_cmd_(commands, service, service_name, docker_links)
         append_command(commands, 'sh', shell = docker_cmd + self.docker.command)
 
     def generate_test(self, commands, service_name, docker_links):
@@ -1200,7 +1200,10 @@ class DMakeFile(DMakeFileSerializer):
             return
         if not service.config.docker_image.has_value():
             raise DMakeException("You need to specify a 'config.docker_image' when testing.")
-        docker_cmd = self._generate_test_docker_cmd_(commands, service, service_name, docker_links)
+
+        docker_opts, image_name = self._generate_run_docker_opts_(commands, service, docker_links)
+        docker_opts += service.tests.get_mounts_opt(service_name)
+        docker_cmd = 'dmake_run_docker_test %s "" %s -i %s ' % (service_name, docker_opts, image_name)
 
         # Run test commands
         service.tests.generate_test(commands, self.__path__, service_name, docker_cmd, docker_links, self.docker.mount_point)
