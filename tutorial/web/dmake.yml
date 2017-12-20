@@ -45,8 +45,8 @@ services:
           --with-xunit --xunit-file nosetests.xml
           --nologcapture
           --with-id
-      junit_report: tutorial/web/nosetests.xml
+      junit_report: nosetests.xml
       html_report:
-        directory: tutorial/web/cover
+        directory: cover
         title: Web HTML coverage report
-      cobertura_report: 'tutorial/web/coverage.xml'
+      cobertura_report: coverage.xml
