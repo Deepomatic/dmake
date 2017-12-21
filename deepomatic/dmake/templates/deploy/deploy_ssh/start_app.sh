@@ -69,12 +69,6 @@ RUN_COMMAND="${DOCKER_CMD} run ${DOCKER_OPTS} -v /var/log:/var/log"
 DOCKER_SHARE_OPTS="-v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):/usr/bin/docker -v /usr/lib/x86_64-linux-gnu/libltdl.so.7:/usr/lib/x86_64-linux-gnu/libltdl.so.7"
 RUN_COMMAND_HOOKS="$RUN_COMMAND --rm $DOCKER_SHARE_OPTS -t -i ${IMAGE_NAME}"
 
-# Run pre hooks (deprecated)
-if [ ! -z "${PRE_DEPLOY_HOOKS}" ]; then
-    echo "Running pre-deploy script ${PRE_DEPLOY_HOOKS}"
-    $RUN_COMMAND_HOOKS ${PRE_DEPLOY_HOOKS}
-fi
-
 # Switch images
 echo "Deploying new app version"
 docker rm -f ${APP_NAME}-tmp || :
@@ -84,12 +78,6 @@ $RUN_COMMAND --restart unless-stopped --name ${APP_NAME}-tmp -d -i ${IMAGE_NAME}
 if [ ! -z '${READYNESS_PROBE}' ]; then # '' are importants here as there might be unescaped " in READYNESS_PROBE
     echo "Running readyness probe"
     docker exec ${APP_NAME}-tmp ${READYNESS_PROBE}
-fi
-
-# Run mid hooks (deprecated)
-if [ ! -z "${MID_DEPLOY_HOOKS}" ]; then
-    echo "Running mid-deploy script ${MID_DEPLOY_HOOKS}"
-    $RUN_COMMAND_HOOKS ${MID_DEPLOY_HOOKS}
 fi
 
 docker stop ${APP_NAME} &> /dev/null || :
@@ -103,9 +91,3 @@ if [ ! -z "$IDS" ]; then
     docker rmi $IDS
 fi
 set -e
-
-# Run post hooks (deprecated)
-if [ ! -z "${POST_DEPLOY_HOOKS}" ]; then
-    echo "Running post-deploy script ${POST_DEPLOY_HOOKS}"
-    $RUN_COMMAND_HOOKS ${POST_DEPLOY_HOOKS}
-fi
