@@ -459,17 +459,6 @@ def generate_command_pipeline(file, cmds):
             write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_html_directory, host_html_directory))
             write_line("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])" % (host_html_directory, kwargs['index'], kwargs['title'].replace("'", "\'")))
             write_line('''sh('rm -rf "%s"')''' % host_html_directory)
-        elif cmd == "build":
-            parameters = []
-            for var, value in kwargs['parameters'].items():
-                value = common.eval_str_in_env(value)
-                parameters.append("string(name: '%s', value: '%s')" % (var.replace("'", "\\'"), value.replace("'", "\\'")))
-            parameters = ','.join(parameters)
-            write_line("build job: '%s', parameters: [%s], propagate: %s, wait: %s" % (
-                    kwargs['job'].replace("'", "\\'"),
-                    parameters,
-                    "true" if kwargs['propagate'] else "false",
-                    "true" if kwargs['wait'] else "false"))
         else:
             raise DMakeException("Unknown command %s" % cmd)
 
@@ -527,8 +516,6 @@ def generate_command_bash(file, cmds):
             container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
             host_html_directory = make_path_unique_per_variant(kwargs['directory'], kwargs['service_name'])
             file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_html_directory, host_html_directory))
-        elif cmd == "build":
-            pass  # Should be configured with GUI
         else:
             raise DMakeException("Unknown command %s" % cmd)
 
@@ -695,7 +682,7 @@ def make(root_dir, sub_dir, command, app, options):
     else:
         n = len(ordered_build_files)
         base   = list(filter(lambda a_b__c: a_b__c[0][0] in ['base'], ordered_build_files))
-        build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build', 'build_docker'], ordered_build_files))
+        build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build_docker'], ordered_build_files))
         test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['test', 'run_link', 'run'], ordered_build_files))
         deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['shell', 'deploy'], ordered_build_files))
         if len(base) + len(build) + len(test) + len(deploy) != len(ordered_build_files):
@@ -754,8 +741,6 @@ def make(root_dir, sub_dir, command, app, options):
                     dmake_file.generate_run(step_commands, service, links, service_customization)
                 elif command == "run_link":
                     dmake_file.generate_run_link(step_commands, service, links)
-                elif command == "build":
-                    dmake_file.generate_build(step_commands, service)
                 elif command == "build_docker":
                     dmake_file.generate_build_docker(step_commands, service)
                 elif command == "deploy":

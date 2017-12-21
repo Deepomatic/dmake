@@ -43,8 +43,6 @@ def append_command(commands, cmd, prepend = False, **args):
         check_cmd(args, ['report', 'service_name', 'mount_point'])
     elif cmd == "publishHTML":
         check_cmd(args, ['directory', 'index', 'title', 'service_name', 'mount_point'])
-    elif cmd == "build":
-        check_cmd(args, ['job', 'parameters', 'propagate', 'wait'])
     else:
         raise DMakeException("Unknown command %s" % cmd)
     cmd = (cmd, args)
@@ -1165,18 +1163,6 @@ class DMakeFile(DMakeFileSerializer):
             cmd = 'bash -c %s' % common.wrap_cmd(cmd)
             append_command(commands, 'sh', shell = "dmake_run_docker_command %s -i %s %s" % (opts, image_name, cmd))
         # </DEPRECATED>
-
-    def generate_build(self, commands, service_name):
-        if not self.build.has_value():
-            return
-        service = self._get_service_(service_name)
-        docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
-        docker_cmd = self._generate_docker_cmd_(self.docker, env=self.build.env)
-        docker_cmd += ' -e DMAKE_BUILD_TYPE=%s ' % common.get_dmake_build_type()
-        docker_cmd += " -i %s " % docker_base_image
-
-        for cmds in self.build.commands:
-            append_command(commands, 'sh', shell = ["dmake_run_docker_command " + docker_cmd + ' %s' % cmd for cmd in cmds])
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
