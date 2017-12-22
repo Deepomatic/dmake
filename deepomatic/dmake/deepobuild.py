@@ -1205,7 +1205,7 @@ class DMakeFile(DMakeFileSerializer):
         env = self.env.get_replaced_variables()
         image_name = common.eval_str_in_env(link.image_name, env)
         options = link.get_options(self.__path__, env)
-        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, image_name, link.link_name, options, link.probe_ports_list()))
+        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" %s' % (self.app_name, image_name, link.link_name, link.probe_ports_list(), options))
 
     def generate_deploy(self, commands, service_name):
         service = self._get_service_(service_name)
