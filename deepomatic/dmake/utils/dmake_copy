@@ -26,6 +26,6 @@ set -e
 SOURCE_PATH=$1
 TARGET_PATH=$2
 mkdir -p $(dirname ${TARGET_PATH})
-cp -r ${SOURCE_PATH} ${TARGET_PATH}
+cp -rL ${SOURCE_PATH} ${TARGET_PATH}
 
 dmake_md5 ${TARGET_PATH}
