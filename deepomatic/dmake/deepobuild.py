@@ -192,10 +192,11 @@ class DockerSerializer(YAML2PipelineSerializer):
             except requests.exceptions.ConnectionError as e:
                 if not common.is_local:
                     raise e
-                common.logger.info('Could not reach registry, you seem to be offline.')
-                common.logger.info('Trying to find {} locally'.format(self.root_image))
+                common.logger.warning("""I could not reach the docker registry, you are probably offline.""")
+                common.logger.warning("""As a consequence, I cannot check if '{}' is outdated but I will try to continue.""")
+                common.logger.warning("""Now trying to find a possibly outdated version of '{}' locally""".format(self.root_image))
                 try:
-                    response = common.run_shell_command('docker inspect {}'.format(self.root_image))
+                    response = common.run_shell_command('docker image inspect {}'.format(self.root_image))
                     root_image_digest = json.loads(response)[0]['RepoDigests'][0].split('@')[1].replace(':', '-')
                 except Exception as e:
                     common.logger.info('Failed to find {} locally with the following error:'.format(self.root_image))
