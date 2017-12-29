@@ -806,12 +806,6 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         super(NeededServiceSerializer, self).__init__(**kwargs)
         self._specialized = True
 
-    def __str__(self):
-        s = "%s" % (self.service_name)
-        if self._specialized:
-            s += " -- env: %s" % (self.env)
-        return s
-
     def __eq__(self, other):
         # NeededServiceSerializer objects are equal if equivalent, to deduplicate their instances at runtime
         # objects are not comparable before the call to _validate_(), because fields are not populated yet
@@ -829,12 +823,15 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         # also accept simple variant where data is a string: the service_name
         if common.is_string(data):
             data = {'service_name': data}
-            self._specialized = False
-        return super(NeededServiceSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        result = super(NeededServiceSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        self._specialized = len(self.env) > 0
+        return result
 
-    def populate_env(self, context_env):
+    def get_env(self, context_env):
+        contextualized_env = {}
         for key, value in self.env.items():
-            self.env[key] = common.eval_str_in_env(value, context_env)
+            contextualized_env[key] = common.eval_str_in_env(value, context_env)
+        return contextualized_env
 
     def get_service_name_unique_suffix(self):
         return "--%s" % id(self) if self._specialized else ""
@@ -921,12 +918,6 @@ class DMakeFile(DMakeFileSerializer):
                     env.__fields__['source'].value = None
                 self.__fields__['env'] = env
 
-        # populate needed_services environment
-        runtime_env = self.__fields__['env'].get_replaced_variables()
-        for service in self.__fields__['services'].value:
-            for needed_service in service.needed_services:
-                needed_service.populate_env(runtime_env)
-
         self.docker_services_image = None
         self.app_package_dirs = {}
 
@@ -1009,16 +1000,16 @@ class DMakeFile(DMakeFileSerializer):
         if not service.config.has_value() or not service.config.docker_image.has_value() or service.config.docker_image.start_script is None:
             return
 
+        context_env = self.env.get_replaced_variables(docker_links=docker_links, needed_links=service.needed_links)
         unique_service_name = service_name
+
         customized_env = {}
         if service_customization:
-            customized_env = service_customization.env
+            customized_env = service_customization.get_env(context_env)
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; service_name already contains "<app_name>/"
             unique_service_name += service_customization.get_service_name_unique_suffix()
-
         opts = self._launch_options_(commands, service, docker_links, customized_env, run_base_image=False, mount_root_dir=False)
-        env = self.env.get_replaced_variables(docker_links=docker_links, needed_links=service.needed_links)
-        image_name = service.config.docker_image.get_image_name(service_name, env)
+        image_name = service.config.docker_image.get_image_name(service_name, context_env)
 
         # <DEPRECATED>
         if service.config.pre_deploy_script:
