@@ -147,7 +147,7 @@ def get_dmake_build_type():
 ###############################################################################
 
 def init(_command, _root_dir, _app, _options):
-    global root_dir, tmp_dir, config_dir, cache_dir, key_file
+    global root_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
     global repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global build_description
@@ -160,7 +160,8 @@ def init(_command, _root_dir, _app, _options):
     config_dir = os.getenv('DMAKE_CONFIG_DIR', None)
     if config_dir is None:
         raise DMakeException("DMake seems to be badly configured: environment variable DMAKE_CONFIG_DIR is missing. Try to run %s again." % os.path.join(os.getenv('DMAKE_PATH', ""), 'install.sh'))
-    cache_dir = os.path.join(root_dir, '.dmake')
+    relative_cache_dir = '.dmake'
+    cache_dir = os.path.join(root_dir, relative_cache_dir)
     try:
         os.mkdir(cache_dir)
     except OSError:

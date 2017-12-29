@@ -4,6 +4,11 @@ import json
 import math
 
 class FactorialTest(TestCase):
+    def test_slash(self):
+        c = Client()
+        response = c.get('/')
+        self.assertTrue(len(response.content) > 0)
+
     def test_get(self):
         c = Client()
         response = c.get('/api/factorial', {'n': 4})
