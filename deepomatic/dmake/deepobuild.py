@@ -3,6 +3,7 @@ import copy
 import json
 import random
 import importlib
+import requests.exceptions
 from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import deepomatic.dmake.common as common
 from deepomatic.dmake.common import DMakeException
@@ -186,7 +187,20 @@ class DockerSerializer(YAML2PipelineSerializer):
             dmake_digest = common.run_shell_command('dmake_md5 %s' % (md5_file))
 
             # Get root_image digest
-            root_image_digest = docker_registry.get_image_digest(self.root_image)
+            try:
+                root_image_digest = docker_registry.get_image_digest(self.root_image)
+            except requests.exceptions.ConnectionError as e:
+                if not common.is_local:
+                    raise e
+                common.logger.warning("""I could not reach the docker registry, you are probably offline.""")
+                common.logger.warning("""As a consequence, I cannot check if '{}' is outdated but I will try to continue.""")
+                common.logger.warning("""Now trying to find a possibly outdated version of '{}' locally""".format(self.root_image))
+                try:
+                    response = common.run_shell_command('docker image inspect {}'.format(self.root_image))
+                    root_image_digest = json.loads(response)[0]['RepoDigests'][0].split('@')[1].replace(':', '-')
+                except Exception as e:
+                    common.logger.info('Failed to find {} locally with the following error:'.format(self.root_image))
+                    raise e
 
             # Generate base image tag
             self.base_image_tag = self._get_base_image_tag(root_image_digest, dmake_digest)
