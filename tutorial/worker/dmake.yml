@@ -2,13 +2,16 @@ dmake_version: 0.1
 app_name: dmake-tutorial
 
 docker:
-  root_image:
-    name: ubuntu
-    tag: 16.04
   base_image:
-    name: dmake-tutorial-worker-base
-    install_scripts:
-      - deploy/dependencies.sh
+    - &base
+      name: dmake-tutorial-worker-base
+      variant: ubuntu-1604
+      root_image: ubuntu:16.04
+      install_scripts:
+        - deploy/dependencies.sh
+    - <<: *base
+      variant: ubuntu-1804
+      root_image: ubuntu:18.04
 
 env:
   default:
@@ -36,6 +39,10 @@ services:
       - rabbitmq
     config:
       docker_image:
+        name: dmake-tutorial-worker
+        base_image_variant:
+          - ubuntu-1604
+          - ubuntu-1804
         entrypoint: deploy/entrypoint.sh
         start_script: deploy/start.sh
     tests:

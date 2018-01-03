@@ -41,7 +41,7 @@ def kombu_connect():
                                      exchange = exchange,
                                      passive = False,
                                      durable     = False,
-                                     exclusive   = True,
+                                     exclusive   = False,
                                      auto_delete = True)
         response_queue.declare()
 
@@ -74,4 +74,3 @@ def call_worker(request):
     data = struct.unpack("Q", data.body)[0]
 
     return JsonResponse({"result": data})
-

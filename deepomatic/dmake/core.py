@@ -1,4 +1,5 @@
 import os, sys
+import uuid
 
 import deepomatic.dmake.common as common
 from   deepomatic.dmake.common import DMakeException
@@ -100,33 +101,21 @@ def load_dmake_files_list():
 
 ###############################################################################
 
-def add_service_provider(service_providers, service, file, needs = None):
+def add_service_provider(service_providers, service, file, needs = None, base_variant = None):
+    """'service', 'needs' and 'base_variant' are all service names."""
+    common.logger.debug("add_service_provider: service: %s, variant: %s" % (service, base_variant))
     if service in service_providers:
-        if service_providers[service] != file:
-            raise DMakeException('Service %s re-defined in %s. First defined in %s' % (service, file, service_providers[service]))
+        existing_service_provider, _, _ = service_providers[service]
+        if existing_service_provider != file:
+            raise DMakeException('Service %s re-defined in %s. First defined in %s' % (service, file, existing_service_provider))
     else:
-        service_providers[service] = (file, needs)
+        service_providers[service] = (file, needs, base_variant)
 
 ###############################################################################
 
 def activate_file(loaded_files, service_providers, service_dependencies, command, file):
-    file_deps = {
-        'build': 'base',
-    }
-
     dmake_file = loaded_files[file]
-    if command == 'base':
-        base_image = dmake_file.docker.get_docker_base_image_service()
-        if base_image is not None:
-            return [('base', base_image, None)]
-        else:
-            return []
-    elif command in file_deps:
-        node = (command, file, None)
-        if node not in service_dependencies:
-            service_dependencies[node] = activate_file(loaded_files, service_providers, service_dependencies, file_deps[command], file)
-        return [node]
-    elif command in ['test', 'run', 'deploy']:
+    if command in ['test', 'run', 'deploy']:
         nodes = []
         for service in dmake_file.get_services():
             full_service_name = "%s/%s" % (dmake_file.app_name, service.service_name)
@@ -137,8 +126,13 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
 
 ###############################################################################
 
+def activate_base(base_variant):
+    return [('base', base_variant, None)]
+
+###############################################################################
+
 def activate_link(loaded_files, service_providers, service_dependencies, service):
-    file, _ = service_providers[service]
+    file, _, _ = service_providers[service]
     dmake = loaded_files[file]
     s = dmake._get_service_(service)
 
@@ -163,37 +157,37 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
     if command == 'test' and common.skip_tests:
         return []
 
+    with_dependencies = getattr(common.options, 'dependencies', None)
+
     if node not in service_dependencies:
         if service not in service_providers:
             raise DMakeException("Cannot find service: %s" % service)
-        file, needs = service_providers[service]
-        if command == 'base':
-            children = activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
-        elif command == 'shell':
+        file, needs, base_variant = service_providers[service]
+        if command == 'shell':
             children = []
-            if getattr(common.options, 'dependencies', None) and needs is not None:
+            if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
-            children += activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
+            children += activate_base(base_variant)
         elif command == 'test':
             children = []
-            if getattr(common.options, 'dependencies', None) and needs is not None:
+            if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
-            children += activate_file(loaded_files, service_providers, service_dependencies, 'build', file)
-            if getattr(common.options, 'dependencies', None):
+            children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
+            if with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'build_docker':
-            children = activate_file(loaded_files, service_providers, service_dependencies, 'base', file)
+            children = activate_base(base_variant)
         elif command == 'run':
             children = activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
-            if getattr(common.options, 'dependencies', None) and needs is not None:
+            if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'run_link':
             children = []
         elif command == 'deploy':
-            children  = activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
-            children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
+            children  = activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
+            children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
         else:
             raise Exception("Unknown command '%s'" % command)
 
@@ -272,17 +266,27 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
             ref = dmake_file.docker.root_image
             load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
             dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.root_image
-        else:
-            root_image = dmake_file.docker.root_image
-            root_image = common.eval_str_in_env(root_image.name + ":" + root_image.tag)
-            dmake_file.docker.__fields__['root_image'] = root_image
+        elif dmake_file.docker.root_image is not None:
+            default_root_image = dmake_file.docker.root_image
+            default_root_image = common.eval_str_in_env(default_root_image.name + ":" + default_root_image.tag)
+            dmake_file.docker.__fields__['root_image'] = default_root_image
 
-        # If a base image is declared
-        root_image = dmake_file.docker.root_image
-        base_image = dmake_file.docker.get_docker_base_image_service()
-        if base_image is not None:
-            add_service_provider(service_providers, base_image, file)
-            service_dependencies[('base', base_image, None)] = [('base', root_image, None)]
+        default_root_image = dmake_file.docker.root_image
+        for base_image in dmake_file.docker.base_image:
+            base_image_service = base_image.get_service_name()
+            base_image_name = base_image.get_name_variant()
+            root_image = base_image.root_image
+            if root_image is None:
+                # set default root_image
+                if default_root_image is None:
+                    raise DMakeException("Missing field 'root_image' (and default 'docker.root_image') for base_image '%s' in '%s'" % (base_image_name, file))
+                root_image = default_root_image
+                base_image.__fields__['root_image'] = root_image
+
+            add_service_provider(service_providers, base_image_service, file)
+            service_dependencies[('base', base_image_service, None)] = [('base', root_image, None)]
+        if len(dmake_file.docker.base_image) == 0 and default_root_image is None:
+            raise DMakeException("Missing field 'docker.root_image' in '%s'" % (file))
 
     if common.is_string(dmake_file.env):
         ref = dmake_file.env
@@ -345,6 +349,17 @@ def order_dependencies(dependencies, sorted_leaves):
 
 ###############################################################################
 
+def make_path_unique_per_variant(path, service_name):
+    """If multi variant: prefix filename with `<variant>-`"""
+    service_name_parts = service_name.split(':')
+    if len(service_name_parts) == 2:
+        variant = service_name_parts[1]
+        head, tail = os.path.split(path)
+        path = os.path.join(head, '%s-%s' % (variant, tail))
+    return path
+
+###############################################################################
+
 def generate_command_pipeline(file, cmds):
     indent_level = 0
 
@@ -357,6 +372,9 @@ def generate_command_pipeline(file, cmds):
         write_line("currentBuild.description = '%s'" % common.build_description.replace("'", "\\'"))
     write_line('try {')
     indent_level += 1
+
+    cobertura_tests_results_dir = os.path.join(common.relative_cache_dir, 'cobertura_tests_results')
+    emit_cobertura = False
 
     for cmd, kwargs in cmds:
         if cmd == "stage":
@@ -389,7 +407,7 @@ def generate_command_pipeline(file, cmds):
                 write_line(','.join(commands_list))
                 write_line(')')
         elif cmd == "read_sh":
-            file_output = os.path.join(common.root_dir, ".dmake", "output_%d" % kwargs['id'])
+            file_output = os.path.join(common.cache_dir, "output_%s" % uuid.uuid4())
             write_line("sh('%s > %s')" % (kwargs['shell'], file_output))
             write_line("env.%s = readFile '%s'" % (kwargs['var'], file_output));
             if kwargs['fail_if_empty']:
@@ -423,24 +441,31 @@ def generate_command_pipeline(file, cmds):
                 write_line("""  sh('echo "%s"')""" % error_msg.replace("'", "\\'"))
                 write_line('}')
         elif cmd == "junit":
-            write_line("junit '%s'" % kwargs['report'])
+            container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
+            host_report = os.path.join(common.relative_cache_dir, 'tests_results', str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['report'])
+            write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_report, host_report))
+            write_line("junit '%s'" % host_report)
+            write_line('''sh('rm -rf "%s"')''' % host_report)
         elif cmd == "cobertura":
-            write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (kwargs['report']))
+            # coberturaPublisher plugin only supports one step, so we delay generating it, and make it get all reports
+            container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
+            host_report = os.path.join(cobertura_tests_results_dir, str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['report'])
+            if not host_report.endswith('.xml'):
+                raise DMakeException("`cobertura_report` must end with '.xml' in service '%s'" % kwargs['service_name'])
+            write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_report, host_report))
+            emit_cobertura = True
         elif cmd == "publishHTML":
-            write_line("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])" % (kwargs['directory'], kwargs['index'], kwargs['title'].replace("'", "\'")))
-        elif cmd == "build":
-            parameters = []
-            for var, value in kwargs['parameters'].items():
-                value = common.eval_str_in_env(value)
-                parameters.append("string(name: '%s', value: '%s')" % (var.replace("'", "\\'"), value.replace("'", "\\'")))
-            parameters = ','.join(parameters)
-            write_line("build job: '%s', parameters: [%s], propagate: %s, wait: %s" % (
-                    kwargs['job'].replace("'", "\\'"),
-                    parameters,
-                    "true" if kwargs['propagate'] else "false",
-                    "true" if kwargs['wait'] else "false"))
+            container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
+            host_html_directory = os.path.join(common.cache_dir, 'tests_results', str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['directory'])
+            write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_html_directory, host_html_directory))
+            write_line("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])" % (host_html_directory, kwargs['index'], kwargs['title'].replace("'", "\'")))
+            write_line('''sh('rm -rf "%s"')''' % host_html_directory)
         else:
             raise DMakeException("Unknown command %s" % cmd)
+
+    if emit_cobertura:
+        write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
+        write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
 
     indent_level -= 1
     write_line('}')
@@ -484,14 +509,14 @@ def generate_command_bash(file, cmds):
         elif cmd == "git_tag":
             file.write('git tag --force %s\n' % kwargs['tag'])
             file.write('git push --force origin refs/tags/%s || echo %s\n' % (kwargs['tag'], tag_push_error_msg))
-        elif cmd == "junit":
-            pass  # Should be configured with GUI
-        elif cmd == "cobertura":
-            pass  # Should be configured with GUI
+        elif cmd == "junit" or cmd == "cobertura":
+            container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
+            host_report = make_path_unique_per_variant(kwargs['report'], kwargs['service_name'])
+            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_report, host_report))
         elif cmd == "publishHTML":
-            pass  # Should be configured with GUI
-        elif cmd == "build":
-            pass  # Should be configured with GUI
+            container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
+            host_html_directory = make_path_unique_per_variant(kwargs['directory'], kwargs['service_name'])
+            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_html_directory, host_html_directory))
         else:
             raise DMakeException("Unknown command %s" % cmd)
 
@@ -571,11 +596,21 @@ def make(root_dir, sub_dir, command, app, options):
 
         app_services = services[app_name]
         for service in dmake_file.get_services():
-            needs = [("%s/%s" % (app_name, sa.service_name), sa) for sa in service.needed_services]
             full_service_name = "%s/%s" % (app_name, service.service_name)
             if service.service_name in app_services:
                 raise DMakeException("Duplicated sub-app name: '%s'" % full_service_name)
-            add_service_provider(service_providers, full_service_name, file, needs)
+
+            needs = [("%s/%s" % (app_name, sa.service_name), sa) for sa in service.needed_services]
+
+            base_variant = None
+            try:
+                base_image = dmake_file.docker.get_base_image(variant=service.get_base_image_variant())
+            except DMakeException as e:
+                raise DMakeException("%s, for service '%s' in file '%s'" % (e, full_service_name, file))
+            if base_image is not None:
+                base_variant = base_image.get_service_name()
+
+            add_service_provider(service_providers, full_service_name, file, needs, base_variant)
             app_services[service.service_name] = service
 
             if auto_complete:
@@ -627,7 +662,7 @@ def make(root_dir, sub_dir, command, app, options):
             app_services = services[auto_completed_app]
             for service in app_services.values():
                 full_service_name = "%s/%s" % (auto_completed_app, service.service_name)
-                file, _ = service_providers[full_service_name]
+                file, _, _ = service_providers[full_service_name]
                 active_file.add(file)
             for file in active_file:
                 activate_file(loaded_files, service_providers, service_dependencies, common.command, file)
@@ -648,7 +683,7 @@ def make(root_dir, sub_dir, command, app, options):
     else:
         n = len(ordered_build_files)
         base   = list(filter(lambda a_b__c: a_b__c[0][0] in ['base'], ordered_build_files))
-        build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build', 'build_docker'], ordered_build_files))
+        build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build_docker'], ordered_build_files))
         test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['test', 'run_link', 'run'], ordered_build_files))
         deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['shell', 'deploy'], ordered_build_files))
         if len(base) + len(build) + len(test) + len(deploy) != len(ordered_build_files):
@@ -690,18 +725,15 @@ def make(root_dir, sub_dir, command, app, options):
         append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
         for node, order in commands:
             command, service, service_customization = node
-            if command == 'build':
-                dmake_file = loaded_files[service]
-            else:
-                file, _ = service_providers[service]
-                dmake_file = loaded_files[file]
+            file, _, _ = service_providers[service]
+            dmake_file = loaded_files[file]
             app_name = dmake_file.get_app_name()
             links = docker_links[app_name]
 
             step_commands = []
             try:
                 if command == "base":
-                    dmake_file.generate_base(step_commands)
+                    dmake_file.generate_base(step_commands, service)
                 elif command == "shell":
                     dmake_file.generate_shell(step_commands, service, links)
                 elif command == "test":
@@ -710,8 +742,6 @@ def make(root_dir, sub_dir, command, app, options):
                     dmake_file.generate_run(step_commands, service, links, service_customization)
                 elif command == "run_link":
                     dmake_file.generate_run_link(step_commands, service, links)
-                elif command == "build":
-                    dmake_file.generate_build(step_commands)
                 elif command == "build_docker":
                     dmake_file.generate_build_docker(step_commands, service)
                 elif command == "deploy":

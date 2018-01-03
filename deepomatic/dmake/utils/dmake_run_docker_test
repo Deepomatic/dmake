@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+# Usage:
+# dmake_run_docker_test SERVICE_NAME NAME ARGS...
+#
+# Result:
+# Run a docker command in foreground and save its ID in the test ids list (and the list of containers to remove)
+
+test "${DMAKE_DEBUG}" = "1" && set -x
+
+if [ $# -lt 2 ]; then
+    dmake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+if [ -z "${DMAKE_TMP_DIR}" ]; then
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
+    exit 1
+fi
+
+set -e
+
+SERVICE_NAME=$1
+NAME=$2
+shift 2
+
+TMP_DIR=$(dmake_make_tmp_dir)
+
+dmake_run_docker "" "${NAME}" --cidfile ${TMP_DIR}/cid.txt "$@"
+CONTAINER_ID=$(cat ${TMP_DIR}/cid.txt)
+
+if [ ! -z "${SERVICE_NAME}" ]; then
+    echo "${CONTAINER_ID} ${SERVICE_NAME}" >> ${DMAKE_TMP_DIR}/test_ids.txt
+fi
+
+echo ${CONTAINER_ID} >> ${DMAKE_TMP_DIR}/containers_to_remove.txt
