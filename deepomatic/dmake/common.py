@@ -178,7 +178,7 @@ def init(_command, _root_dir, _app, _options):
     is_local = os.getenv('DMAKE_ON_BUILD_SERVER', 0) != "1"
 
     # Set skip test variable
-    skip_tests = os.getenv('DMAKE_SKIP_TESTS', "false") == "true"
+    skip_tests = os.getenv('DMAKE_SKIP_TESTS', "false") in ["1", "true"]
 
     # Currently set if any dmake file describes a deploy stage matching current branch; updated after files parsing
     is_release_branch = None
