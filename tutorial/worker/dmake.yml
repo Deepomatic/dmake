@@ -27,7 +27,10 @@ docker_links:
     link_name: rabbitmq
     probe_ports:
       - 5672/tcp
-    testing_options: -e RABBITMQ_DEFAULT_USER=user -e RABBITMQ_DEFAULT_PASS=password -e RABBITMQ_DEFAULT_VHOST=dev
+    testing_options: -e RABBITMQ_DEFAULT_VHOST=dev
+    env:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
 
 build:
   commands:

@@ -1,14 +1,14 @@
 #!/bin/bash
 #
 # Usage:
-# dmake_run_docker_link APP_NAME IMAGE_NAME LINK_NAME OPTIONS PROBE_PORTS
+# dmake_run_docker_link APP_NAME IMAGE_NAME LINK_NAME PROBE_PORTS ARGS...
 #
 # Result:
 # Run a docker link and cache the result (call dmake_return_docker_links to export the docker options)
 
 test "${DMAKE_DEBUG}" = "1" && set -x
 
-if [ $# -ne 5 ]; then
+if [ $# -lt 4 ]; then
     dmake_fail "$0: Missing arguments"
     exit 1
 fi
@@ -20,17 +20,17 @@ fi
 
 set -e
 
-APP_NAME=$1
-IMAGE_NAME=$2
-LINK_NAME=$3
-OPTIONS=$4
-PROBE_PORTS=$5
+APP_NAME=$1; shift
+IMAGE_NAME=$1; shift
+LINK_NAME=$1; shift
+PROBE_PORTS=$1; shift
+OPTIONS=( $@ )
 
 CACHE_DIR="${DMAKE_TMP_DIR}/links/${APP_NAME}"
 LINK_FILE="${CACHE_DIR}/${LINK_NAME}.link"
 NAME_FILE="${CACHE_DIR}/${LINK_NAME}.name"
 OPT_FILE="${CACHE_DIR}/${LINK_NAME}.conf"
-OPT_STR="${IMAGE_NAME} ${OPTIONS}"
+OPT_STR="${IMAGE_NAME} ${OPTIONS[@]}"
 
 mkdir -p ${CACHE_DIR}
 
@@ -47,7 +47,7 @@ done
 
 if [ -z "${CONTAINER_ID}" ]; then
     docker pull ${IMAGE_NAME} 2> /dev/null || :
-    CONTAINER_ID=$(dmake_run_docker_daemon "" "${CONTAINER_NAME}" ${OPTIONS} ${VOLUMES} -i ${IMAGE_NAME})
+    CONTAINER_ID=$(dmake_run_docker_daemon "" "${CONTAINER_NAME}" ${OPTIONS[@]} ${VOLUMES} -i ${IMAGE_NAME})
     while [ 1 = 1 ]; do
         if [ `docker ps -f id=$CONTAINER_ID -f status=running | wc -l` -gt "0" ]; then
             break

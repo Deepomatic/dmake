@@ -301,6 +301,7 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     # TODO: This field is badly named. Link are used by the run command also, nothing to do with testing or not. It should rather be: 'docker_options'
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
     probe_ports      = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
+    env              = FieldSerializer("dict", child = "string", default = {}, example = {'REDIS_URL': '${REDIS_URL}'}, help_text = "Additional environment variables defined when running this image.")
     env_exports      = FieldSerializer("dict", child = "string", default = {}, help_text = "A set of environment variables that will be exported in services that use this link when testing.")
 
     def get_options(self, path, env):
@@ -320,6 +321,12 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
                     host_vol = os.path.normpath(os.path.join(common.root_dir, path, host_vol))
                 options += ' -v %s:%s' % (host_vol, container_vol)
         return options
+
+    def get_env(self, context_env):
+        env = {}
+        for key, value in self.env.items():
+            env[key] = common.eval_str_in_env(value, context_env)
+        return env
 
     def probe_ports_list(self):
         if isinstance(self.probe_ports, list):
@@ -1202,10 +1209,13 @@ class DMakeFile(DMakeFileSerializer):
         if link_name not in docker_links:
             raise Exception("Unexpected link '%s'" % link_name)
         link = docker_links[link_name]
-        env = self.env.get_replaced_variables()
-        image_name = common.eval_str_in_env(link.image_name, env)
-        options = link.get_options(self.__path__, env)
-        append_command(commands, 'sh', shell = 'dmake_run_docker_link "%s" "%s" "%s" "%s" "%s"' % (self.app_name, image_name, link.link_name, options, link.probe_ports_list()))
+        context_env = self.env.get_replaced_variables()
+        image_name = common.eval_str_in_env(link.image_name, context_env)
+        options = link.get_options(self.__path__, context_env)
+        env = link.get_env(context_env)
+        env_file = generate_env_file(common.tmp_dir, env)
+        cmd = 'dmake_run_docker_link "%s" "%s" "%s" "%s" --env-file %s %s' % (self.app_name, image_name, link.link_name, link.probe_ports_list(), env_file, options)
+        append_command(commands, 'sh', shell=cmd)
 
     def generate_deploy(self, commands, service_name):
         service = self._get_service_(service_name)
