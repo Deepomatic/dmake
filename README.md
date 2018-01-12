@@ -14,7 +14,19 @@ Table of content:
 
 In order to run **DMake**, you will need:
 - Python 2.7 or newer
-- Docker 1.12 or newer
+- Docker 1.13 or newer
+
+**DMake** uses an experimental feature of docker to squash images during build; you need to enable experimental features on your docker configuration:
+- Add to `/etc/docker/daemon.json`
+```
+{
+  "experimental": true
+}
+```
+- Restart docker daemon:
+```
+sudo systemctl restart docker.service
+```
 
 In order to install **DMake**, use the following:
 
