@@ -147,8 +147,11 @@ if [ -z "`which dmake`" ]; then
             echo "Patched ${SHRC} to source ${CONFIG_FILE}."
         fi
     done
-    echo "You should be good to go after restarting a shell session !"
+    echo "Install the python dependencies with the following command:"
+    echo "pip install --user -r requirements.txt"
+    echo "Then restart your shell session and test the 'dmake' command !"
 else
     echo "Patched config to version ${DMAKE_VERSION}"
+    echo "Update the python dependencies with the following command:"
+    echo "pip install --user -r requirements.txt"
 fi
-
