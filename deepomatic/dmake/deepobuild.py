@@ -1148,7 +1148,7 @@ class DMakeFile(DMakeFileSerializer):
         # Wait for daemon to be ready
         cmd = service.config.readiness_probe.get_cmd()
         if cmd:
-            append_command(commands, 'sh', shell = 'dmake_exec_docker "$DAEMON_ID" %s' % cmd)
+            append_command(commands, 'sh', shell = 'dmake_exec_docker ${DAEMON_ID} %s' % cmd)
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
