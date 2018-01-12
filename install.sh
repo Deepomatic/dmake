@@ -126,7 +126,7 @@ if [ -z "${DMAKE_SSH_KEY}" ]; then
 fi
 
 echo "export DMAKE_VERSION=${DMAKE_VERSION}" > ${CONFIG_FILE}
-echo "export DMAKE_UID=${DMAKE_UID}" >> ${CONFIG_FILE}
+echo "export DMAKE_UID=\$(id -u)" >> ${CONFIG_FILE}
 echo "export DMAKE_PATH=${DMAKE_PATH}" >> ${CONFIG_FILE}
 echo "export DMAKE_CONFIG_DIR=${DMAKE_CONFIG_DIR}" >> ${CONFIG_FILE}
 echo "export DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR}" >> ${CONFIG_FILE}
