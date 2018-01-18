@@ -21,8 +21,12 @@ shift 1
 
 for FILTER in "$@"; do
     if [ `docker ps --filter ${FILTER_TYPE}=${FILTER} | sed '1d' | wc -l` = 0 ]; then
-        >&2 echo -e "Daemon ${FILTER} quit unexpectedly. Here are the logs:"
+        exec 1>&2
+        echo "Daemon ${FILTER} quit unexpectedly. Here are the status and logs:"
+        docker inspect ${FILTER} --format '{{json .State}}'
+        echo "-----BEGIN LOGS-----"
         docker logs ${FILTER}
+        echo "-----END LOGS-----"
         exit 1
     fi
 done
