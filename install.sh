@@ -126,7 +126,7 @@ if [ -z "${DMAKE_SSH_KEY}" ]; then
 fi
 
 echo "export DMAKE_VERSION=${DMAKE_VERSION}" > ${CONFIG_FILE}
-echo "export DMAKE_UID=${DMAKE_UID}" >> ${CONFIG_FILE}
+echo "export DMAKE_UID=\$(id -u)" >> ${CONFIG_FILE}
 echo "export DMAKE_PATH=${DMAKE_PATH}" >> ${CONFIG_FILE}
 echo "export DMAKE_CONFIG_DIR=${DMAKE_CONFIG_DIR}" >> ${CONFIG_FILE}
 echo "export DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR}" >> ${CONFIG_FILE}
@@ -147,8 +147,11 @@ if [ -z "`which dmake`" ]; then
             echo "Patched ${SHRC} to source ${CONFIG_FILE}."
         fi
     done
-    echo "You should be good to go after restarting a shell session !"
+    echo "Install the python dependencies with the following command:"
+    echo "pip install --user -r requirements.txt"
+    echo "Then restart your shell session and test the 'dmake' command !"
 else
     echo "Patched config to version ${DMAKE_VERSION}"
+    echo "Update the python dependencies with the following command:"
+    echo "pip install --user -r requirements.txt"
 fi
-
