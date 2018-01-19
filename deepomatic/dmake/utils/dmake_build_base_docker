@@ -83,8 +83,9 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
                       -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK
                       -v ${TMP_DIR}:/base_volume
                       ${OTHER_OPTS}
+                      --entrypoint /bin/bash
                       ${ROOT_IMAGE_NAME}@${ROOT_IMAGE_DIGEST}
-                      /bin/bash /base_volume/make_base.sh
+                      -c "bash /base_volume/make_base.sh"
                     )
 
     echo "Executing docker ${DOCKER_RUN_ARGS[@]}"
