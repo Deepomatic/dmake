@@ -12,6 +12,7 @@ import kubernetes
 from kubernetes.client.rest import ApiException
 import time
 import yaml
+from multiprocessing.pool import ThreadPool
 
 if len(sys.argv) < 8:
     print("Missing args. Should be %s DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME IMAGE_NAME SELECTORS" % sys.argv[0])
@@ -128,17 +129,17 @@ for i in ret.items:
     beta_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
     deployments.append(name)
 
-    if len(deployments) > 20:
-        for name in deployments:
-            while True:
-                api_response = beta_v1_client.read_namespaced_deployment(name, namespace)
-                if api_response.spec.replicas > 0 and \
-                   api_response.status.available_replicas is None:
-                    print("- Waiting for %s to be ready" % name)
-                    time.sleep(5)
-                else:
-                    break
-        deployments = []
+def update_deployment(name):
+    while True:
+        api_response = beta_v1_client.read_namespaced_deployment(name, namespace)
+        if api_response.spec.replicas > 0 and \
+           api_response.status.available_replicas is None:
+            print("- Waiting for %s to be ready" % name)
+            time.sleep(5)
+        else:
+            break
+pool = ThreadPool(5)
+pool.map(update_deployment, deployments)
 
 
 
