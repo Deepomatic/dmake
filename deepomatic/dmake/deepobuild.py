@@ -305,8 +305,8 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     env_exports      = FieldSerializer("dict", child = "string", default = {}, help_text = "A set of environment variables that will be exported in services that use this link when testing.")
 
     def get_options(self, path, env):
-        options = self.testing_options
-        if common.command == "shell":
+        options = common.eval_str_in_env(self.testing_options, env)
+        if common.command in ["shell", "test"]:
             for vol in self.volumes:
                 vol = common.eval_str_in_env(vol, env)
                 vol = vol.split(':')
@@ -841,12 +841,12 @@ class TestSerializer(YAML2PipelineSerializer):
     cobertura_report   = FieldSerializer("string", optional = True, example = "**/coverage.xml", help_text = "Publish a Cobertura report. **WARNING** only one is allowed per repository.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
 
-    def get_mounts_opt(self, service_name):
+    def get_mounts_opt(self, service_name, env):
         if not self.has_value():
             return ''
         opts = []
         for data_volume in self.data_volumes:
-            opts.append(data_volume.get_mount_opt(service_name))
+            opts.append(data_volume.get_mount_opt(service_name, env))
         return ' ' + ' '.join(opts)
 
     def generate_test(self, commands, path, service_name, docker_cmd, docker_links, mount_point):
@@ -1178,8 +1178,10 @@ class DMakeFile(DMakeFileSerializer):
     def generate_shell(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
 
+        context_env = self.env.get_replaced_variables()
+
         docker_opts = self._launch_options_(commands, service, docker_links, self.build.env, run_base_image=True, mount_root_dir=True)
-        docker_opts += service.tests.get_mounts_opt(service_name)
+        docker_opts += service.tests.get_mounts_opt(service_name, context_env)
 
         docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
         docker_opts += " -i %s" % docker_base_image
@@ -1194,8 +1196,10 @@ class DMakeFile(DMakeFileSerializer):
             # no test specified, nothing to generate for tests
             return
 
+        context_env = self.env.get_replaced_variables()
+
         docker_opts, image_name = self._generate_run_docker_opts_(commands, service, docker_links)
-        docker_opts += service.tests.get_mounts_opt(service_name)
+        docker_opts += service.tests.get_mounts_opt(service_name, context_env)
         docker_cmd = 'dmake_run_docker_test %s "" %s -i %s ' % (service_name, docker_opts, image_name)
 
         # Run test commands
