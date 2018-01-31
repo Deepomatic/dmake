@@ -306,7 +306,7 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
 
     def get_options(self, path, env):
         options = common.eval_str_in_env(self.testing_options, env)
-        if common.command in ["shell", "test"]:
+        if common.command == "shell":
             for vol in self.volumes:
                 vol = common.eval_str_in_env(vol, env)
                 vol = vol.split(':')
