@@ -50,14 +50,14 @@ echo_title Annotate ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
 # TODO currently not atomic: multiple apply can work in parallel, and this command may annotate the wrong version
 prefix="dmake.deepomatic.com"
 ANNOTATE_ARGS=( "${BASE_ARGS[@]}" annotate deployment/${SERVICE} --overwrite=true --record=false
-                ${prefix}-deploy-timestamp="${deploy_timestamp}"
-                ${prefix}-service=${SERVICE}
-                ${prefix}-git-repository=${REPO}
-                ${prefix}-git-branch="${BRANCH}"
-                ${prefix}-git-revision=${COMMIT}
+                ${prefix}/deploy-timestamp="${deploy_timestamp}"
+                ${prefix}/service=${SERVICE}
+                ${prefix}/git-repository=${REPO}
+                ${prefix}/git-branch="${BRANCH}"
+                ${prefix}/git-revision=${COMMIT}
               )
-echo kubectl "${ANNOTATE_ARGS[@]}"
-kubectl "${ANNOTATE_ARGS[@]}"
+# echo kubectl "${ANNOTATE_ARGS[@]}"
+# kubectl "${ANNOTATE_ARGS[@]}"
 
 echo_title Rollout status for ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
 ROLLOUT_STATUS_ARGS=( "${BASE_ARGS[@]}" rollout status --watch=true deployment/${SERVICE} )
