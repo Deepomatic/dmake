@@ -1140,6 +1140,7 @@ class DMakeFile(DMakeFileSerializer):
             unique_service_name += service_customization.get_service_name_unique_suffix()
 
         docker_opts, image_name = self._generate_run_docker_opts_(commands, service, docker_links, customized_env)
+        docker_opts += service.tests.get_mounts_opt(service_name, customized_env)
         docker_cmd = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, docker_opts, image_name)
 
         # Run daemon
