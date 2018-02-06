@@ -107,8 +107,19 @@ def join_without_slash(*args):
 ###############################################################################
 
 def find_repo_root(path=os.getcwd()):
-    root_dir = run_shell_command('git -C %s rev-parse --show-toplevel' %(path))
-    sub_dir = os.path.relpath(path, root_dir)
+    root_dir = path
+    sub_dir = ''
+    while True:
+        if os.path.isdir(os.path.join(root_dir, '.git')):
+            break
+        else:
+            if root_dir == '/':
+                raise NotGitRepositoryException()
+            sub_dir = os.path.join(os.path.basename(root_dir), sub_dir)
+            root_dir = os.path.normpath(os.path.join(root_dir, '..'))
+            if root_dir.startswith('..'):
+                return None, None
+    sub_dir = os.path.normpath(sub_dir)
     if sub_dir == '.':
         sub_dir = '' # IMPORTANT: Need to get rid of the leading '.' to unify behaviour
     return root_dir, sub_dir
