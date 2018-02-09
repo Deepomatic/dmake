@@ -14,8 +14,14 @@ import time
 import yaml
 from multiprocessing.pool import ThreadPool
 
+import logging
+FORMAT='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+logging.basicConfig(level=logging.INFO, format=FORMAT)
+logger = logging.getLogger(__name__)
+
+
 if len(sys.argv) < 8:
-    print("Missing args. Should be %s DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME IMAGE_NAME SELECTORS" % sys.argv[0])
+    logger.critical("Missing args. Should be %s DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME IMAGE_NAME SELECTORS" % sys.argv[0])
     sys.exit(1)
 
 tmp_dir   = sys.argv[1]
@@ -36,6 +42,7 @@ kubernetes.config.load_kube_config(context=context)
 
 if os.getenv('DMAKE_DEBUG') == '1':
     kubernetes.config.kube_config.configuration.debug = True
+    logger.setLevel(logging.DEBUG)
 
 
 # check existing env ConfigMap
@@ -54,7 +61,7 @@ except ApiException as e:
         raise
 # create env ConfigMap if needed
 if create_configmap_env:
-    print("Creating new ConfigMap Environment %s" % (configmap_env_name))
+    logger.info("Creating new ConfigMap Environment %s" % (configmap_env_name))
     v1_client.create_namespaced_config_map(namespace, configmap)
 
 # also create/update DMake metadata ConfigMap defining default ConfigMap env, and image
@@ -76,7 +83,7 @@ except ApiException as e:
 if op_dmake_cm is not None:
     dmake_cm_metadata = {'name': dmake_cm_name}
     dmake_cm = kubernetes.client.V1ConfigMap(data=dmake_cm_data, metadata=dmake_cm_metadata)
-    print("%s DMake metadata ConfigMap %s: %s" % (op_dmake_cm.capitalize(), dmake_cm_name, dmake_cm_data))
+    logger.info("%s DMake metadata ConfigMap %s: %s" % (op_dmake_cm.capitalize(), dmake_cm_name, dmake_cm_data))
     if op_dmake_cm == 'create':
         v1_client.create_namespaced_config_map(namespace, dmake_cm)
     elif op_dmake_cm == 'update':
@@ -90,10 +97,10 @@ beta_v1_client = kubernetes.client.ExtensionsV1beta1Api()
 selector = "dmake_%s" % service
 ret = beta_v1_client.list_namespaced_deployment(namespace, label_selector=selector)
 if len(ret.items) == 0:
-    print("No deployments found for namespace '%s' and selector '%s'" % (namespace, selector))
+    logger.info("No deployments found for namespace '%s' and selector '%s'" % (namespace, selector))
     sys.exit(0)
 
-print("Deploying new image %s with ConfigMap env %s" % (image, configmap_env_name))
+logger.info("Deploying new image %s with ConfigMap env %s" % (image, configmap_env_name))
 
 deployments = []
 # filter Deployments against `selectors`
@@ -107,6 +114,10 @@ for i in ret.items:
         continue
     deployments.append(i)
 
+
+
+def print_deployment(deployment, msg):
+    logger.debug("Deployment %s: %s" %(msg, deployment))
 
 def patch_deployment(name):
     # patch container image
@@ -128,25 +139,34 @@ def patch_deployment(name):
         json_patch.append({ "op": "replace", "path": "/spec/template/spec/containers/0/envFrom/0/configMapRef/name", "value": configmap_env_name })
 
     # do patch
-    beta_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
+    return beta_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
 
-def wait_deployment(name):
+def wait_deployment(deployment):
+    name = deployment.metadata.name
+    generation = deployment.metadata.generation
+    old_observed_generation = deployment.status.observed_generation
     while True:
         api_response = beta_v1_client.read_namespaced_deployment(name, namespace)
-        if api_response.spec.replicas > 0 and \
-           api_response.status.available_replicas is None:
-            print("- Waiting for %s to be ready" % name)
-            time.sleep(5)
-        else:
+        print_deployment(api_response, "wait")
+        if api_response.spec.replicas == 0:
             break
+        if api_response.status.observed_generation >= generation \
+           and api_response.status.updated_replicas == api_response.spec.replicas:
+            break
+        logger.info("- Waiting for Deployment %s to be ready" % name)
+        time.sleep(1)
+    logger.info("  Deployment ready: %s" % name)
+
 
 def update_deployment(deployment):
+    print_deployment(deployment, "pre-patch")
     name = deployment.metadata.name
-    print("- Pushing new image to %s" % name)
+    logger.info("- Updating Deployment %s" % name)
     # container = i.metadata.labels[selector]
     # TODO use container name instead of first container
-    patch_deployment(name)
-    wait_deployment(name)
+    patched_deployment = patch_deployment(name)
+    print_deployment(patched_deployment, "patched")
+    wait_deployment(patched_deployment)
 
 pool = ThreadPool(5)
 pool.map(update_deployment, deployments)
