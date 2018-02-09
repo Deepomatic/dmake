@@ -85,7 +85,7 @@ if op_dmake_cm is not None:
         assert False
 
 
-# patch deployments
+# get deployments
 beta_v1_client = kubernetes.client.ExtensionsV1beta1Api()
 selector = "dmake_%s" % service
 ret = beta_v1_client.list_namespaced_deployment(namespace, label_selector=selector)
@@ -93,11 +93,11 @@ if len(ret.items) == 0:
     print("No deployments found for namespace '%s' and selector '%s'" % (namespace, selector))
     sys.exit(0)
 
-deployments = []
 print("Deploying new image %s with ConfigMap env %s" % (image, configmap_env_name))
+
+deployments = []
+# filter Deployments against `selectors`
 for i in ret.items:
-    name = i.metadata.name
-    container = i.metadata.labels[selector]
     match = True
     for key, value in selectors.items():
         if key in i.metadata.labels or i.metadata.labels[key] != value:
@@ -105,9 +105,10 @@ for i in ret.items:
             break
     if not match:
         continue
+    deployments.append(i)
 
-    print("- Pushing new image to %s" % name)
 
+def patch_deployment(name):
     # patch container image
     json_patch = [
         { "op": "replace", "path": "/spec/template/spec/containers/0/image", "value": image }
@@ -126,10 +127,10 @@ for i in ret.items:
     else:
         json_patch.append({ "op": "replace", "path": "/spec/template/spec/containers/0/envFrom/0/configMapRef/name", "value": configmap_env_name })
 
+    # do patch
     beta_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
-    deployments.append(name)
 
-def update_deployment(name):
+def wait_deployment(name):
     while True:
         api_response = beta_v1_client.read_namespaced_deployment(name, namespace)
         if api_response.spec.replicas > 0 and \
@@ -138,9 +139,14 @@ def update_deployment(name):
             time.sleep(5)
         else:
             break
+
+def update_deployment(deployment):
+    name = deployment.metadata.name
+    print("- Pushing new image to %s" % name)
+    # container = i.metadata.labels[selector]
+    # TODO use container name instead of first container
+    patch_deployment(name)
+    wait_deployment(name)
+
 pool = ThreadPool(5)
 pool.map(update_deployment, deployments)
-
-
-
-
