@@ -4,6 +4,7 @@ import logging
 import subprocess
 import re
 from ruamel.yaml import YAML
+import uuid
 
 # Set logger
 logger = logging.getLogger("deepomatic.dmake")
@@ -30,6 +31,11 @@ class DMakeException(Exception):
 class NotGitRepositoryException(DMakeException):
     def __init__(self):
         super(NotGitRepositoryException, self).__init__('Not a GIT repository')
+
+class SharedVolumeNotFoundException(DMakeException):
+    def __init__(self, name):
+        super(SharedVolumeNotFoundException, self).__init__("Unknown volume named '%s'" % (name))
+        self.name = name
 
 ###############################################################################
 
@@ -168,9 +174,12 @@ def init(_command, _root_dir, _app, _options):
     global build_description
     global command, options, uname
     global do_pull_config_dir
+    global session_id
     root_dir = os.path.join(_root_dir, '')
     command = _command
     options = _options
+
+    session_id = uuid.uuid4()
 
     config_dir = os.getenv('DMAKE_CONFIG_DIR', None)
     if config_dir is None:

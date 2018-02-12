@@ -2,7 +2,7 @@ import os, sys
 import uuid
 
 import deepomatic.dmake.common as common
-from   deepomatic.dmake.common import DMakeException
+from   deepomatic.dmake.common import DMakeException, SharedVolumeNotFoundException
 from   deepomatic.dmake.deepobuild import DMakeFile, append_command
 
 
@@ -126,6 +126,41 @@ def activate_file(loaded_files, service_providers, service_dependencies, command
 
 ###############################################################################
 
+def activate_shared_volumes(shared_volumes):
+    children = []
+    for shared_volume in shared_volumes:
+        shared_volume_service_name = shared_volume.get_service_name()
+        children += [('shared_volume', shared_volume_service_name, None)]
+    return children
+
+###############################################################################
+
+def activate_link_shared_volumes(loaded_files, service_providers, service):
+    file, _, _ = service_providers[service]
+    dmake = loaded_files[file]
+    link = dmake.get_docker_link(service)
+
+    try:
+        shared_volumes = link.get_shared_volumes()
+    except SharedVolumeNotFoundException as e:
+        raise DMakeException("%s in docker_link '%s' in file '%s'" % (e, link.link_name, file))
+    return activate_shared_volumes(shared_volumes)
+
+###############################################################################
+
+def activate_service_shared_volumes(loaded_files, service_providers, service):
+    file, _, _ = service_providers[service]
+    dmake = loaded_files[file]
+    s = dmake._get_service_(service)
+
+    try:
+        shared_volumes = s.get_shared_volumes()
+    except SharedVolumeNotFoundException as e:
+        raise DMakeException("%s in service '%s' in file '%s'" % (e, s.service_name, file))
+    return activate_shared_volumes(shared_volumes)
+
+###############################################################################
+
 def activate_base(base_variant):
     return [('base', base_variant, None)]
 
@@ -163,30 +198,32 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         if service not in service_providers:
             raise DMakeException("Cannot find service: %s" % service)
         file, needs, base_variant = service_providers[service]
+        children = []
         if command == 'shell':
-            children = []
+            children += activate_service_shared_volumes(loaded_files, service_providers, service)
             if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
             children += activate_base(base_variant)
         elif command == 'test':
-            children = []
+            children += activate_service_shared_volumes(loaded_files, service_providers, service)
             if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'build_docker':
-            children = activate_base(base_variant)
+            children += activate_base(base_variant)
         elif command == 'run':
-            children = activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
+            children += activate_service_shared_volumes(loaded_files, service_providers, service)
+            children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'run_link':
-            children = []
+            children += activate_link_shared_volumes(loaded_files, service_providers, service)
         elif command == 'deploy':
-            children  = activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
+            children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
         else:
             raise Exception("Unknown command '%s'" % command)
@@ -250,6 +287,11 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
     # Blacklist should be on child file because they are loaded this way
     for bl in dmake_file.blacklist:
         blacklist.append(bl)
+
+    for volume in dmake_file.volumes:
+        shared_volume_service_name = volume.get_service_name()
+        add_service_provider(service_providers, shared_volume_service_name, file)
+        service_dependencies[('shared_volume', shared_volume_service_name, None)] = []
 
     for link in dmake_file.docker_links:
         add_service_provider(service_providers, 'links/%s/%s' % (dmake_file.get_app_name(), link.link_name), file)
@@ -697,7 +739,7 @@ def make(root_dir, sub_dir, command, app, options):
         n = len(ordered_build_files)
         base   = list(filter(lambda a_b__c: a_b__c[0][0] in ['base'], ordered_build_files))
         build  = list(filter(lambda a_b__c: a_b__c[0][0] in ['build_docker'], ordered_build_files))
-        test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['test', 'run_link', 'run'], ordered_build_files))
+        test   = list(filter(lambda a_b__c: a_b__c[0][0] in ['test', 'run_link', 'run', 'shared_volume'], ordered_build_files))
         deploy = list(filter(lambda a_b__c: a_b__c[0][0] in ['shell', 'deploy'], ordered_build_files))
         if len(base) + len(build) + len(test) + len(deploy) != len(ordered_build_files):
             raise Exception('Something went wrong when reorganizing build steps. One of the commands is probably missing.')
@@ -749,6 +791,8 @@ def make(root_dir, sub_dir, command, app, options):
             try:
                 if command == "base":
                     dmake_file.generate_base(step_commands, service)
+                elif command == "shared_volume":
+                    dmake_file.generate_shared_volume(step_commands, service)
                 elif command == "shell":
                     dmake_file.generate_shell(step_commands, service, links)
                 elif command == "test":
