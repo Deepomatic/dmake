@@ -506,7 +506,7 @@ def generate_command_bash(file, cmds):
                 file.write("if [ -z \"${%s}\" ]; then exit 1; fi\n" % kwargs['var'])
         elif cmd == "env":
             file.write('%s="%s"\n' % (kwargs['var'], kwargs['value'].replace('"', '\\"')))
-            file.write('export %s' % kwargs['var'])
+            file.write('export %s\n' % kwargs['var'])
         elif cmd == "git_tag":
             file.write('git tag --force %s\n' % kwargs['tag'])
             file.write('git push --force origin refs/tags/%s || echo %s\n' % (kwargs['tag'], tag_push_error_msg))
