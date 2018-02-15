@@ -37,6 +37,10 @@ for s in sys.argv[7].split(","):
     s = s.split("=")
     selectors[s[0]] = "=".join(s[1:])
 
+# config
+WAIT_POLL_INTERVAL = 1  # seconds
+PARALLEL_UPDATE_THREAD_POOL_SIZE = 10  # number of Deployments being updated in parallel
+
 os.system('kubectl get nodes') # refresh auth token for kubectl, otherwise next line might fail
 kubernetes.config.load_kube_config(context=context)
 
@@ -154,7 +158,7 @@ def wait_deployment(deployment):
            and api_response.status.updated_replicas == api_response.spec.replicas:
             break
         logger.info("- Waiting for Deployment %s to be ready" % name)
-        time.sleep(1)
+        time.sleep(WAIT_POLL_INTERVAL)
     logger.info("  Deployment ready: %s" % name)
 
 
@@ -168,5 +172,5 @@ def update_deployment(deployment):
     print_deployment(patched_deployment, "patched")
     wait_deployment(patched_deployment)
 
-pool = ThreadPool(5)
+pool = ThreadPool(PARALLEL_UPDATE_THREAD_POOL_SIZE)
 pool.map(update_deployment, deployments)
