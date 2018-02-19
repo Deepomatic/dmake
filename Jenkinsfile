@@ -8,7 +8,10 @@ properties([
                description: 'The branch to check out. Only used when testing a directory different from deepomatic/dmake.'),
         string(name: 'DMAKE_APP_TO_TEST',
                defaultValue: '*',
-               description: 'Application to test. You can also specify a service name if there is no ambiguity. Use * to force the test of all applications.')
+               description: 'Application to test. You can also specify a service name if there is no ambiguity. Use * to force the test of all applications.'),
+        booleanParam(name: 'DMAKE_SKIP_TESTS',
+                     defaultValue: false,
+                     description: 'Skip tests if checked')
     ]),
     pipelineTriggers([])
 ])

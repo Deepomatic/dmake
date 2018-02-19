@@ -90,10 +90,13 @@ def escape_cmd(cmd):
 def wrap_cmd(cmd):
     return '"%s"' % cmd.replace('"', '\\"')
 
-def eval_str_in_env(cmd, env=None):
+def eval_str_in_env(value, env=None, strict=False):
     if env is None:
         env = {}
-    cmd = 'echo %s' % wrap_cmd(cmd)
+    cmd = ''
+    if strict:
+        cmd += 'set -euo pipefail; '
+    cmd += 'echo %s' % wrap_cmd(value)
     return run_shell_command(cmd, additional_env=env).strip()
 
 # Docker has some trouble mounting volumes with trailing '/'.
