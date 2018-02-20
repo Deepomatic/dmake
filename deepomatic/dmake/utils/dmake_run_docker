@@ -48,4 +48,10 @@ if [ ! -z "${TMP_DIR}" ]; then
     echo ${NAME} >> ${TMP_DIR}/containers_to_remove.txt
 fi
 
-docker run --name ${NAME} "$@"
+# support some GPU modes using nvidia docker v2
+DOCKER_RUN_ARGS=( run )
+if [[ "${DMAKE_DOCKER_RUN_WITH_GPU}" == "all" ]]; then
+  DOCKER_RUN_ARGS+=( --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all )
+fi
+
+docker "${DOCKER_RUN_ARGS[@]}" --name ${NAME} "$@"

@@ -72,6 +72,18 @@ def generate_env_file(tmp_dir, env):
             f.write('%s=%s\n' % (key, value))
     return file
 
+###############################################################################
+
+def get_docker_run_gpu_cmd_prefix(need_gpu, service_type, service_name):
+    prefix = ''
+    if need_gpu:
+        if common.no_gpu:
+            common.logger.info("GPU needed by %s '%s' but DMAKE_NO_GPU set: trying without GPU." % (service_type, service_name))
+            pass
+        else:
+            prefix = 'DMAKE_DOCKER_RUN_WITH_GPU=all '
+    return prefix
+
 # ###############################################################################
 
 class EnvBranchSerializer(YAML2PipelineSerializer):
@@ -298,6 +310,7 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     image_name       = FieldSerializer("string", example = "mongo:3.2", help_text = "Name and tag of the image to launch.")
     link_name        = FieldSerializer("string", example = "mongo", help_text = "Link name.")
     volumes          = FieldSerializer("array", child = "string", default = [], help_text = "For the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.")
+    need_gpu         = FieldSerializer("bool", default = False, help_text = "Whether the docker link needs to be run on a GPU node.")
     # TODO: This field is badly named. Link are used by the run command also, nothing to do with testing or not. It should rather be: 'docker_options'
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
     probe_ports      = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
@@ -354,6 +367,9 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
             return self.probe_ports
 
         raise DMakeException("Badly formatted probe ports.")
+
+    def get_docker_run_gpu_cmd_prefix(self):
+        return get_docker_run_gpu_cmd_prefix(self.need_gpu, 'docker link', self.link_name)
 
 class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
     name_prefix  = FieldSerializer("string", default = "${DMAKE_DEPLOY_PREFIX}", help_text = "The prefix to add to the 'deploy_name'. Can be useful as application name have to be unique across all users of Elastic BeanStalk.")
@@ -969,6 +985,8 @@ class ServicesSerializer(YAML2PipelineSerializer):
 
         return service
 
+    def get_docker_run_gpu_cmd_prefix(self):
+        return get_docker_run_gpu_cmd_prefix(self.config.need_gpu, 'service', self.service_name)
 
 class BuildSerializer(YAML2PipelineSerializer):
     env      = FieldSerializer("dict", child = "string", default = {}, help_text = "List of environment variables used when building applications (excluding base_image).", example = {'BUILD': '${BUILD}'})
@@ -1165,6 +1183,7 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts, image_name = self._generate_run_docker_opts_(commands, service, docker_links, customized_env)
         docker_opts += service.tests.get_mounts_opt(service_name, customized_env)
         docker_cmd = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, docker_opts, image_name)
+        docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
         # Run daemon
         append_command(commands, 'read_sh', var = "DAEMON_ID", shell = docker_cmd)
@@ -1211,6 +1230,7 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts += " -i %s" % docker_base_image
 
         docker_cmd = "dmake_run_docker_command %s " % docker_opts
+        docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
         append_command(commands, 'sh', shell = docker_cmd + self.docker.command)
 
@@ -1225,6 +1245,7 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts, image_name = self._generate_run_docker_opts_(commands, service, docker_links)
         docker_opts += service.tests.get_mounts_opt(service_name, context_env)
         docker_cmd = 'dmake_run_docker_test %s "" %s -i %s ' % (service_name, docker_opts, image_name)
+        docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
         # Run test commands
         service.tests.generate_test(commands, self.__path__, service_name, docker_cmd, docker_links, self.docker.mount_point)
@@ -1242,8 +1263,9 @@ class DMakeFile(DMakeFileSerializer):
         options = link.get_options(self.__path__, context_env)
         env = link.get_env(context_env)
         env_file = generate_env_file(common.tmp_dir, env)
-        cmd = 'dmake_run_docker_link "%s" "%s" "%s" "%s" --env-file %s %s' % (self.app_name, image_name, link.link_name, link.probe_ports_list(), env_file, options)
-        append_command(commands, 'sh', shell=cmd)
+        docker_cmd = 'dmake_run_docker_link "%s" "%s" "%s" "%s" --env-file %s %s' % (self.app_name, image_name, link.link_name, link.probe_ports_list(), env_file, options)
+        docker_cmd = link.get_docker_run_gpu_cmd_prefix() + docker_cmd
+        append_command(commands, 'sh', shell=docker_cmd)
 
     def generate_deploy(self, commands, service_name):
         service = self._get_service_(service_name)

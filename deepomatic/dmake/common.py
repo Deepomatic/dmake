@@ -164,6 +164,7 @@ def init(_command, _root_dir, _app, _options):
     global root_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
     global repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
+    global no_gpu
     global build_description
     global command, options, uname
     global do_pull_config_dir
@@ -193,6 +194,9 @@ def init(_command, _root_dir, _app, _options):
 
     # Set skip test variable
     skip_tests = os.getenv('DMAKE_SKIP_TESTS', "false") in ["1", "true"]
+
+    # Set no_gpu variable
+    no_gpu = os.getenv('DMAKE_NO_GPU', "false") in ["1", "true"]
 
     # Currently set if any dmake file describes a deploy stage matching current branch; updated after files parsing
     is_release_branch = None
