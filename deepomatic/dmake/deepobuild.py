@@ -24,6 +24,10 @@ def append_command(commands, cmd, prepend = False, **args):
         check_cmd(args, ['name', 'concurrency'])
     elif cmd == "stage_end":
         check_cmd(args, [])
+    elif cmd == "lock":
+        check_cmd(args, ['resource'])
+    elif cmd == "lock_end":
+        check_cmd(args, [])
     elif cmd == "echo":
         check_cmd(args, ['message'])
     elif cmd == "sh":
@@ -81,6 +85,7 @@ def get_docker_run_gpu_cmd_prefix(need_gpu, service_type, service_name):
             common.logger.info("GPU needed by %s '%s' but DMAKE_NO_GPU set: trying without GPU." % (service_type, service_name))
             pass
         else:
+            common.need_gpu = True
             prefix = 'DMAKE_DOCKER_RUN_WITH_GPU=all '
     return prefix
 
