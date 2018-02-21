@@ -387,6 +387,13 @@ def generate_command_pipeline(file, cmds):
         elif cmd == "stage_end":
             indent_level -= 1
             write_line("}")
+        elif cmd == "lock":
+            resource = kwargs['resource'].replace("'", "\\'")
+            write_line("lock('%s') {" % resource)
+            indent_level += 1
+        elif cmd == "lock_end":
+            indent_level -= 1
+            write_line("}")
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
             write_line("echo '%s'" % message)
@@ -409,7 +416,7 @@ def generate_command_pipeline(file, cmds):
         elif cmd == "read_sh":
             file_output = os.path.join(common.cache_dir, "output_%s" % uuid.uuid4())
             write_line("sh('%s > %s')" % (kwargs['shell'], file_output))
-            write_line("env.%s = readFile '%s'" % (kwargs['var'], file_output));
+            write_line("env.%s = readFile '%s'" % (kwargs['var'], file_output))
             if kwargs['fail_if_empty']:
                 write_line("sh('if [ -z \"${%s}\" ]; then exit 1; fi')" % kwargs['var'])
         elif cmd == "env":
@@ -490,6 +497,11 @@ def generate_command_bash(file, cmds):
             file.write("\n")
             file.write("echo -e '\n## %s ##'\n" % kwargs['name'])
         elif cmd == "stage_end":
+            pass
+        elif cmd == "lock":
+            # lock not supported with bash
+            pass
+        elif cmd == "lock_end":
             pass
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
@@ -724,6 +736,8 @@ def make(root_dir, sub_dir, command, app, options):
             continue
 
         append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
+
+        stage_commands = []
         for node, order in commands:
             command, service, service_customization = node
             file, _, _ = service_providers[service]
@@ -754,8 +768,19 @@ def make(root_dir, sub_dir, command, app, options):
                 sys.exit(1)
 
             if len(step_commands) > 0:
-                append_command(all_commands, 'echo', message = '- Running %s' % (display_command_node(node)))
-                all_commands += step_commands
+                append_command(stage_commands, 'echo', message = '- Running %s' % (display_command_node(node)))
+                stage_commands += step_commands
+
+        # GPU resource lock
+        # `common.need_gpu` is set during Testing commands generations: need to delay adding commands to all_commands to create the gpu lock if needed around the Testing stage
+        lock_gpu = stage == "Testing App" and common.need_gpu
+        if lock_gpu:
+            append_command(all_commands, 'lock', resource = 'GPU')
+
+        all_commands += stage_commands
+
+        if lock_gpu:
+            append_command(all_commands, 'lock_end')
 
         append_command(all_commands, 'stage_end')
 
