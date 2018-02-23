@@ -4,7 +4,7 @@
 # dmake_remove_docker_containers_and_images TMP_DIR
 #
 # Result:
-# Terminate the docker links.
+# Remove containers, images and volumes to remove.
 
 test "${DMAKE_DEBUG}" = "1" && set -x
 
@@ -27,5 +27,11 @@ fi
 if [ -f ${TMP_DIR}/images_to_remove.txt ]; then
     set +e
     docker rmi -f `cat ${TMP_DIR}/images_to_remove.txt` > /dev/null 2>&1
+    set -e
+fi
+
+if [ -f ${TMP_DIR}/shared_volumes_to_remove.txt ]; then
+    set +e
+    docker volume rm -f `cat ${TMP_DIR}/shared_volumes_to_remove.txt` > /dev/null 2>&1
     set -e
 fi

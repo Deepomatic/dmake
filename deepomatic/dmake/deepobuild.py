@@ -3,10 +3,11 @@ import copy
 import json
 import uuid
 import importlib
+import re
 import requests.exceptions
 from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import deepomatic.dmake.common as common
-from deepomatic.dmake.common import DMakeException
+from deepomatic.dmake.common import DMakeException, SharedVolumeNotFoundException
 import deepomatic.dmake.kubernetes as k8s_utils
 import deepomatic.dmake.docker_registry as docker_registry
 
@@ -124,6 +125,102 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
 class EnvSerializer(YAML2PipelineSerializer):
     default  = EnvBranchSerializer(optional = True, help_text = "List of environment variables that will be set by default.")
     branches = FieldSerializer('dict', child = EnvBranchSerializer(), default = {}, help_text = "If the branch matches one of the following fields, those variables will be defined as well, eventually replacing the default.", example = {'master': {'ENV_TYPE': 'prod'}})
+
+
+class SharedVolumes(object):
+    volumes = dict()
+
+    allowed_volume_name_pattern = re.compile("^[a-zA-Z0-9][a-zA-Z0-9_.-]+$")
+
+    @staticmethod
+    def register(volume, file):
+        if volume.name in SharedVolumes.volumes:
+            raise DMakeException("Duplicate shared volume named '%s' in '%s'" % (volume.name, file))
+        SharedVolumes.volumes[volume.name] = volume
+
+    @staticmethod
+    def get(name):
+        # search named volume
+        volume = SharedVolumes.volumes.get(name, None)
+        if volume is None:
+            raise SharedVolumeNotFoundException(name)
+        return volume
+
+class SharedVolumeSerializer(YAML2PipelineSerializer):
+    name = FieldSerializer("string", help_text = "Shared volume name.", example = "datasets")
+
+    def _validate_(self, file, needed_migrations, data, field_name):
+        # also accept simple variant where data is a string: the name
+        if common.is_string(data):
+            data = {'name': data}
+        result = super(SharedVolumeSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        if not SharedVolumes.allowed_volume_name_pattern.match(self.name):
+            raise ValidationError("Invalid volume name '%s': only '[a-zA-Z0-9][a-zA-Z0-9_.-]+' is allowed. " % (self.name))
+
+        # register volumes globally
+        SharedVolumes.register(self, file)
+        # unique volume name
+        # docker seems to limit around 256, only "[a-zA-Z0-9][a-zA-Z0-9_.-]" are allowed
+        self.id = '{repo}.{branch}.{build_id}.{session_id}.{name}'.format(name=self.name, **vars(common))
+        return result
+
+    def _serialize_(self, commands, path_dir):
+        cmd = "dmake_create_docker_shared_volume %s" % (self.id)
+        if common.command == "shell":
+            cmd += " 777"
+        append_command(commands, 'sh', shell = cmd)
+
+    def get_service_name(self):
+        service = self.name + '::shared_volume'  # disambiguate with other services (app services, docker_link services, base services)
+        return service
+
+    def get_volume_id(self):
+        return self.id
+
+
+class SharedVolumeMountSerializer(YAML2PipelineSerializer):
+    source = FieldSerializer("string", example = "datasets", help_text = "The shared volume name (declared in .")
+    target = FieldSerializer("string", example = "/datasets", help_text = "The path in the container where the volume is mounted")
+
+    def _validate_(self, file, needed_migrations, data, field_name):
+        # also accept simple variant where data is a string: <volume_name>:<container_path>
+        if common.is_string(data):
+            parts = data.split(':')
+            if len(parts) != 2:
+                raise ValidationError("Invalid volume mount: '%s': Volumes shoud be in the form vol_name:/absolute/container/path" % (data))
+            data = {'source': parts[0], 'target': parts[1]}
+
+        result = super(SharedVolumeMountSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+
+        if not SharedVolumes.allowed_volume_name_pattern.match(self.source):
+            raise ValidationError("Invalid volume mount: source '%s' must be a volume name" % (self.source))
+
+        if self.target[0] != '/':
+            raise ValidationError("Invalid volume mount: target '%s' must be an absolute path" % (self.target))
+        return result
+
+    def get_shared_volume(self):
+        return SharedVolumes.get(self.source)
+
+
+class VolumeMountSerializer(YAML2PipelineSerializer):
+    container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
+    host_volume       = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume from the host")
+
+    def _validate_(self, file, needed_migrations, data, field_name):
+        # also accept simple variant where data is a string: <host_path>:<container_path>
+        if common.is_string(data):
+            parts = data.split(':')
+            if len(parts) != 2:
+                raise ValidationError("Invalid volume mount: '%s': Volumes shoud be in the form /host/path:/absolute/container/path" % (data))
+            data = {'host_volume': parts[0], 'container_volume': parts[1]}
+
+        result = super(VolumeMountSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+
+        if self.container_volume[0] != '/':
+            raise ValidationError("Invalid volume mount: container_volume '%s' must be an absolute path" % (self.container_volume))
+        return result
+
 
 class DockerBaseSerializer(YAML2PipelineSerializer):
     name                 = FieldSerializer("string", help_text = "Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.")
@@ -243,7 +340,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         return name_variant
 
     def get_service_name(self):
-        service = self.get_name_variant() + '::base'  # disambiguate with other services (app services, docker_link services)
+        service = self.get_name_variant() + '::base'  # disambiguate with other services (app services, docker_link services, shared volume services)
         return service
 
     def get_docker_image(self):
@@ -314,7 +411,7 @@ class HTMLReportSerializer(YAML2PipelineSerializer):
 class DockerLinkSerializer(YAML2PipelineSerializer):
     image_name       = FieldSerializer("string", example = "mongo:3.2", help_text = "Name and tag of the image to launch.")
     link_name        = FieldSerializer("string", example = "mongo", help_text = "Link name.")
-    volumes          = FieldSerializer("array", child = "string", default = [], help_text = "For the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.")
+    volumes          = FieldSerializer("array", child = FieldSerializer([SharedVolumeMountSerializer(), VolumeMountSerializer()]), default = [], example = ["datasets:/datasets", "/mnt:/mnt"], help_text = "Either shared volumes to mount. Or: for the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.")
     need_gpu         = FieldSerializer("bool", default = False, help_text = "Whether the docker link needs to be run on a GPU node.")
     # TODO: This field is badly named. Link are used by the run command also, nothing to do with testing or not. It should rather be: 'docker_options'
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
@@ -324,20 +421,28 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
 
     def get_options(self, path, env):
         options = common.eval_str_in_env(self.testing_options, env)
-        if common.command == "shell":
-            for vol in self.volumes:
-                vol = common.eval_str_in_env(vol, env)
-                vol = vol.split(':')
-                if len(vol) != 2:
-                    raise DMakeException("Volumes shoud be in the form ./host/path:/absolute/container/path")
-                host_vol, container_vol = vol
-                if host_vol[0] != '.' and host_vol[0] != '/':
-                    raise DMakeException("Only local volumes are supported. The volume should start by '.' or '/'.")
+        in_shell = common.command == "shell"
+        for volume in self.volumes:
+            if isinstance(volume, SharedVolumeMountSerializer):
+                # named shared volume
+                volume_id = volume.get_shared_volume().get_volume_id()
+                options += " -v %s:%s" % (volume_id, volume.target)
+            elif isinstance(volume, VolumeMountSerializer):
+                if not in_shell:
+                    # skip host vols in non shell (i.e. in test: we don't want persistence)
+                    continue
+                host_vol = common.eval_str_in_env(volume.host_volume, env)
+
+                # late validation (cannot do it before variable substitution which requires `env`: cannot be done before now)
+                if host_vol[0] not in ['/', '.']:
+                    raise DMakeException("Invalid volume mount: '%s' (from source: '%s'): host_volume must be an absolute or relative path in the host." % (host_vol, volume.host_volume))
 
                 # Turn it into an absolute path
                 if host_vol[0] == '.':
                     host_vol = os.path.normpath(os.path.join(common.root_dir, path, host_vol))
-                options += ' -v %s:%s' % (host_vol, container_vol)
+                options += ' -v %s:%s' % (host_vol, volume.container_volume)
+            else:
+                assert False, "Unknown DockerLink volume type"
         return options
 
     def get_env(self, context_env):
@@ -345,6 +450,9 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
         for key, value in self.env.items():
             env[key] = common.eval_str_in_env(value, context_env)
         return env
+
+    def get_shared_volumes(self):
+        return [volume.get_shared_volume() for volume in self.volumes if isinstance(volume, SharedVolumeMountSerializer)]
 
     def probe_ports_list(self):
         if isinstance(self.probe_ports, list):
@@ -629,10 +737,6 @@ class DeployConfigPortsSerializer(YAML2PipelineSerializer):
     container_port    = FieldSerializer("int", example = 8000, help_text = "Port on the container")
     host_port         = FieldSerializer("int", example = 80, help_text = "Port on the host")
 
-class DeployConfigVolumesSerializer(YAML2PipelineSerializer):
-    container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
-    host_volume       = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume from the host")
-
 class DeployStageSerializer(YAML2PipelineSerializer):
     description   = FieldSerializer("string", example = "Deployment on AWS and via SSH", help_text = "Deploy stage description.")
     branches      = FieldSerializer(["string", "array"], child = "string", default = ['stag'], post_validation = lambda x: [x] if common.is_string(x) else x, help_text = "Branch list for which this stag is active, '*' can be used to match any branch. Can also be a simple string.")
@@ -764,7 +868,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add.")
     need_gpu           = FieldSerializer("bool", default = False, help_text = "Whether the service needs to be run on a GPU node.")
     ports              = FieldSerializer("array", child = DeployConfigPortsSerializer(), default = [], help_text = "Ports to open.")
-    volumes            = FieldSerializer("array", child = DeployConfigVolumesSerializer(), default = [], help_text = "Volumes to open.")
+    volumes            = FieldSerializer("array", child = FieldSerializer([SharedVolumeMountSerializer(), VolumeMountSerializer()]), default = [], example = ["datasets:/datasets"], help_text = "Volumes to mount.")
     readiness_probe    = ReadinessProbeSerializer(optional = True, help_text = "A probe that waits until the container is ready.")
 
     def full_docker_opts(self, testing_mode):
@@ -778,22 +882,32 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
             else:
                 opts.append("-p 0.0.0.0:%s:%s" % (ports.host_port, ports.container_port))
 
-        for volumes in self.volumes:
+        for volume in self.volumes:
+            if isinstance(volume, SharedVolumeMountSerializer):
+                # named shared volume
+                if not testing_mode:
+                    raise DMakeException("Named shared volume not supported by ssh deployment: '%s'" % (volume))
+                volume_id = volume.get_shared_volume().get_volume_id()
+                opts.append("-v %s:%s" % (volume_id, volume.target))
+                continue
+
+            # else: VolumeMountSerializer
+            assert isinstance(volume, VolumeMountSerializer), "Unknown DeployConfig volume type"
             if testing_mode:
-                host_volume = os.path.join(common.cache_dir, 'volumes', volumes.host_volume)
+                host_volume = os.path.join(common.cache_dir, 'volumes', volume.host_volume)
                 try:
                     os.mkdir(host_volume)
                 except OSError:
                     pass
             else:
-                host_volume = volumes.host_volume
+                host_volume = volume.host_volume
 
             # On MacOs, the /var directory is actually in /private
             # So you have to activate /private/var in the shard directories
             if common.uname == "Darwin" and host_volume.startswith('/var/'):
                 host_volume = '/private/' + host_volume
 
-            opts.append("-v %s:%s" % (common.join_without_slash(host_volume), common.join_without_slash(volumes.container_volume)))
+            opts.append("-v %s:%s" % (common.join_without_slash(host_volume), common.join_without_slash(volume.container_volume)))
 
         docker_opts = self.docker_opts
         if not common.is_local:
@@ -993,6 +1107,9 @@ class ServicesSerializer(YAML2PipelineSerializer):
     def get_docker_run_gpu_cmd_prefix(self):
         return get_docker_run_gpu_cmd_prefix(self.config.need_gpu, 'service', self.service_name)
 
+    def get_shared_volumes(self):
+        return [volume.get_shared_volume() for volume in self.config.volumes if isinstance(volume, SharedVolumeMountSerializer)]
+
 class BuildSerializer(YAML2PipelineSerializer):
     env      = FieldSerializer("dict", child = "string", default = {}, help_text = "List of environment variables used when building applications (excluding base_image).", example = {'BUILD': '${BUILD}'})
     commands = FieldSerializer("array", default = [], child = FieldSerializer(["string", "array"], child = "string", post_validation = lambda x: [x] if common.is_string(x) else x), help_text ="Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.", example = ["cmake .", "make"])
@@ -1012,6 +1129,7 @@ class DMakeFileSerializer(YAML2PipelineSerializer):
     app_name           = FieldSerializer("string", help_text = "The application name.", example = "my_app", no_slash_no_space = True)
     blacklist          = FieldSerializer("array", child = "file", default = [], help_text = "List of dmake files to blacklist.", child_path_only = True, example = ['some/sub/dmake.yml'])
     env                = FieldSerializer(["file", EnvSerializer()], optional = True, help_text = "Environment variables to embed in built docker images.")
+    volumes            = FieldSerializer("array", child = SharedVolumeSerializer(), default = [], help_text = "List of shared volumes usabled on services and docker_links", example = ['datasets'])
     docker             = FieldSerializer([FieldSerializer("file", help_text = "to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field."), DockerSerializer()], help_text = "The environment in which to build and deploy.")
     docker_links       = FieldSerializer("array", child = DockerLinkSerializer(), default = [], help_text = "List of link to create, they are shared across the whole application, so potentially across multiple dmake files.")
     build              = BuildSerializer(help_text = "Commands to run for building the application.")
@@ -1118,6 +1236,18 @@ class DMakeFile(DMakeFileSerializer):
     def get_docker_links(self):
         return self.docker_links
 
+    def get_docker_link(self, link_service_name, docker_links = None):
+        if docker_links is None:
+            docker_links = {link.link_name: link for link in self.docker_links}
+        service = link_service_name.split('/')
+        if len(service) != 3:
+            raise Exception("Something went wrong: the service should be of the form 'links/:app_name/:link_name'")
+        link_name = service[2]
+        if link_name not in docker_links:
+            raise Exception("Unexpected link '%s'" % link_name)
+        link = docker_links[link_name]
+        return link
+
     def _generate_docker_cmd_(self, docker_base, service=None, env=None, mount_root_dir=True):
         if env is None:
             env = {}
@@ -1156,6 +1286,16 @@ class DMakeFile(DMakeFileSerializer):
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; needed_service.service_name doesn't contain app_name
             needed_services = map(lambda needed_service: "%s/%s%s" % (app_name, needed_service.service_name, needed_service.get_service_name_unique_suffix()), service.needed_services)
             append_command(commands, 'sh', shell = "dmake_check_services %s" % (' '.join(needed_services)))
+
+    def _get_shared_volume_from_service_name_(self, shared_volume_service_name):
+        for volume in self.volumes:
+            if volume.get_service_name() == shared_volume_service_name:
+                return volume
+        raise DMakeException("Could not find shared_volume service '%s'" % shared_volume_service_name)
+
+    def generate_shared_volume(self, commands, shared_volume_service_name):
+        shared_volume = self._get_shared_volume_from_service_name_(shared_volume_service_name)
+        shared_volume._serialize_(commands, self.__path__)
 
     def generate_base(self, commands, base_image_service_name):
         base_image = self.docker.get_base_image_from_service_name(base_image_service_name)
@@ -1256,13 +1396,7 @@ class DMakeFile(DMakeFileSerializer):
         service.tests.generate_test(commands, self.__path__, service_name, docker_cmd, docker_links, self.docker.mount_point)
 
     def generate_run_link(self, commands, service, docker_links):
-        service = service.split('/')
-        if len(service) != 3:
-            raise Exception("Something went wrong: the service should be of the form 'links/:app_name/:link_name'")
-        link_name = service[2]
-        if link_name not in docker_links:
-            raise Exception("Unexpected link '%s'" % link_name)
-        link = docker_links[link_name]
+        link = self.get_docker_link(service, docker_links)
         context_env = self.env.get_replaced_variables()
         image_name = common.eval_str_in_env(link.image_name, context_env)
         options = link.get_options(self.__path__, context_env)

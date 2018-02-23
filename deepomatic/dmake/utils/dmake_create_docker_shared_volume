@@ -1,0 +1,35 @@
+#!/bin/bash
+#
+# Usage:
+# dmake_create_docker_shared_volume VOLUME_NAME [PERMISSIONS])
+#
+# Result:
+# Create a docker volume and save its name for later cleanup
+
+test "${DMAKE_DEBUG}" = "1" && set -x
+
+if [ $# -ne 1 -a $# -ne 2 ]; then
+    dmake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+if [ -z "${DMAKE_TMP_DIR}" ]; then
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
+    exit 1
+fi
+
+set -e
+
+VOLUME_NAME=$1
+PERMISSIONS=$2
+docker volume create --name "${VOLUME_NAME}"
+
+
+if [ ! -z "${PERMISSIONS}" ]; then
+  # Proper permissions in volume
+  docker run --rm -v "${VOLUME_NAME}:/mnt" alpine:latest chmod ${PERMISSIONS} /mnt
+fi
+
+
+echo "${VOLUME_NAME}" >> ${DMAKE_TMP_DIR}/shared_volumes_to_remove.txt

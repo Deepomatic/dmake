@@ -27,6 +27,8 @@ docker_links:
     link_name: rabbitmq
     probe_ports:
       - 5672/tcp
+    volumes:
+      - shared_rabbitmq_var_lib:/var/lib/rabbitmq
     testing_options: -e RABBITMQ_DEFAULT_VHOST=dev
     env:
       RABBITMQ_DEFAULT_USER: user
@@ -48,6 +50,11 @@ services:
           - ubuntu-1804
         entrypoint: deploy/entrypoint.sh
         start_script: deploy/start.sh
+      volumes:
+        - source: shared_rabbitmq_var_lib
+          target: /var/lib/rabbitmq
+        - shared_volume2:/shared_volume2
     tests:
       commands:
+        - ./deploy/test-shared-volumes.sh
         - ./bin/worker_test
