@@ -99,18 +99,16 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
     def get_replaced_variables(self, additional_variables=None, docker_links=None, needed_links=None):
         if additional_variables is None:
             additional_variables = {}
+
         replaced_variables = {}
-        if self.has_value() and (len(self.variables) or len(additional_variables)):
-            if self.source is not None:
-                env = 'source %s && ' % self.source
-            else:
-                env = ''
 
-            variables = dict(list(self.variables.items()) + list(additional_variables.items()))
-            for var, value in variables.items():
+        # first pass: evaluate env in the context of the source
+        if self.has_value():
+            for var, value in self.variables.items():
                 # destructively remove newlines from environment variables values, as docker doesn't properly support them. It's fine for multiline jsons for example though.
-                replaced_variables[var] = common.run_shell_command(env + 'echo %s' % common.wrap_cmd(value)).replace('\n', '')
+                replaced_variables[var] = common.eval_str_in_env(value, source=self.source).replace('\n', '')
 
+        # second pass: add docker_links env_exports
         if docker_links is not None and getattr(common.options, 'dependencies', None):
             # docker_links is a dictionnary of all declared links, we want to export only
             # env_export of linked services
@@ -120,6 +118,12 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                 link = docker_links[link_name]
                 for var, value in link.env_exports.items():
                     replaced_variables[var] = value
+
+        # third pass: evaluate additional_variables in the context of second pass env
+        second_path_env = replaced_variables.copy()
+        for var, value in additional_variables.items():
+            replaced_variables[var] = common.eval_str_in_env(value, second_path_env)
+
         return replaced_variables
 
 class EnvSerializer(YAML2PipelineSerializer):
@@ -946,7 +950,7 @@ class DeploySerializer(YAML2PipelineSerializer):
             if common.branch not in branches and '*' not in branches:
                 continue
 
-            branch_env = env.get_replaced_variables(stage.env)
+            branch_env = env.get_replaced_variables(additional_variables = stage.env)
             stage.aws_beanstalk._serialize_(commands, app_name, config, image_name, branch_env)
             stage.ssh._serialize_(commands, app_name, config, image_name, branch_env)
             stage.k8s_continuous_deployment._serialize_(commands, app_name, image_name, branch_env)
@@ -1055,12 +1059,6 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         result = super(NeededServiceSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         self._specialized = len(self.env) > 0
         return result
-
-    def get_env(self, context_env):
-        contextualized_env = {}
-        for key, value in self.env.items():
-            contextualized_env[key] = common.eval_str_in_env(value, context_env)
-        return contextualized_env
 
     def get_service_name_unique_suffix(self):
         return "--%s" % id(self) if self._specialized else ""
@@ -1301,32 +1299,29 @@ class DMakeFile(DMakeFileSerializer):
         base_image = self.docker.get_base_image_from_service_name(base_image_service_name)
         base_image._serialize_(commands, self.__path__)
 
-    def _generate_run_docker_opts_(self, commands, service, docker_links, env=None):
-        if env is None:
-            env = {}
-        docker_opts = self._launch_options_(commands, service, docker_links, env=env, run_base_image=False, mount_root_dir=False)
-
-        env = self.env.get_replaced_variables(docker_links=docker_links, needed_links=service.needed_links)
+    def _generate_run_docker_opts_(self, commands, service, docker_links, additional_env_variables=None):
+        docker_opts, env = self._launch_options_(commands, service, docker_links, additional_env_variables=additional_env_variables, run_base_image=False, mount_root_dir=False)
         image_name = service.config.docker_image.get_image_name(env=env)
 
-        return docker_opts, image_name
+        return docker_opts, image_name, env
 
     def generate_run(self, commands, service_name, docker_links, service_customization):
         service = self._get_service_(service_name)
         if service.config.docker_image.start_script is None:
             raise DMakeException("You need to specify a 'config.docker_image.start_script' when running service '%s'." % service_name)
 
-        context_env = self.env.get_replaced_variables(docker_links=docker_links, needed_links=service.needed_links)
         unique_service_name = service_name
-
-        customized_env = {}
+        additional_customization_env_variables = {}
         if service_customization:
-            customized_env = service_customization.get_env(context_env)
+            # customization variables will be evaluated later:
+            #   by `env.get_replaced_variables()` in the wrong dmake file runtime `.env`, but sometimes OK thanks to needed_links env_exports
+            # TODO fix that: customization env should be evaluated in parent service runtime env.
+            additional_customization_env_variables = service_customization.env
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; service_name already contains "<app_name>/"
             unique_service_name += service_customization.get_service_name_unique_suffix()
 
-        docker_opts, image_name = self._generate_run_docker_opts_(commands, service, docker_links, customized_env)
-        docker_opts += service.tests.get_mounts_opt(service_name, customized_env)
+        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, additional_env_variables = additional_customization_env_variables)
+        docker_opts += service.tests.get_mounts_opt(service_name, env)
         docker_cmd = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
@@ -1343,7 +1338,9 @@ class DMakeFile(DMakeFileSerializer):
         tmp_dir = service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build, service.config)
         self.app_package_dirs[service.service_name] = tmp_dir
 
-    def _launch_options_(self, commands, service, docker_links, env, run_base_image, mount_root_dir):
+    def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, additional_env = None, additional_env_variables = None):
+        if additional_env is None:
+            additional_env = {}
         if run_base_image and service.config.docker_image.entrypoint is not None:
             full_path_container = os.path.join(self.docker.mount_point,
                                                self.__path__,
@@ -1352,7 +1349,8 @@ class DMakeFile(DMakeFileSerializer):
         else:
             entrypoint_opt = ''
 
-        env = self.env.get_replaced_variables(env, docker_links=docker_links, needed_links=service.needed_links)
+        env = self.env.get_replaced_variables(additional_variables=additional_env_variables, docker_links=docker_links, needed_links=service.needed_links)
+        env.update(additional_env)
         docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env, mount_root_dir=mount_root_dir)
         docker_opts += entrypoint_opt
 
@@ -1361,15 +1359,13 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts += " " + service.config.full_docker_opts(True)
         docker_opts += " ${DOCKER_LINK_OPTS}"
 
-        return docker_opts
+        return docker_opts, env
 
     def generate_shell(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
 
-        context_env = self.env.get_replaced_variables()
-
-        docker_opts = self._launch_options_(commands, service, docker_links, self.build.env, run_base_image=True, mount_root_dir=True)
-        docker_opts += service.tests.get_mounts_opt(service_name, context_env)
+        docker_opts, env = self._launch_options_(commands, service, docker_links, run_base_image=True, mount_root_dir=True, additional_env=self.build.env)
+        docker_opts += service.tests.get_mounts_opt(service_name, env)
 
         docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
         docker_opts += " -i %s" % docker_base_image
@@ -1385,10 +1381,8 @@ class DMakeFile(DMakeFileSerializer):
             # no test specified, nothing to generate for tests
             return
 
-        context_env = self.env.get_replaced_variables()
-
-        docker_opts, image_name = self._generate_run_docker_opts_(commands, service, docker_links)
-        docker_opts += service.tests.get_mounts_opt(service_name, context_env)
+        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links)
+        docker_opts += service.tests.get_mounts_opt(service_name, env)
         docker_cmd = 'dmake_run_docker_test %s "" %s -i %s ' % (service_name, docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
