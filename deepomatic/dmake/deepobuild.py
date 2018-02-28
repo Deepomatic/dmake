@@ -1176,7 +1176,7 @@ class DMakeFile(DMakeFileSerializer):
                     data = m.patch(data)
             if migrated:
                 with open(file, 'w') as f:
-                    common.yaml_ordered_dump(data, f)
+                    common.yaml_ordered_dump(data, f, normalize_indent=True)
                     common.logger.info("Migrations applied, please verify changes in '{}' and commit them.".format(file))
 
         except ValidationError as e:

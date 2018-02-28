@@ -39,26 +39,27 @@ class SharedVolumeNotFoundException(DMakeException):
 
 ###############################################################################
 
-def yaml_ordered_load(stream):
+def yaml_ordered_load(stream, all=False):
     try:
         yaml = YAML(pure=True)
-        data = yaml.load(stream)
+        data = list(yaml.load_all(stream)) if all else yaml.load(stream)
         return data
     except Exception as e:
         raise DMakeException(str(e))
 
-def yaml_ordered_dump(data, stream=None, default_flow_style=False):
-    yaml=YAML()
-    yaml.default_flow_style = default_flow_style
-    yaml.width = 4096
-    yaml.indent(mapping=2, sequence=4, offset=2)
-    string_value = StringIO()
-    yaml.dump(data, string_value)
-    string_value = string_value.getvalue()
-    if stream:
-        stream.write(string_value)
-    else:
-        return string_value
+def yaml_ordered_dump(data, stream=None, default_flow_style=False, all=False, normalize_indent=False):
+    return_string = False
+    if stream is None:
+        stream = StringIO()
+        return_string = True
+    yaml = YAML(pure=True)
+    if normalize_indent:
+        yaml.default_flow_style = default_flow_style
+        yaml.width = 4096
+        yaml.indent(mapping=2, sequence=4, offset=2)
+    yaml.dump_all(data, stream) if all else yaml.dump(data, stream)
+    if return_string:
+        return stream.getvalue()
 
 ###############################################################################
 
@@ -118,21 +119,10 @@ def join_without_slash(*args):
 ###############################################################################
 
 def find_repo_root(path=os.getcwd()):
-    root_dir = path
-    sub_dir = ''
-    while True:
-        if os.path.isdir(os.path.join(root_dir, '.git')):
-            break
-        else:
-            if root_dir == '/':
-                raise NotGitRepositoryException()
-            sub_dir = os.path.join(os.path.basename(root_dir), sub_dir)
-            root_dir = os.path.normpath(os.path.join(root_dir, '..'))
-            if root_dir.startswith('..'):
-                return None, None
-    sub_dir = os.path.normpath(sub_dir)
+    root_dir = run_shell_command('git -C %s rev-parse --show-toplevel' % (path))
+    sub_dir = os.path.relpath(path, root_dir)
     if sub_dir == '.':
-        sub_dir = '' # IMPORTANT: Need to get rid of the leading '.' to unify behaviour
+        sub_dir = ''  # IMPORTANT: Need to get rid of the leading '.' to unify behaviour
     return root_dir, sub_dir
 
 ###############################################################################
