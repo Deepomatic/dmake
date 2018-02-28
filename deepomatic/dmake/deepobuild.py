@@ -681,9 +681,18 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
 
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
 
+        # dmake service label used for pruning resources on kubectl apply: dmake automatically adds this label to all (top level) resources, then kubectl apply is limited to these resources by label selection
+        dmake_generated_labels = {
+            'dmake.deepomatic.com/service': app_name
+        }
+
         # generate ConfigMap containing runtime environment variables
         configmap_env_filename = 'kubernetes-configmap-env.yaml'
-        configmap_name = k8s_utils.generate_config_map_file(env, app_name, os.path.join(tmp_dir, configmap_env_filename))
+        configmap_env_labels = dmake_generated_labels.copy()
+        configmap_env_labels.update({
+            'dmake.deepomatic.com/prune': 'no-pruning'
+        });
+        configmap_name = k8s_utils.generate_config_map_file(env, app_name, os.path.join(tmp_dir, configmap_env_filename), labels = configmap_env_labels)
 
         # additional ConfigMaps
         user_configmaps_filename = 'kubernetes-user-configmaps.yaml'
@@ -695,9 +704,9 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
             cm_data = common.run_shell_command(cmd, raise_on_return_code=True)
             cm_datas.append(cm_data)
+        cm_datas_str = '%s\n' % ('\n\n---\n\n'.join(cm_datas))
         with open(os.path.join(tmp_dir, user_configmaps_filename), 'w') as f:
-            f.write('\n\n---\n\n'.join(cm_datas))
-            f.write('\n')
+            k8s_utils.dump_all_str_and_add_labels(cm_datas_str, f, dmake_generated_labels)
 
         # copy/render template manifest file
         user_manifest_filename = 'kubernetes-user-manifest.yaml'
@@ -711,7 +720,9 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         }
         template_context = self.manifest.get_template_variables(env)
         template_context.update(template_default_context)
-        common.run_shell_command('dmake_replace_vars %s %s' % (self.manifest.template, user_manifest_path), additional_env = template_context)
+        user_manifest_data_str = common.run_shell_command('dmake_replace_vars %s' % (self.manifest.template), additional_env = template_context, raise_on_return_code=True)
+        with open(user_manifest_path, 'w') as f:
+            k8s_utils.dump_all_str_and_add_labels(user_manifest_data_str, f, dmake_generated_labels)
         # verify the manifest file
         program = 'kubectl'
         args = ['apply', '--dry-run=true', '--validate=true', '--filename=%s' % user_manifest_path]
@@ -732,7 +743,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 common.repo,
                 common.branch,
                 common.commit_id,
-                configmap_env_filename, user_configmaps_filename, user_manifest_filename]
+                'no-pruning:%s' % (configmap_env_filename), user_configmaps_filename, user_manifest_filename]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 

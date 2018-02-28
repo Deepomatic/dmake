@@ -27,9 +27,14 @@ COMMIT=$1; shift
 
 BASE_ARGS=( --context=${CONTEXT} ${NAMESPACE:+--namespace=${NAMESPACE}} )
 
+FILES_NO_PRUNING_ARGS=( )
 FILES_ARGS=( )
 for file in "$@"; do
-  FILES_ARGS[${#FILES_ARGS[*]}]="--filename=${TMP_DIR}/${file}"
+  if [[ "${file}" == "no-pruning:"* ]]; then
+    FILES_NO_PRUNING_ARGS+=( --filename="${TMP_DIR}/${file#no-pruning:}" )
+  else
+    FILES_ARGS+=( --filename="${TMP_DIR}/${file}" )
+  fi
 done
 
 
@@ -41,10 +46,29 @@ function echo_title() {
 deploy_timestamp=$(date --iso-8601=seconds)
 
 echo_title Apply ${SERVICE} to kubernetes cluster ${CONTEXT}:
+
 # --record=false allows to specify `kubernetes.io/change-cause` annotation from the manifest files
-APPLY_ARGS=( "${BASE_ARGS[@]}" apply --record=false --output=yaml "${FILES_ARGS[@]}" )
+APPLY_BASE_ARGS=( "${BASE_ARGS[@]}" apply --record=false --output=yaml )
+if [[ "${DMAKE_K8S_DRY_RUN}" == "1" ]]; then
+  APPLY_BASE_ARGS+=( --dry-run )
+fi
+# first, non-pruned resources
+APPLY_NO_PRUNING_ARGS=( "${APPLY_BASE_ARGS[@]}" "${FILES_NO_PRUNING_ARGS[@]}" )
+
+echo kubectl "${APPLY_NO_PRUNING_ARGS[@]}"
+kubectl "${APPLY_NO_PRUNING_ARGS[@]}"
+
+# second, normal resources (we prune them)
+SELECTOR="dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/prune!=no-pruning"
+APPLY_ARGS=( "${APPLY_BASE_ARGS[@]}" --prune=true --cascade=true --selector="${SELECTOR}" "${FILES_ARGS[@]}" )
+
 echo kubectl "${APPLY_ARGS[@]}"
 kubectl "${APPLY_ARGS[@]}"
+
+if [[ "${DMAKE_K8S_DRY_RUN}" == "1" ]]; then
+  echo "dry-run, exiting"
+  exit
+fi
 
 echo_title Annotate ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
 # TODO currently not atomic: multiple apply can work in parallel, and this command may annotate the wrong version
@@ -65,6 +89,6 @@ echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
 kubectl "${ROLLOUT_STATUS_ARGS[@]}"
 
 echo_title New state of ${SERVICE} on kubernetes cluster ${CONTEXT}:
-GET_ARGS=( "${BASE_ARGS[@]}" get --output=wide "${FILES_ARGS[@]}" )
+GET_ARGS=( "${BASE_ARGS[@]}" get --output=wide "${FILES_NO_PRUNING_ARGS[@]}" "${FILES_ARGS[@]}" )
 echo kubectl "${GET_ARGS[@]}"
 kubectl "${GET_ARGS[@]}"
