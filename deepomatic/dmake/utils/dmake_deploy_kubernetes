@@ -84,9 +84,13 @@ ANNOTATE_ARGS=( "${BASE_ARGS[@]}" annotate deployment/${SERVICE} --overwrite=tru
 # kubectl "${ANNOTATE_ARGS[@]}"
 
 echo_title Rollout status for ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
-ROLLOUT_STATUS_ARGS=( "${BASE_ARGS[@]}" rollout status --watch=true deployment/${SERVICE} )
-echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
-kubectl "${ROLLOUT_STATUS_ARGS[@]}"
+
+DEPLOYMENTS=( $(kubectl get deployment --selector=dmake.deepomatic.com/service=${SERVICE} --output=jsonpath={.items..metadata.name}) )
+for DEPLOYMENT in ${DEPLOYMENTS[@]}; do
+  ROLLOUT_STATUS_ARGS=( "${BASE_ARGS[@]}" rollout status --watch=true deployment/${DEPLOYMENT} )
+  echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
+  kubectl "${ROLLOUT_STATUS_ARGS[@]}"
+done
 
 echo_title New state of ${SERVICE} on kubernetes cluster ${CONTEXT}:
 GET_ARGS=( "${BASE_ARGS[@]}" get --output=wide "${FILES_NO_PRUNING_ARGS[@]}" "${FILES_ARGS[@]}" )
