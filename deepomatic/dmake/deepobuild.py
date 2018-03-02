@@ -767,11 +767,11 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
     check_private    = FieldSerializer("bool",   default = True,  help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}'")
     workdir          = FieldSerializer("dir",    optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
-    #install_targets = FieldSerializer("array", child = FieldSerializer([InstallExeSerializer(), InstallLibSerializer(), InstallDirSerializer()]), default = [], help_text = "Target files or directories to install.")
     copy_directories = FieldSerializer("array", child = "dir", default = [], help_text = "Directories to copy in the docker image.")
     install_script   = FieldSerializer("file", child_path_only = True, executable = True, optional = True, example = "install.sh", help_text = "The install script (will be run in the docker). It has to be executable.")
     entrypoint       = FieldSerializer("file", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
     start_script     = FieldSerializer("file", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
+    # v2: user provided Dockerfile
 
     def set_service(self, service):
         self.service = service
@@ -852,8 +852,6 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
 
         image_name = self.get_image_name()
         append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
-
-        return tmp_dir
 
 class ReadinessProbeSerializer(YAML2PipelineSerializer):
     command               = FieldSerializer("array", child = "string", default = [], example = ['cat', '/tmp/worker_ready'], help_text = "The command to run to check if the container is ready. The command should fail with a non-zero code if not ready.")
@@ -937,7 +935,7 @@ class DeploySerializer(YAML2PipelineSerializer):
     def set_service(self, service):
         self.service = service
 
-    def generate_deploy(self, commands, app_name, package_dir, env, config):
+    def generate_deploy(self, commands, app_name, env, config):
         deploy_env = env.get_replaced_variables()
         if self.deploy_name is not None:
             app_name = self.deploy_name
@@ -1213,7 +1211,6 @@ class DMakeFile(DMakeFileSerializer):
                 self.__fields__['env'] = env
 
         self.docker_services_image = None
-        self.app_package_dirs = {}
 
         # set common.is_release_branch: does the current branch have a deployment in any dmake.yml file?
         if common.is_release_branch is None:
@@ -1346,8 +1343,7 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
-        tmp_dir = service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build, service.config)
-        self.app_package_dirs[service.service_name] = tmp_dir
+        service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build, service.config)
 
     def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, additional_env = None, additional_env_variables = None):
         if additional_env is None:
@@ -1418,5 +1414,4 @@ class DMakeFile(DMakeFileSerializer):
             return
         if service.config.docker_image.start_script is None:
             raise DMakeException("You need to specify a 'config.docker_image.start_script' when deploying service '%s'." % service_name)
-        assert(service.service_name in self.app_package_dirs)
-        service.deploy.generate_deploy(commands, self.app_name, self.app_package_dirs[service.service_name], self.env, service.config)
+        service.deploy.generate_deploy(commands, self.app_name, self.env, service.config)
