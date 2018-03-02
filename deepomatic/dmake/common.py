@@ -96,12 +96,14 @@ def escape_cmd(cmd):
 def wrap_cmd(cmd):
     return '"%s"' % cmd.replace('"', '\\"')
 
-def eval_str_in_env(value, env=None, strict=False):
+def eval_str_in_env(value, env=None, strict=False, source=None):
     if env is None:
         env = {}
     cmd = ''
     if strict:
         cmd += 'set -euo pipefail; '
+    if source:
+        cmd += 'source %s && ' % (source)
     cmd += 'echo %s' % wrap_cmd(value)
     return run_shell_command(cmd, additional_env=env).strip()
 
