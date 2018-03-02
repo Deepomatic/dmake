@@ -1,14 +1,14 @@
 #!/bin/bash
 #
 # Usage:
-# dmake_build_docker TMP_DIR NAME
+# dmake_build_docker CONTEXT_DIR IMAGE_NAME ARGS...
 #
 # Result:
-# Build a docker given a ${TMP_DIR}/Dockerfile
+# Build a docker image named ${IMAGE_NAME} using build context ${CONTEXT_DIR}
 
 test "${DMAKE_DEBUG}" = "1" && set -x
 
-if [ $# -ne 2 ]; then
+if [ $# -lt 2 ]; then
     dmake_fail "$0: Missing arguments"
     exit 1
 fi
@@ -20,10 +20,9 @@ fi
 
 set -e
 
-TMP_DIR=$1
-NAME=$2
+CONTEXT_DIR=$1
+IMAGE_NAME=$2
+shift 2
 
-cd ${TMP_DIR}
-
-docker image build --squash --tag ${NAME} .
-echo ${NAME} >> ${DMAKE_TMP_DIR}/images_to_remove.txt
+docker image build "$@" --tag ${IMAGE_NAME} ${CONTEXT_DIR}
+echo ${IMAGE_NAME} >> ${DMAKE_TMP_DIR}/images_to_remove.txt

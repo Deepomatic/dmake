@@ -25,6 +25,7 @@ class FieldSerializer(object):
             data_type,
             optional=False,
             default=None,
+            allow_null=False,
             blank=False,
             child=None,
             post_validation=lambda x: x,
@@ -55,6 +56,7 @@ class FieldSerializer(object):
         self.data_type = data_type
         self.optional = optional
         self.default = default
+        self.allow_null = allow_null
         self.blank = blank
         self.post_validation = post_validation
         self.child_path_only = child_path_only
@@ -70,7 +72,7 @@ class FieldSerializer(object):
         self.value = None
 
     def _validate_(self, file, needed_migrations, data, field_name):
-        if data is None:
+        if data is None and not self.allow_null:
             if not self.optional:
                 raise ValidationError("got 'Null', expected a value of type %s" % (" -OR-\n".join([str(t) for t in self.data_type])))
             else:

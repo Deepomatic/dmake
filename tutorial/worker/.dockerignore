@@ -1,0 +1,6 @@
+dmake.yml
+.dockerignore
+Dockerfile
+
+bin/
+**/*.pyc
