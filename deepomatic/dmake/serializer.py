@@ -269,7 +269,7 @@ class FieldSerializer(object):
         infos.append(type_str)
 
         if self.default is not None:
-            infos.append('default = %s' % common.yaml_ordered_dump(self.default, default_flow_style=True).strip())
+            infos.append('default = %s' % common.yaml_ordered_dump(self.default, normalize_indent=True, default_flow_style=True).strip())
 
         return infos, help_text, doc_string
 
