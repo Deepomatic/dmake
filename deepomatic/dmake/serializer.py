@@ -28,7 +28,7 @@ class FieldSerializer(object):
             blank=False,
             child=None,
             post_validation=lambda x: x,
-            child_path_only=False,
+            child_path_only=False,        # if True, return path relative to dmake.yml file, else return path relative to repo root
             check_path=True,
             executable=False,
             no_slash_no_space=False,
@@ -140,25 +140,28 @@ class FieldSerializer(object):
                         raise ValidationError("Character '%s' not allowed" % c)
             return data
         elif data_type in ["path", "file", "dir"]:
-            path = os.path.join(os.path.dirname(file), '')
+            dmake_path = os.path.join(os.path.dirname(file), '')  # `dmake.yml` directory, relative to repo root; ending with slash, or empty string
+            assert(len(dmake_path) == 0 or dmake_path[-1] == '/')
             if not common.is_string(data):
                 raise WrongType("Expecting string")
             if len(data) > 0 and data[0] == '/':
+                # then interpret data as absolute from repo root, not from `/` host root
                 data = data[1:]
                 full_path = data
                 if self.child_path_only:
-                    if full_path.startswith(path):
-                        data = data[len(path)]
-                        if len(data) > 0 and data[0] == '/':
-                            data = data[1:]
+                    if full_path.startswith(dmake_path):
+                        # then make it relative to `dmake.yml` directory
+                        data = full_path[len(dmake_path):]
+                        assert(len(data) == 0 or data[0] != '/')
                     else:
                         raise WrongType("Path must be sub-paths to dmake file for this field.")
             else:
-                full_path = os.path.join(path, data)
+                # then interpret data as relative to `dmake.yml` directory
+                full_path = os.path.join(dmake_path, data)
                 if not self.child_path_only:
                     data = full_path
             data = os.path.normpath(data)
-            if data.startswith("../"):
+            if data.startswith(".."):
                 raise WrongType("Trying to access a parent directory is forbidden")
             if self.check_path:
                 if data_type == "path":
