@@ -144,37 +144,43 @@ class FieldSerializer(object):
             assert(len(dmake_path) == 0 or dmake_path[-1] == '/')
             if not common.is_string(data):
                 raise WrongType("Expecting string")
-            if len(data) > 0 and data[0] == '/':
+            original_data = data
+            data = os.path.normpath(data)
+            if data.startswith('/'):
                 # then interpret data as absolute from repo root, not from `/` host root
                 data = data[1:]
+                if data.startswith('/'):
+                    raise WrongType("Double slash not allowed: %s" % original_data)
+                # full_path is relative to repo root
                 full_path = data
                 if self.child_path_only:
-                    if full_path.startswith(dmake_path):
-                        # then make it relative to `dmake.yml` directory
-                        data = full_path[len(dmake_path):]
-                        assert(len(data) == 0 or data[0] != '/')
-                    else:
-                        raise WrongType("Path must be sub-paths to dmake file for this field.")
+                    # then make it relative to `dmake.yml` directory
+                    data = os.path.relpath(full_path, dmake_path)
             else:
                 # then interpret data as relative to `dmake.yml` directory
+                # full_path is relative to repo root
                 full_path = os.path.join(dmake_path, data)
                 if not self.child_path_only:
                     data = full_path
+            # at this point `data` is:
+            # - either relative to repo root (`child_path_only==False`)
+            # - or relative to `dmake.yml` directory (`child_path_only==True`)
             data = os.path.normpath(data)
             if data.startswith(".."):
-                raise WrongType("Trying to access a parent directory is forbidden")
+                # then we are outside of the allowed scope (defined by `child_path_only`)
+                raise WrongType("Trying to access a parent directory is forbidden: '%s' ('%s')" % (data, original_data))
             if self.check_path:
                 if data_type == "path":
                     if not (os.path.isfile(full_path) or os.path.isdir(full_path)):
-                        raise WrongType("Could not find file or directory: %s" % data)
+                        raise WrongType("Could not find file or directory: '%s' ('%s')" % (data, original_data))
                 elif data_type == "file":
                     if not os.path.isfile(full_path):
-                        raise WrongType("Could not find file: %s" % data)
+                        raise WrongType("Could not find file: '%s' ('%s')" % (data, original_data))
                     if self.executable and not os.access(full_path, os.X_OK):
-                        raise WrongType("The file must be executable: %s" % full_path)
+                        raise WrongType("The file must be executable: '%s' ('%s')" % (data, original_data))
                 elif data_type == "dir":
                     if not os.path.isdir(full_path):
-                        raise WrongType("Could not find directory: %s" % data)
+                        raise WrongType("Could not find directory: '%s' ('%s')" % (data, original_data))
             return data
         elif data_type == "array":
             if not isinstance(data, list):
