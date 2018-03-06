@@ -12,16 +12,11 @@ properties([
 
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                         env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
-    checkout scm
-    try {
-        sh 'git submodule update --init'
-    } catch(error) {
-        deleteDir()
-        checkout scm
-        sh 'git submodule update --init'
-    }
+    checkout([$class: 'GitSCM',
+              branches: scm.branches,
+              extensions: scm.extensions + [[$class: 'SubmoduleOption', recursiveSubmodules: true]],
+              userRemoteConfigs: scm.userRemoteConfigs])
+
     sh 'dmake deploy "${DMAKE_APP}"'
     load 'DMakefile'
 }
-
-
