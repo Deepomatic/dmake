@@ -7,16 +7,16 @@ from ruamel.yaml import YAML
 import uuid
 
 # Set logger
-logger = logging.getLogger("deepomatic.dmake")
+logger = logging.getLogger("dmake")
 logger.setLevel(logging.INFO) #TODO configurable
 logger.addHandler(logging.StreamHandler())
 
 ###############################################################################
 
 if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
+    from dmake.python_3x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
 else:
-    from deepomatic.dmake.python_2x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
+    from dmake.python_2x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
 
 ###############################################################################
 

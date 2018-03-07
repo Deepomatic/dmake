@@ -5,11 +5,11 @@ import uuid
 import importlib
 import re
 import requests.exceptions
-from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
-import deepomatic.dmake.common as common
-from deepomatic.dmake.common import DMakeException, SharedVolumeNotFoundException
-import deepomatic.dmake.kubernetes as k8s_utils
-import deepomatic.dmake.docker_registry as docker_registry
+from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
+import dmake.common as common
+from dmake.common import DMakeException, SharedVolumeNotFoundException
+import dmake.kubernetes as k8s_utils
+import dmake.docker_registry as docker_registry
 
 ###############################################################################
 
