@@ -2,7 +2,7 @@ import hashlib
 import json
 import yaml
 
-import deepomatic.dmake.common as common
+import dmake.common as common
 
 def get_env_hash(env):
     """Return a stable hash for the `env` environment."""

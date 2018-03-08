@@ -1,9 +1,9 @@
 import os, sys
 import uuid
 
-import deepomatic.dmake.common as common
-from   deepomatic.dmake.common import DMakeException, SharedVolumeNotFoundException
-from   deepomatic.dmake.deepobuild import DMakeFile, append_command
+import dmake.common as common
+from   dmake.common import DMakeException, SharedVolumeNotFoundException
+from   dmake.deepobuild import DMakeFile, append_command
 
 
 tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that the credentials declared in the DMAKE_JENKINS_SSH_AGENT_CREDENTIALS and DMAKE_JENKINS_HTTP_CREDENTIALS allow you to write to the repository."

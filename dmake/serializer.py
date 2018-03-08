@@ -1,16 +1,16 @@
 import os, sys
 import copy
 from collections import OrderedDict
-from deepomatic.dmake.common import DMakeException
-import deepomatic.dmake.common as common
+from dmake.common import DMakeException
+import dmake.common as common
 
 # Define the base class for YAML2PipelineSerializer
 # If using Python3, we can keep track of the order of the field
 # in order to generate a proper doc.
 if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import BaseYAML2PipelineSerializer
+    from dmake.python_3x import BaseYAML2PipelineSerializer
 else:
-    from deepomatic.dmake.python_2x import BaseYAML2PipelineSerializer
+    from dmake.python_2x import BaseYAML2PipelineSerializer
 
 # Custom Exceptions
 class ValidationError(Exception):
