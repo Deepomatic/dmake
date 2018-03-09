@@ -939,7 +939,7 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
 
         # Make the command with "" around parameters
         cmd = self.command[0] + ' ' + (' '.join([common.wrap_cmd(c) for c in self.command[1:]]))
-        cmd = """T=0; sleep %s; while [ %s ]; do echo "Running readyness probe"; %s; if [ "$?" = "0" ]; then exit 0; fi; T=$((T+%d)); sleep %d; done; exit 1;""" % (self.initial_delay_seconds, condition, cmd, period, period)
+        cmd = """T=0; sleep %s; while [ %s ]; do echo "Running readiness probe"; %s; if [ "$?" = "0" ]; then echo "... ready"; exit 0; fi; T=$((T+%d)); sleep %d; done; exit 1;""" % (self.initial_delay_seconds, condition, cmd, period, period)
         cmd = common.escape_cmd(cmd)
         return 'bash -c "%s"' % cmd
 

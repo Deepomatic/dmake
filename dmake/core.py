@@ -162,6 +162,11 @@ def activate_service_shared_volumes(loaded_files, service_providers, service):
 ###############################################################################
 
 def activate_base(base_variant):
+    if base_variant is None:
+        # base_variant is None when no base image is specified,
+        # (only root_image is)
+        # in which case we do not need to do anything
+        return []
     return [('base', base_variant, None)]
 
 ###############################################################################
