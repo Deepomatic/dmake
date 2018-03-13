@@ -55,7 +55,7 @@ pipeline {
           }
           steps {
             sh "pip install --user -r requirements.txt"
-            dir('/workspace/workspace') {
+            dir('workspace') {
               sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
               sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                           env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
