@@ -12,7 +12,7 @@ env:
 
 volumes:
   - shared_rabbitmq_var_lib
-  - name: shared_volume2
+  - name: shared_volume_web_and_workers
   - unused_shared_volume
 
 docker:
@@ -30,8 +30,12 @@ services:
     needed_links:
       - rabbitmq
     needed_services:
-      - worker:ubuntu-1604
-      - worker:ubuntu-1804
+      - service_name: worker:ubuntu-1604
+        env:
+          TEST_SHARED_VOLUME: 1
+      - service_name: worker:ubuntu-1804
+        env:
+          TEST_SHARED_VOLUME: 1
     config:
       docker_image:
         entrypoint: deploy/entrypoint.sh
@@ -40,13 +44,13 @@ services:
         - container_port: 8000
           host_port: 8000
       volumes:
-        - source: shared_volume2
-          target: /shared_volume2
+        - source: shared_volume_web_and_workers
+          target: /shared_volume_with_workers
     tests:
       commands:
         - touch 'tag' # test shared environment for multiple commands test
         - test -f "tag"  # test command escaping
-        - deploy/test-shared-volumes.sh
+        - deploy/test-shared-volumes.sh /shared_volume_with_workers
         - >-
           ./manage.py test
           --verbosity=2 --noinput
