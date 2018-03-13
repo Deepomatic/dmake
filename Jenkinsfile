@@ -51,7 +51,6 @@ pipeline {
               }
           }
           steps {
-            echo $PATH
             sh "pip install --user -r requirements.txt"
             dir('workspace') {
               sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
