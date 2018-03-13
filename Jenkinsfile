@@ -57,11 +57,11 @@ pipeline {
                                        --build-arg BUILD_ID=${BUILD_ID}"
               }
           }
+          environment {
+            HOME = sh(returnStdout: true, script: 'pwd')
+            PATH = sh(returnStdout: true, script: 'echo dmake:dmake/utils:$PATH')
+          }
           steps {
-            environment {
-              HOME = sh(returnStdout: true, script: 'pwd')
-              PATH = sh(returnStdout: true, script: 'echo dmake:dmake/utils:$PATH')
-            }
             sh('echo $PATH')
             sh('echo $HOME')
             sh "pip install --user -r requirements.txt"
