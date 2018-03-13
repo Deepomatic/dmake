@@ -63,6 +63,7 @@ node {
       sh ". .venv2/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
+        sh "python --version"
         load 'DMakefile'
       }
     }
@@ -75,6 +76,7 @@ node {
       sh ". .venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
+        sh "python --version"
         load 'DMakefile'
       }
     }
