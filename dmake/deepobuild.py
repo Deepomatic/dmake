@@ -1406,7 +1406,7 @@ class DMakeFile(DMakeFileSerializer):
 
         docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, additional_env_variables = additional_customization_env_variables)
         docker_opts += service.tests.get_mounts_opt(service_name, env)
-        docker_cmd = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, docker_opts, image_name)
+        docker_cmd = 'dmake_run_docker_daemon "%s" "%s" "" "" %s -i %s' % (self.app_name, unique_service_name, docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
         # Run daemon

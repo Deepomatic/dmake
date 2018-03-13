@@ -26,11 +26,6 @@ LINK_NAME=$1; shift
 PROBE_PORTS=$1; shift
 OPTIONS=( $@ )
 
-CACHE_DIR="${DMAKE_TMP_DIR}/links/${APP_NAME}"
-ID_FILE="${CACHE_DIR}/${LINK_NAME}.id"
-
-mkdir -p ${CACHE_DIR}
-
 BASE_NAME=${REPO}.${BRANCH}.${BUILD}.${APP_NAME}.${LINK_NAME}
 
 COUNT=0
@@ -42,27 +37,9 @@ while [ 1 = 1 ]; do
     COUNT=$(($COUNT+1))
 done
 
-if [ -z "${CONTAINER_ID}" ]; then
-    docker pull ${IMAGE_NAME} 2> /dev/null || :
-    CONTAINER_ID=$(dmake_run_docker_daemon "" "${CONTAINER_NAME}" ${OPTIONS[@]} ${VOLUMES} -i ${IMAGE_NAME})
-    while [ 1 = 1 ]; do
-        if [ `docker ps -f id=$CONTAINER_ID -f status=running | wc -l` -gt "0" ]; then
-            break
-        fi
-        if [ `docker ps -a -f id=$CONTAINER_ID -f status=exited | wc -l` -gt "0" ]; then
-            echo "Link ${LINK_NAME} exited"
-            exit 1
-        fi
-        if [ `docker ps -a -f id=$CONTAINER_ID -f status=restarting | wc -l` -gt "0" ]; then
-            echo "Link ${LINK_NAME} is restarting"
-            exit 1
-        fi
-        sleep 1
-    done
-fi
+docker pull ${IMAGE_NAME} 2> /dev/null || :
+CONTAINER_ID=$(dmake_run_docker_daemon "${APP_NAME}" "" "${LINK_NAME}" "${CONTAINER_NAME}" ${OPTIONS[@]} ${VOLUMES} -i ${IMAGE_NAME})
 
-
-echo "${CONTAINER_ID}" > ${ID_FILE}
 
 if [ "${PROBE_PORTS}" = "none" ]; then
     :
