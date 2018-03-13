@@ -57,10 +57,11 @@ pipeline {
       }
       steps {
         script {
-          HOME = '.'
-          PATH = sh('echo dmake:dmake/utils:$PATH')
+          HOME = sh(returnStdout: true, script: 'pwd')
+          PATH = sh(returnStdout: true, script: 'echo dmake:dmake/utils:$PATH')
         }
         sh('echo $PATH')
+        sh('echo $HOME')
         sh "pip install --user -r requirements.txt"
         dir('/workspace/workspace') {
           sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
