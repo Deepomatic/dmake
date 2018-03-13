@@ -49,7 +49,7 @@ pipeline {
       agent {
           docker {
               reuseNode true
-              image "frolvlad/alpine-python2"
+              image "ubuntu:16.04"
               args "-e DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1 \
                     -e DMAKE_DEBUG=1 \
                     -e REPO=${params.REPO_TO_TEST} \
@@ -59,7 +59,9 @@ pipeline {
       }
       steps {
         sh "apt-get update"
-        sh "apt-get install g++"
+        sh "apt-get install curl g++ python2.7"
+        sh "update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1"
+        sh "curl https://bootstrap.pypa.io/get-pip.py | python"
         sh "pip install -r requirements.txt"
         script {
           PATH = sh('echo dmake:dmake/utils:$PATH')
