@@ -40,6 +40,9 @@ pipeline {
     stage('Run Tests') {
       parallel {
         stage('Python 2.x') {
+          environment {
+            PATH = "${env.WORKSPACE}:$PATH"
+          }
           agent {
               docker {
                   image 'deepomatic/ubuntu:16.04-python2.7'
@@ -52,8 +55,10 @@ pipeline {
               }
           }
           steps {
+            echo "PATH is: $PATH"
             sh "pip install --user -r requirements.txt"
             dir('workspace') {
+
               sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
               sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                           env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
