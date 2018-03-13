@@ -61,6 +61,10 @@ pipeline {
         sh "apt-get update"
         sh "apt-get install g++"
         sh "pip install -r requirements.txt"
+        script {
+          PATH = sh('echo dmake:dmake/utils:$PATH')
+        }
+        sh('echo $PATH')
         dir('/workspace/workspace') {
           sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
           sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
