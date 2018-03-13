@@ -40,6 +40,9 @@ pipeline {
     stage('Run Tests') {
       parallel {
         stage('Python 2.x') {
+          environment {
+            PATH = "PATH=${env.WORKSPACE}/dmake:${env.WORKSPACE}/dmake/utils:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          }
           agent {
               docker {
                   image 'deepomatic/ubuntu:16.04-python2.7'
@@ -48,8 +51,7 @@ pipeline {
                          -e BUILD_ID=${params.BUILD_ID} \
                          -e DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=${params.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP} \
                          -e DMAKE_DEBUG=${params.DMAKE_DEBUG} \
-                         -e HOME=. \
-                         -e PATH=${env.WORKSPACE}/dmake:${env.WORKSPACE}/dmake/utils:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+                         -e HOME=.'
               }
           }
           steps {
