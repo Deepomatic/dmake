@@ -10,6 +10,8 @@ ENV DMAKE_DEBUG 1
 
 RUN apt-get update && \
     apt-get --no-install-recommends -y install \
+        apt-transport-https \
+        ca-certificates \
         curl \
         g++ \
         python${PYTHON_VERSION} \
