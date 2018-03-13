@@ -50,10 +50,7 @@ pipeline {
           docker {
               reuseNode true
               image "frolvlad/alpine-python2"
-              args "-v ${env.WORKSPACE} /workspace \
-                    -e PATH=/workspace/dmake:/workspace/dmake/utils \
-                    -e PYTHONPATH=/workspace \
-                    -e DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1 \
+              args "-e DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1 \
                     -e DMAKE_DEBUG=1 \
                     -e REPO=${params.REPO_TO_TEST} \
                     -e BRANCH_NAME=${params.BRANCH_TO_TEST} \
