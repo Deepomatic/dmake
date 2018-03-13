@@ -45,15 +45,15 @@ pipeline {
           }
           agent {
               docker {
-                  image 'deepomatic/ubuntu:16.04-python2.7'
-                  args  '-e REPO=${params.REPO_TO_TEST} \
+                  image "deepomatic/ubuntu:16.04-python2.7"
+                  args  "-e REPO=${params.REPO_TO_TEST} \
                          -e BRANCH_NAME=${params.BRANCH_NAME} \
                          -e BUILD_ID=${params.BUILD_ID} \
                          -e DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=${params.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP} \
                          -e DMAKE_DEBUG=${params.DMAKE_DEBUG} \
                          -e HOME=. \
                          -v /var/run/docker.sock:/var/run/docker.sock \
-                         -v $(which docker):/usr/bin/docker'
+                         -v $(which docker):/usr/bin/docker"
               }
           }
           steps {
