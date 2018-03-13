@@ -57,10 +57,15 @@ node {
     env.DMAKE_DEBUG=1
   }
   stage('Python 2.x') {
-    sh "virtualenv workspace/.venv2"
-    sh ". workspace/.venv2/bin/activate && pip install -r requirements.txt"
-    dir('workspace') {
-      sh ". .venv2/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
+    agent {
+        docker {
+            image 'frolvlad/alpine-python2'
+            args '-v ${env.WORKSPACE} /workspace -e PATH=/workspace/dmake:/workspace/dmake/utils'
+        }
+    }
+    sh "pip install -r requirements.txt"
+    dir('/workspace/workspace') {
+      sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
         sh "python --version"
