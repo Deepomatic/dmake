@@ -47,7 +47,8 @@ pipeline {
                          -e BRANCH_NAME=${params.BRANCH_NAME} \
                          -e BUILD_ID=${params.BUILD_ID} \
                          -e DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=${params.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP} \
-                         -e DMAKE_DEBUG=${params.DMAKE_DEBUG}'
+                         -e DMAKE_DEBUG=${params.DMAKE_DEBUG} \
+                         -e HOME=.'
               }
           }
           steps {
