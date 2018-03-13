@@ -34,14 +34,6 @@ pipeline {
                                   [$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: false, recursiveSubmodules: true, reference: '', trackingSubmodules: false],
                                   [$class: 'LocalBranch', localBranch: params.BRANCH_TO_TEST]],
                      submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: "https://github.com/${params.REPO_TO_TEST}.git"]]]
-
-        script {
-          sh "echo $BUILD_ID"
-          if (params.REPO_TO_TEST != 'deepomatic/dmake') {
-              BUILD_ID = 0
-          }
-          sh "echo $BUILD_ID"
-        }
       }
     }
 
@@ -67,28 +59,6 @@ pipeline {
             sh "pip install --user -r requirements.txt"
             dir('/workspace/workspace') {
               sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
-              sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
-                          env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
-                sh "python --version"
-                load 'DMakefile'
-              }
-            }
-          }
-        }
-
-        stage('Python 3.x') {
-          agent {
-              docker {
-                  reuseNode true
-                  image 'frolvlad/alpine-python2'
-                  args '-v ${env.WORKSPACE} /workspace -e PATH=/workspace/dmake:/workspace/dmake/utils'
-              }
-          }
-          steps {
-            sh "virtualenv -p python3 workspace/.venv3"
-            sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
-            dir('workspace') {
-              sh ". .venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
               sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                           env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
                 sh "python --version"
