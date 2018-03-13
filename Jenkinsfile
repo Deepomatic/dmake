@@ -18,6 +18,7 @@ properties([
 
 pipeline {
   agent any
+
   stages {
     stage('Setup') {
       steps {
@@ -30,10 +31,6 @@ pipeline {
             sh 'git submodule update --init'
         }
 
-        // Use this version of dmake
-        env.PYTHONPATH = "${env.WORKSPACE}:${env.PYTHONPATH}"
-        env.PATH = "${env.WORKSPACE}/dmake:${env.WORKSPACE}/dmake/utils:${env.PATH}"
-
         // Clone repo to test
         sh ("echo 'Cloning ${params.BRANCH_TO_TEST} from https://github.com/${params.REPO_TO_TEST}.git'")
             checkout changelog: false,
@@ -45,25 +42,29 @@ pipeline {
                                   [$class: 'LocalBranch', localBranch: params.BRANCH_TO_TEST]],
                      submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: "https://github.com/${params.REPO_TO_TEST}.git"]]]
 
-        // Setup environment variables as Jenkins would do
-        env.REPO=params.REPO_TO_TEST
-        env.BRANCH_NAME=params.BRANCH_TO_TEST
-        if (params.REPO_TO_TEST != 'deepomatic/dmake') {
-            env.BUILD_ID = 0
+        script {
+          sh "echo $BUILD_ID"
+          if (params.REPO_TO_TEST != 'deepomatic/dmake') {
+              BUILD_ID = 0
+          }
+          sh "echo $BUILD_ID"
         }
-        env.CHANGE_BRANCH=""
-        env.CHANGE_TARGET=""
-        env.CHANGE_ID=""
-        env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
-        env.DMAKE_DEBUG=1
       }
     }
 
     stage('Python 2.x') {
       agent {
           docker {
-              image 'frolvlad/alpine-python2'
-              args '-v ${env.WORKSPACE} /workspace -e PATH=/workspace/dmake:/workspace/dmake/utils'
+              reuseNode true
+              image "frolvlad/alpine-python2"
+              args "-v ${env.WORKSPACE} /workspace \
+                    -e PATH=/workspace/dmake:/workspace/dmake/utils \
+                    -e PYTHONPATH=/workspace \
+                    -e DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1 \
+                    -e DMAKE_DEBUG=1 \
+                    -e REPO=${params.REPO_TO_TEST} \
+                    -e BRANCH_NAME=${params.BRANCH_TO_TEST} \
+                    -e BUILD_ID=${BUILD_ID}"
           }
       }
       steps {
@@ -82,6 +83,7 @@ pipeline {
     stage('Python 3.x') {
       agent {
           docker {
+              reuseNode true
               image 'frolvlad/alpine-python2'
               args '-v ${env.WORKSPACE} /workspace -e PATH=/workspace/dmake:/workspace/dmake/utils'
           }
