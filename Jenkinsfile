@@ -56,7 +56,7 @@ pipeline {
           }
       }
       steps {
-        script {
+        environment {
           HOME = sh(returnStdout: true, script: 'pwd')
           PATH = sh(returnStdout: true, script: 'echo dmake:dmake/utils:$PATH')
         }
