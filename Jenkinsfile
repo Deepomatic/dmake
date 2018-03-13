@@ -56,8 +56,8 @@ pipeline {
           }
       }
       steps {
-        HOME='.'
         script {
+          HOME = '.'
           PATH = sh('echo dmake:dmake/utils:$PATH')
         }
         sh('echo $PATH')
