@@ -20,41 +20,43 @@ pipeline {
   agent any
   stages {
     stage('Setup') {
-      checkout scm
-      try {
-          sh 'git submodule update --init'
-      } catch(error) {
-          deleteDir()
-          checkout scm
-          sh 'git submodule update --init'
+      steps {
+        checkout scm
+        try {
+            sh 'git submodule update --init'
+        } catch(error) {
+            deleteDir()
+            checkout scm
+            sh 'git submodule update --init'
+        }
+
+        // Use this version of dmake
+        env.PYTHONPATH = "${env.WORKSPACE}:${env.PYTHONPATH}"
+        env.PATH = "${env.WORKSPACE}/dmake:${env.WORKSPACE}/dmake/utils:${env.PATH}"
+
+        // Clone repo to test
+        sh ("echo 'Cloning ${params.BRANCH_TO_TEST} from https://github.com/${params.REPO_TO_TEST}.git'")
+            checkout changelog: false,
+                     poll: false,
+                     scm: [$class: 'GitSCM', branches: [[name: params.BRANCH_TO_TEST]], doGenerateSubmoduleConfigurations: false,
+                     extensions: [[$class: 'WipeWorkspace'],
+                                  [$class: 'RelativeTargetDirectory', relativeTargetDir: 'workspace'],
+                                  [$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: false, recursiveSubmodules: true, reference: '', trackingSubmodules: false],
+                                  [$class: 'LocalBranch', localBranch: params.BRANCH_TO_TEST]],
+                     submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: "https://github.com/${params.REPO_TO_TEST}.git"]]]
+
+        // Setup environment variables as Jenkins would do
+        env.REPO=params.REPO_TO_TEST
+        env.BRANCH_NAME=params.BRANCH_TO_TEST
+        if (params.REPO_TO_TEST != 'deepomatic/dmake') {
+            env.BUILD_ID = 0
+        }
+        env.CHANGE_BRANCH=""
+        env.CHANGE_TARGET=""
+        env.CHANGE_ID=""
+        env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
+        env.DMAKE_DEBUG=1
       }
-
-      // Use this version of dmake
-      env.PYTHONPATH = "${env.WORKSPACE}:${env.PYTHONPATH}"
-      env.PATH = "${env.WORKSPACE}/dmake:${env.WORKSPACE}/dmake/utils:${env.PATH}"
-
-      // Clone repo to test
-      sh ("echo 'Cloning ${params.BRANCH_TO_TEST} from https://github.com/${params.REPO_TO_TEST}.git'")
-          checkout changelog: false,
-                   poll: false,
-                   scm: [$class: 'GitSCM', branches: [[name: params.BRANCH_TO_TEST]], doGenerateSubmoduleConfigurations: false,
-                   extensions: [[$class: 'WipeWorkspace'],
-                                [$class: 'RelativeTargetDirectory', relativeTargetDir: 'workspace'],
-                                [$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: false, recursiveSubmodules: true, reference: '', trackingSubmodules: false],
-                                [$class: 'LocalBranch', localBranch: params.BRANCH_TO_TEST]],
-                   submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'dmake-http', url: "https://github.com/${params.REPO_TO_TEST}.git"]]]
-
-      // Setup environment variables as Jenkins would do
-      env.REPO=params.REPO_TO_TEST
-      env.BRANCH_NAME=params.BRANCH_TO_TEST
-      if (params.REPO_TO_TEST != 'deepomatic/dmake') {
-          env.BUILD_ID = 0
-      }
-      env.CHANGE_BRANCH=""
-      env.CHANGE_TARGET=""
-      env.CHANGE_ID=""
-      env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
-      env.DMAKE_DEBUG=1
     }
 
     stage('Python 2.x') {
@@ -78,14 +80,22 @@ pipeline {
     }
 
     stage('Python 3.x') {
-      sh "virtualenv -p python3 workspace/.venv3"
-      sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
-      dir('workspace') {
-        sh ". .venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
-        sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
-                    env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
-          sh "python --version"
-          load 'DMakefile'
+      agent {
+          docker {
+              image 'frolvlad/alpine-python2'
+              args '-v ${env.WORKSPACE} /workspace -e PATH=/workspace/dmake:/workspace/dmake/utils'
+          }
+      }
+      steps {
+        sh "virtualenv -p python3 workspace/.venv3"
+        sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
+        dir('workspace') {
+          sh ". .venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
+          sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
+                      env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
+            sh "python --version"
+            load 'DMakefile'
+          }
         }
       }
     }
