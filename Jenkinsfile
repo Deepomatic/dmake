@@ -42,6 +42,7 @@ pipeline {
         stage('Python 2.x') {
           environment {
             PATH = "${env.WORKSPACE}/dmake:${env.WORKSPACE}/dmake/utils:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            PYTHONPATH = "${env.WORKSPACE}"
           }
           agent {
               docker {
