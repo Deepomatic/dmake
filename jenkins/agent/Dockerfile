@@ -9,7 +9,12 @@ ENV DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP 1
 ENV DMAKE_DEBUG 1
 
 RUN apt-get update && \
-    apt-get install curl g++ python${PYTHON_VERSION} && \
+    apt-get --no-install-recommends -y install \
+        curl \
+        g++ \
+        python${PYTHON_VERSION} \
+    && \
+    rm -rf /var/lib/apt/lists/*
 
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 1
