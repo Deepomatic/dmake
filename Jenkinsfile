@@ -47,21 +47,15 @@ pipeline {
 
     stage('Python 2.x') {
       agent {
-          docker {
-              reuseNode true
-              image "ubuntu:16.04"
-              args "-e DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1 \
-                    -e DMAKE_DEBUG=1 \
-                    -e REPO=${params.REPO_TO_TEST} \
-                    -e BRANCH_NAME=${params.BRANCH_TO_TEST} \
-                    -e BUILD_ID=${BUILD_ID}"
+          dockerfile {
+              dir 'jenkins/agent'
+              additionalBuildArgs "--build-arg PYTHON_VERSION=2.7 \
+                                   --build-arg REPO=${params.REPO_TO_TEST} \
+                                   --build-arg BRANCH_NAME=${params.BRANCH_TO_TEST} \
+                                   --build-arg BUILD_ID=${BUILD_ID}"
           }
       }
       steps {
-        sh "apt-get update"
-        sh "apt-get install curl g++ python2.7"
-        sh "update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1"
-        sh "curl https://bootstrap.pypa.io/get-pip.py | python"
         sh "pip install -r requirements.txt"
         script {
           PATH = sh('echo dmake:dmake/utils:$PATH')
