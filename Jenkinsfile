@@ -61,7 +61,7 @@ pipeline {
             sh "pip install --user -r requirements.txt"
             dir('workspace') {
               sh "ls /var/jenkins_home/jobs/dmake/branches/PR-170/workspace@2/dmake"
-              sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
+              sh "../dmake/dmake test -d '${params.DMAKE_APP_TO_TEST}'"
               sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                           env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
                 sh "python --version"
