@@ -23,13 +23,6 @@ pipeline {
     stage('Setup') {
       steps {
         checkout scm
-        try {
-            sh 'git submodule update --init'
-        } catch(error) {
-            deleteDir()
-            checkout scm
-            sh 'git submodule update --init'
-        }
 
         // Clone repo to test
         sh ("echo 'Cloning ${params.BRANCH_TO_TEST} from https://github.com/${params.REPO_TO_TEST}.git'")
