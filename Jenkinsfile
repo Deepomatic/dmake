@@ -53,7 +53,7 @@ pipeline {
                          -e DMAKE_DEBUG=${params.DMAKE_DEBUG} \
                          -e HOME=. \
                          -v /var/run/docker.sock:/var/run/docker.sock \
-                         -v $(which docker):/usr/bin/docker'
+                         -v /usr/bin/docker:/usr/bin/docker'
               }
           }
           steps {
