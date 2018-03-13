@@ -58,6 +58,8 @@ pipeline {
           }
       }
       steps {
+        sh "apt-get update"
+        sh "apt-get install g++"
         sh "pip install -r requirements.txt"
         dir('/workspace/workspace') {
           sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
