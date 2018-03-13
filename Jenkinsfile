@@ -16,8 +16,8 @@ properties([
     pipelineTriggers([])
 ])
 
-
-node {
+pipeline {
+  agent any
   // This displays colors using the 'xterm' ansi color map.
   stage('Setup') {
     checkout scm
