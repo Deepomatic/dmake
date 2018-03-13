@@ -45,52 +45,56 @@ pipeline {
       }
     }
 
-    stage('Python 2.x') {
-      agent {
-          dockerfile {
-              dir 'jenkins/agent'
-              additionalBuildArgs "--build-arg PYTHON_VERSION=2.7 \
-                                   --build-arg REPO=${params.REPO_TO_TEST} \
-                                   --build-arg BRANCH_NAME=${params.BRANCH_TO_TEST} \
-                                   --build-arg BUILD_ID=${BUILD_ID}"
+    stage('Run Tests') {
+      parallel {
+        stage('Python 2.x') {
+          agent {
+              dockerfile {
+                  dir 'jenkins/agent'
+                  additionalBuildArgs "--build-arg PYTHON_VERSION=2.7 \
+                                       --build-arg REPO=${params.REPO_TO_TEST} \
+                                       --build-arg BRANCH_NAME=${params.BRANCH_TO_TEST} \
+                                       --build-arg BUILD_ID=${BUILD_ID}"
+              }
           }
-      }
-      steps {
-        environment {
-          HOME = sh(returnStdout: true, script: 'pwd')
-          PATH = sh(returnStdout: true, script: 'echo dmake:dmake/utils:$PATH')
-        }
-        sh('echo $PATH')
-        sh('echo $HOME')
-        sh "pip install --user -r requirements.txt"
-        dir('/workspace/workspace') {
-          sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
-          sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
-                      env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
-            sh "python --version"
-            load 'DMakefile'
+          steps {
+            environment {
+              HOME = sh(returnStdout: true, script: 'pwd')
+              PATH = sh(returnStdout: true, script: 'echo dmake:dmake/utils:$PATH')
+            }
+            sh('echo $PATH')
+            sh('echo $HOME')
+            sh "pip install --user -r requirements.txt"
+            dir('/workspace/workspace') {
+              sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
+              sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
+                          env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
+                sh "python --version"
+                load 'DMakefile'
+              }
+            }
           }
         }
-      }
-    }
 
-    stage('Python 3.x') {
-      agent {
-          docker {
-              reuseNode true
-              image 'frolvlad/alpine-python2'
-              args '-v ${env.WORKSPACE} /workspace -e PATH=/workspace/dmake:/workspace/dmake/utils'
+        stage('Python 3.x') {
+          agent {
+              docker {
+                  reuseNode true
+                  image 'frolvlad/alpine-python2'
+                  args '-v ${env.WORKSPACE} /workspace -e PATH=/workspace/dmake:/workspace/dmake/utils'
+              }
           }
-      }
-      steps {
-        sh "virtualenv -p python3 workspace/.venv3"
-        sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
-        dir('workspace') {
-          sh ". .venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
-          sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
-                      env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
-            sh "python --version"
-            load 'DMakefile'
+          steps {
+            sh "virtualenv -p python3 workspace/.venv3"
+            sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
+            dir('workspace') {
+              sh ". .venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
+              sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
+                          env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
+                sh "python --version"
+                load 'DMakefile'
+              }
+            }
           }
         }
       }
