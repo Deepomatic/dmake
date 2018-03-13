@@ -40,17 +40,14 @@ pipeline {
     stage('Run Tests') {
       parallel {
         stage('Python 2.x') {
-          environment {
-            HOME = sh(returnStdout: true, script: 'pwd')
-            PATH = sh(returnStdout: true, script: 'echo `pwd`/dmake:`pwd`/dmake/utils:$PATH')
-          }
           agent {
-              dockerfile {
-                  dir 'jenkins/agent'
-                  additionalBuildArgs "--build-arg PYTHON_VERSION=2.7 \
-                                       --build-arg REPO=${params.REPO_TO_TEST} \
-                                       --build-arg BRANCH_NAME=${params.BRANCH_TO_TEST} \
-                                       --build-arg BUILD_ID=${BUILD_ID}"
+              docker {
+                  image 'deepomatic/ubuntu:16.04-python2.7'
+                  args  '-e REPO=${params.REPO_TO_TEST} \
+                         -e BRANCH_NAME=${params.BRANCH_NAME} \
+                         -e BUILD_ID=${params.BUILD_ID} \
+                         -e DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=${params.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP} \
+                         -e DMAKE_DEBUG=${params.DMAKE_DEBUG}'
               }
           }
           steps {
