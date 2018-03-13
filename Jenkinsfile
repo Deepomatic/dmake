@@ -40,6 +40,10 @@ pipeline {
     stage('Run Tests') {
       parallel {
         stage('Python 2.x') {
+          environment {
+            HOME = sh(returnStdout: true, script: 'pwd')
+            PATH = sh(returnStdout: true, script: 'echo dmake:dmake/utils:$PATH')
+          }
           agent {
               dockerfile {
                   dir 'jenkins/agent'
@@ -51,7 +55,7 @@ pipeline {
           }
           steps {
             sh "pip install --user -r requirements.txt"
-            dir('workspace') {
+            dir('/workspace/workspace') {
               sh "dmake test -d '${params.DMAKE_APP_TO_TEST}'"
               sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                           env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
