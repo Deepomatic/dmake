@@ -42,7 +42,7 @@ pipeline {
         stage('Python 2.x') {
           environment {
             HOME = sh(returnStdout: true, script: 'pwd')
-            PATH = sh(returnStdout: true, script: 'echo dmake:dmake/utils:$PATH')
+            PATH = sh(returnStdout: true, script: 'echo `pwd`/dmake:`pwd`/dmake/utils:$PATH')
           }
           agent {
               dockerfile {
