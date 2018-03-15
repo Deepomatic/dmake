@@ -1107,37 +1107,63 @@ class TestSerializer(YAML2PipelineSerializer):
                            index     = html['index'],
                            title     = html['title'],)
 
+
+allowed_link_name_pattern = re.compile("^[a-z0-9-]{1,63}$")  # too laxist, but easy to read
 class NeededServiceSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", help_text = "The name of the needed application part.", example = "worker-nn", no_slash_no_space = True)
+    link_name       = FieldSerializer("string", optional = True, example = "worker-nn", help_text = "Link name.")
     env             = FieldSerializer("dict", child = "string", optional = True, default = {}, help_text = "List of environment variables that will be set when executing the needed service.", example = {'CNN_ID': '2'})
 
     def __init__(self, **kwargs):
         super(NeededServiceSerializer, self).__init__(**kwargs)
         self._specialized = True
 
+    def __str__(self):
+        s = "%s" % (self.service_name)
+        if self.link_name:
+            s += " (%s)" % (self.link_name)
+        if self._specialized:
+            s += " -- env: %s" % (self.env)
+        return s
+
+    def __repr__(self):
+        return "NeededServiceSerializer(service_name=%r, link_name=%r, env=%r)" % (self.service_name, self.link_name, self.env)
+
     def __eq__(self, other):
         # NeededServiceSerializer objects are equal if equivalent, to deduplicate their instances at runtime
         # objects are not comparable before the call to _validate_(), because fields are not populated yet
         assert self.__has_value__, "NeededServiceSerializer objects are not comparable before validation"
-        return self.service_name == other.service_name and self.env == other.env
+        # easiest implementation for now: handle different link_name as different needed_services; later should try to aggregate various link_names to one instance of NeededServiceSerializer in `service_customization`
+        return self.service_name == other.service_name \
+            and self.link_name == other.link_name \
+            and self.env == other.env
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
-        # env is not hashable, so skipping it, it's OK, it will just be negligibly less efficient
-        return hash(self.service_name)
+        # object is not hashable before the call to _validate_(), because fields are not populated yet
+        assert self.__has_value__, "NeededServiceSerializer object is not hashable before validation"
+        if not hasattr(self, '_env_frozenset'):
+            self._env_frozenset = frozenset(self.env.items())
+        return hash((self.service_name, self.link_name, self._env_frozenset))
 
     def _validate_(self, file, needed_migrations, data, field_name):
         # also accept simple variant where data is a string: the service_name
         if common.is_string(data):
             data = {'service_name': data}
         result = super(NeededServiceSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        if self.link_name and \
+           not allowed_link_name_pattern.match(self.link_name):
+            raise ValidationError("Invalid link name '%s': only '[a-z0-9-]{1,63}' is allowed. " % (self.link_name))
         self._specialized = len(self.env) > 0
+        # a unique identifier that is the same for all equivalent NeededServices
+        self._id = hash(self)
+        common.logger.debug("NeededService _id: %s for %r" % (self._id, self))
         return result
 
     def get_service_name_unique_suffix(self):
-        return "--%s" % id(self) if self._specialized else ""
+        return "--%s" % (self._id) if self._specialized else ""
 
 class ServicesSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", default = "", help_text = "The name of the application part.", example = "api", no_slash_no_space = True)
@@ -1156,7 +1182,7 @@ class ServicesSerializer(YAML2PipelineSerializer):
         self.variant = None
         self.original_service_name = self.service_name
 
-        # populate back_link to this Service
+        # populate back-link to this Service
         self.config.docker_image.set_service(self)
         self.deploy.set_service(self)
 
@@ -1349,7 +1375,7 @@ class DMakeFile(DMakeFileSerializer):
 
     def _get_link_opts_(self, commands, service):
         if common.options.dependencies:
-            needed_links = service.needed_links
+            needed_links = service.needed_links + [ns.link_name for ns in service.needed_services if ns.link_name]
             if len(needed_links) > 0:
                 append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(needed_links)), fail_if_empty = True)
 
@@ -1387,6 +1413,7 @@ class DMakeFile(DMakeFileSerializer):
 
         unique_service_name = service_name
         additional_customization_env_variables = {}
+        link_name = None
         if service_customization:
             # customization variables will be evaluated later:
             #   by `env.get_replaced_variables()` in the wrong dmake file runtime `.env`, but sometimes OK thanks to needed_links env_exports
@@ -1394,10 +1421,11 @@ class DMakeFile(DMakeFileSerializer):
             additional_customization_env_variables = service_customization.env
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; service_name already contains "<app_name>/"
             unique_service_name += service_customization.get_service_name_unique_suffix()
+            link_name = service_customization.link_name
 
         docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, additional_env_variables = additional_customization_env_variables)
         docker_opts += service.tests.get_mounts_opt(service_name, env)
-        docker_cmd = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, docker_opts, image_name)
+        docker_cmd = 'dmake_run_docker_daemon "%s" "%s" "%s" "" %s -i %s' % (self.app_name, unique_service_name, link_name or "", docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
         # Run daemon

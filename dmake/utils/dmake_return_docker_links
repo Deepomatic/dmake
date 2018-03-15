@@ -26,16 +26,16 @@ shift 1
 
 CACHE_DIR="${DMAKE_TMP_DIR}/links/${APP_NAME}"
 
-LINK_OPTS=""
-for LINK in "$@"; do
-    LINK_FILE="${CACHE_DIR}/${LINK}.link"
-    if [ -f "${LINK_FILE}" ]; then
-        dmake_check_daemons name "`cat ${CACHE_DIR}/$LINK.name`"
-        OPTS=`cat ${LINK_FILE}`
-        LINK_OPTS="${LINK_OPTS} ${OPTS}"
+LINK_OPTS=( )
+for LINK_NAME in "$@"; do
+    ID_FILE="${CACHE_DIR}/${LINK_NAME}.id"
+    if [ -f "${ID_FILE}" ]; then
+        dmake_check_daemons id ${CONTAINER_ID}
+        ID=`cat ${ID_FILE}`
+        LINK_OPTS+=( --link=${ID}:${LINK_NAME} )
     else
-        dmake_fail "Unexpected error: missing link $LINK"
+        dmake_fail "Unexpected error: missing link ${LINK_NAME}"
         exit 1
     fi
 done
-echo "${LINK_OPTS}"
+echo "${LINK_OPTS[@]}"

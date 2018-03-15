@@ -103,7 +103,7 @@ def load_dmake_files_list():
 
 def add_service_provider(service_providers, service, file, needs = None, base_variant = None):
     """'service', 'needs' and 'base_variant' are all service names."""
-    common.logger.debug("add_service_provider: service: %s, variant: %s" % (service, base_variant))
+    common.logger.debug("add_service_provider: service: %s, needs: %s, variant: %s" % (service, needs, base_variant))
     if service in service_providers:
         existing_service_provider, _, _ = service_providers[service]
         if existing_service_provider != file:
