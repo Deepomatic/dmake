@@ -124,11 +124,9 @@ class FieldSerializer(object):
                 raise WrongType("Expecting bool")
             return data
         elif data_type == "int":
-            if isinstance(data, int) or isinstance(data, float):
-                data = int(data)
             if not isinstance(data, int):
                 raise WrongType("Expecting int")
-            return str(data)
+            return data
         elif data_type == "string":
             if isinstance(data, int) or isinstance(data, float):
                 data = str(data)
