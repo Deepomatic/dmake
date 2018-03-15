@@ -606,7 +606,7 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
         common.run_shell_command(cmd)
 
-        cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%s"' % (tmp_dir, app_name, self.user, self.host, self.port)
+        cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%d"' % (tmp_dir, app_name, self.user, self.host, self.port)
         append_command(commands, 'sh', shell = cmd)
 
 class K8SCDDeploySerializer(YAML2PipelineSerializer):
@@ -842,7 +842,7 @@ class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
             f.write('WORKDIR %s\n' % workdir)
 
             for port in self.service.config.ports:
-                f.write('EXPOSE %s\n' % port.container_port)
+                f.write('EXPOSE %d\n' % port.container_port)
 
             if build.has_value():
                 for key, value in build.env.items():
@@ -931,15 +931,15 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
             return ""
 
         if self.max_seconds > 0:
-            condition = "$T -le %s" % self.max_seconds
+            condition = "$T -le %d" % self.max_seconds
         else:
             condition = "1"
 
-        period = max(int(self.period_seconds), 1)
+        period = max(self.period_seconds, 1)
 
         # Make the command with "" around parameters
         cmd = self.command[0] + ' ' + (' '.join([common.wrap_cmd(c) for c in self.command[1:]]))
-        cmd = """T=0; sleep %s; while [ %s ]; do echo "Running readyness probe"; %s; if [ "$?" = "0" ]; then exit 0; fi; T=$((T+%d)); sleep %d; done; exit 1;""" % (self.initial_delay_seconds, condition, cmd, period, period)
+        cmd = """T=0; sleep {initial_delay:d}; while [ {condition} ]; do echo "Running readiness probe"; {cmd}; if [ "$?" = "0" ]; then echo "... ready"; exit 0; fi; T=$((T+{period:d})); sleep {period:d}; done; exit 1;""".format(initial_delay=self.initial_delay_seconds, condition=condition, cmd=cmd, period=period)
         cmd = common.escape_cmd(cmd)
         return 'bash -c "%s"' % cmd
 
@@ -958,9 +958,9 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
         opts = []
         for ports in self.ports:
             if testing_mode:
-                opts.append("-p %s" % ports.container_port)
+                opts.append("-p %d" % ports.container_port)
             else:
-                opts.append("-p 0.0.0.0:%s:%s" % (ports.host_port, ports.container_port))
+                opts.append("-p 0.0.0.0:%d:%d" % (ports.host_port, ports.container_port))
 
         for volume in self.volumes:
             if isinstance(volume, SharedVolumeMountSerializer):

@@ -44,6 +44,15 @@ services:
       ports:
         - container_port: 8000
           host_port: 8000
+      readiness_probe:
+        command:
+          - curl
+          - -sSf
+          - http://localhost:8000/
+          - -o
+          - /dev/null
+        period_seconds: 1
+        max_seconds: 10
       volumes:
         - source: shared_volume_web_and_workers
           target: /shared_volume_with_workers
