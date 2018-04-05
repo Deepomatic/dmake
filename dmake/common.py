@@ -80,9 +80,13 @@ def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=N
         cmd = ['bash', '-c', cmd]
         p = subprocess.Popen(cmd, stdin=prev_stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
         prev_stdout = p.stdout
-    if sys.version_info >= (3, 0) and stdin is not None:
-        stdin = bytes(stdin, 'utf-8')
+
+    # python3 compatibility
+    if stdin is not None:
+        stdin = stdin.encode('utf-8')
+
     stdout, stderr = p.communicate(stdin)
+
     if len(stderr) > 0 and not ignore_error and not raise_on_return_code:
         raise ShellError(subprocess_output_to_string(stderr))
     if raise_on_return_code and p.returncode != 0:
