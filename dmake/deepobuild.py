@@ -876,21 +876,20 @@ class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
     context    = FieldSerializer("dir", help_text = "Docker build context directory.", example = '.')
     dockerfile = FieldSerializer("string", optional = True, help_text = "Alternate Dockerfile, relative path to `context` directory.", example = 'deploy/Dockerfile')
     args       = FieldSerializer("dict", child = "string", default = {}, help_text = "Add build arguments, which are environment variables accessible only during the build process. Higher precedence than `.build.env`.", example = {'BUILD': '${BUILD}'})
-    labels     = FieldSerializer('dict', child="string", default = {}, help_text = "Add metadata to the resulting image using Docker labels. It's recommended that you use reverse-DNS notation to prevent your labels from conflicting with those used by other software.", example={'vendor': 'deepomatic'})
+    labels     = FieldSerializer('dict', child="string", default = {}, help_text = "Add metadata to the resulting image using Docker labels. It's recommended that you use reverse-DNS notation to prevent your labels from conflicting with those used by other software.", example={'vendor': 'deepomatic', 'build': '${BUILD}'})
 
     def _validate_(self, file, needed_migrations, data, field_name):
         # also accept simple variant where data is a string: the `context` directory
         if common.is_string(data):
             data = {'context': data}
         result = super(ServiceDockerBuildSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
-        # populate args
-        args = self.__fields__['args'].value
-        # variable substitution on args values from dmake process environment
-        for key in args:
-            args[key] = common.eval_str_in_env(args[key])
         return result
 
     def _serialize_(self, commands, path_dir, image_name, build_args):
+        # variables substitution from dmake process environment
+        common.eval_values_in_env(self.args, strict=True)
+        common.eval_values_in_env(self.labels, strict=True)
+
         program = 'dmake_build_docker'
         args = [self.context, image_name]
         # dockerfile

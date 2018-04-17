@@ -53,6 +53,7 @@ services:
           labels:
             vendor: "deepomatic"
             com.deepomatic.version.is-on-premises: "false"
+            build-host: "${HOSTNAME}"
       volumes:
         - source: shared_rabbitmq_var_lib
           target: /var/lib/rabbitmq
