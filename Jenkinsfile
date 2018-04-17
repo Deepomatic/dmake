@@ -11,7 +11,20 @@ properties([
                description: 'Application to test. You can also specify a service name if there is no ambiguity. Use * to force the test of all applications.'),
         booleanParam(name: 'DMAKE_SKIP_TESTS',
                      defaultValue: false,
-                     description: 'Skip tests if checked')
+                     description: 'Skip tests if checked'),
+        booleanParam(name: 'DMAKE_DEBUG',
+                     defaultValue: true,
+                     description: 'Enable dmake debug logs'),
+        string(name: 'CUSTOM_BUILD_CUSTOMER',
+               defaultValue: '',
+               description: '(optional) Custom build: customer name'),
+        string(name: 'CUSTOM_BUILD_CUSTOMER_PROJECT',
+               defaultValue: '',
+               description: '(optional) Custom build: customer\'s project name'),
+        string(name: 'CUSTOM_BUILD_EXPIRATION_DATE',
+               defaultValue: '',
+               description: '(optional) Custom build: expiration date')
+
     ]),
     pipelineTriggers([])
 ])
@@ -54,7 +67,11 @@ node {
     env.CHANGE_TARGET=""
     env.CHANGE_ID=""
     env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
-    env.DMAKE_DEBUG=1
+    // params are automatically exposed as environment variables
+    // but booleans to string generates "true"
+    if (params.DMAKE_DEBUG) {
+        env.DMAKE_DEBUG=1
+    }
   }
   stage('Python 2.x') {
     sh "virtualenv workspace/.venv2"

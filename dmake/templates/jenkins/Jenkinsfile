@@ -5,7 +5,19 @@ properties([
                description: '(optional) Application to deploy. You can also specify a service name if there is no ambiguity. Use * to force the deployment of all applications. Leave empty for default behaviour.'),
         booleanParam(name: 'DMAKE_SKIP_TESTS',
                      defaultValue: false,
-                     description: 'Skip tests if checked')
+                     description: 'Skip tests if checked'),
+        booleanParam(name: 'DMAKE_DEBUG',
+                     defaultValue: false,
+                     description: 'Enable dmake debug logs'),
+        string(name: 'CUSTOM_BUILD_CUSTOMER',
+               defaultValue: '',
+               description: '(optional) Custom build: customer name'),
+        string(name: 'CUSTOM_BUILD_CUSTOMER_PROJECT',
+               defaultValue: '',
+               description: '(optional) Custom build: customer\'s project name'),
+        string(name: 'CUSTOM_BUILD_EXPIRATION_DATE',
+               defaultValue: '',
+               description: '(optional) Custom build: expiration date')
     ]),
     pipelineTriggers([])
 ])
@@ -16,7 +28,11 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
               branches: scm.branches,
               extensions: scm.extensions + [[$class: 'SubmoduleOption', recursiveSubmodules: true]],
               userRemoteConfigs: scm.userRemoteConfigs])
-
+    // params are automatically exposed as environment variables
+    // but booleans to string generates "true"
+    if (params.DMAKE_DEBUG) {
+        env.DMAKE_DEBUG=1
+    }
     sh 'dmake deploy "${DMAKE_APP}"'
     load 'DMakefile'
 }
