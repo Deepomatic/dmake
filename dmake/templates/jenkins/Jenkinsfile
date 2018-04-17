@@ -1,3 +1,10 @@
+// default CUSTOM_ENVIRONMENT
+try {
+    default_custom_environment=DEFAULT_CUSTOM_ENVIRONMENT
+} catch (e) {
+    default_custom_environment=''
+}
+
 properties([
     parameters([
         string(name: 'DMAKE_APP',
@@ -5,7 +12,13 @@ properties([
                description: '(optional) Application to deploy. You can also specify a service name if there is no ambiguity. Use * to force the deployment of all applications. Leave empty for default behaviour.'),
         booleanParam(name: 'DMAKE_SKIP_TESTS',
                      defaultValue: false,
-                     description: 'Skip tests if checked')
+                     description: 'Skip tests if checked'),
+        booleanParam(name: 'DMAKE_DEBUG',
+                     defaultValue: false,
+                     description: 'Enable dmake debug logs'),
+        string(name: 'CUSTOM_ENVIRONMENT',
+               defaultValue: default_custom_environment,
+               description: '(optional) Custom environment variables, for custom build. Example: \'FOO=1 BAR=2\'')
     ]),
     pipelineTriggers([])
 ])
@@ -16,7 +29,11 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
               branches: scm.branches,
               extensions: scm.extensions + [[$class: 'SubmoduleOption', recursiveSubmodules: true]],
               userRemoteConfigs: scm.userRemoteConfigs])
-
-    sh 'dmake deploy "${DMAKE_APP}"'
+    // params are automatically exposed as environment variables
+    // but booleans to string generates "true"
+    if (params.DMAKE_DEBUG) {
+        env.DMAKE_DEBUG=1
+    }
+    sh "${params.CUSTOM_ENVIRONMENT} dmake deploy '${params.DMAKE_APP}'"
     load 'DMakefile'
 }
