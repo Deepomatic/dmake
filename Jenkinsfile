@@ -11,7 +11,13 @@ properties([
                description: 'Application to test. You can also specify a service name if there is no ambiguity. Use * to force the test of all applications.'),
         booleanParam(name: 'DMAKE_SKIP_TESTS',
                      defaultValue: false,
-                     description: 'Skip tests if checked')
+                     description: 'Skip tests if checked'),
+        booleanParam(name: 'DMAKE_DEBUG',
+                     defaultValue: true,
+                     description: 'Enable dmake debug logs'),
+        string(name: 'CUSTOM_ENVIRONMENT',
+               defaultValue: '',
+               description: '(optional) Custom environment variables, for custom build. Example: \'FOO=1 BAR=2\'')
     ]),
     pipelineTriggers([])
 ])
@@ -54,13 +60,17 @@ node {
     env.CHANGE_TARGET=""
     env.CHANGE_ID=""
     env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
-    env.DMAKE_DEBUG=1
+    // params are automatically exposed as environment variables
+    // but booleans to string generates "true"
+    if (params.DMAKE_DEBUG) {
+        env.DMAKE_DEBUG=1
+    }
   }
   stage('Python 2.x') {
     sh "virtualenv workspace/.venv2"
     sh ". workspace/.venv2/bin/activate && pip install -r requirements.txt"
     dir('workspace') {
-      sh ". .venv2/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
+      sh ". .venv2/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake test -d '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
         load 'DMakefile'
@@ -72,7 +82,7 @@ node {
     sh "virtualenv -p python3 workspace/.venv3"
     sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
     dir('workspace') {
-      sh ". .venv3/bin/activate && dmake test -d '${params.DMAKE_APP_TO_TEST}'"
+      sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake test -d '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
         load 'DMakefile'

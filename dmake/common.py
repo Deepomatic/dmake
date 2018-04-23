@@ -108,6 +108,10 @@ def eval_str_in_env(value, env=None, strict=False, source=None):
     cmd += 'echo %s' % wrap_cmd(value)
     return run_shell_command(cmd, additional_env=env).strip()
 
+def eval_values_in_env(d, env=None, strict=False, source=None):
+    for key in d:
+        d[key] = eval_str_in_env(d[key], env, strict, source)
+
 # Docker has some trouble mounting volumes with trailing '/'.
 # See http://stackoverflow.com/questions/38338612/mounting-file-system-in-docker-fails-sometimes
 def join_without_slash(*args):
