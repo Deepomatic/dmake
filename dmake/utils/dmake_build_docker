@@ -7,6 +7,8 @@
 # Build a docker image named ${IMAGE_NAME} using build context ${CONTEXT_DIR}
 
 test "${DMAKE_DEBUG}" = "1" && set -x
+test "${DMAKE_DEBUG}" = "1" && DOCKER_BUILD_DEBUG=1
+
 
 if [ $# -lt 2 ]; then
     dmake_fail "$0: Missing arguments"
@@ -24,5 +26,5 @@ CONTEXT_DIR=$1
 IMAGE_NAME=$2
 shift 2
 
-docker image build "$@" --tag ${IMAGE_NAME} ${CONTEXT_DIR}
+docker ${DOCKER_BUILD_DEBUG:+--debug} image build "$@" --tag ${IMAGE_NAME} ${CONTEXT_DIR}
 echo ${IMAGE_NAME} >> ${DMAKE_TMP_DIR}/images_to_remove.txt
