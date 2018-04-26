@@ -877,6 +877,7 @@ class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
     dockerfile = FieldSerializer("string", optional = True, help_text = "Alternate Dockerfile, relative path to `context` directory.", example = 'deploy/Dockerfile')
     args       = FieldSerializer("dict", child = "string", default = {}, help_text = "Add build arguments, which are environment variables accessible only during the build process. Higher precedence than `.build.env`.", example = {'BUILD': '${BUILD}'})
     labels     = FieldSerializer('dict', child="string", default = {}, help_text = "Add metadata to the resulting image using Docker labels. It's recommended that you use reverse-DNS notation to prevent your labels from conflicting with those used by other software.", example={'vendor': 'deepomatic', 'build': '${BUILD}'})
+    target     = FieldSerializer("string", optional = True, help_text = "Build the specified stage as defined inside the Dockerfile. See the [multi-stage build docs](https://docs.docker.com/engine/userguide/eng-image/multistage-build/) for details.", example = 'runtime')
 
     def _validate_(self, file, needed_migrations, data, field_name):
         # also accept simple variant where data is a string: the `context` directory
@@ -902,6 +903,9 @@ class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
         args += ["--build-arg=%s=%s" % (key, value) for key, value in build_args.items()]
         # labels
         args += ["--label=%s=%s" % (key, value) for key, value in self.labels.items()]
+        # target
+        if self.target:
+            args.append("--target=%s" % (self.target))
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
