@@ -6,7 +6,7 @@ DMAKE_VERSION=0.1
 
 # TODO: we should turn all this script into a Python script
 QUIET=0
-if [ $1 == "--quiet" ]; then 
+if [ $1 == "--quiet" ]; then
   QUIET=1
 fi
 
@@ -38,7 +38,7 @@ function prompt {
 
 	# if quiet mode, leaves
         if [ "${QUIET}" == "1" ]; then
-            echo "Quiet mode activated, using '${DEFAULT}'" 
+            echo "Quiet mode activated, using '${DEFAULT}'"
             break
         fi
 
@@ -163,9 +163,9 @@ if [ -z "`which dmake`" ]; then
 else
     echo "Patched config to version ${DMAKE_VERSION}"
 fi
-    
+
 echo "Installing python dependencies with: pip install --user -r requirements.txt"
-pip install --user -r requirements.txt
+pip install --user -r $(dirname $0)/requirements.txt
 echo ""
 echo "You should be good to go !"
 echo "IMPORTANT: restart your shell session before testing the 'dmake' command !"
