@@ -5,76 +5,141 @@
     - a file path
     - an object with the following fields:
         - **default** *(object, optional)*: List of environment variables that will be set by default. It must be an object with the following fields:
-            - **source** *(string)*: Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field.
+            - **source** *(string)*: Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.
             - **variables** *(free style object, default = {})*: Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).
         - **branches** *(free style object, default = {})*: If the branch matches one of the following fields, those variables will be defined as well, eventually replacing the default.
-            - **source** *(string)*: Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field.
+            - **source** *(string)*: Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.
             - **variables** *(free style object, default = {})*: Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).
+- **volumes** *(array\<object\>, default = [])*: List of shared volumes usabled on services and docker_links.
+    - **name** *(string)*: Shared volume name.
 - **docker** *(mixed)*: The environment in which to build and deploy. It can be one of the followings:
     - a file path to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field.
     - an object with the following fields:
-        - **root_image** *(mixed)*: The source image name to build on. It can be one of the followings:
+        - **root_image** *(mixed)*: The default source image name to build on. It can be one of the followings:
             - a file path to another dmake file, in which base the root_image will be this file's base_image.
             - an object with the following fields:
                 - **name** *(string)*: Root image name.
                 - **tag** *(string)*: Root image tag (you can use environment variables).
-        - **base_image** *(object, optional)*: Base (intermediate) image to speed-up builds. It must be an object with the following fields:
-            - **name** *(string)*: Base image name. If no docker user is indicated, the image will be kept locally.
-            - **version** *(string, default = latest
-...)*: Base image version. The branch name will be prefixed to form the docker image tag.
-            - **install_scripts** *(array\<file path\>, default = [])*: 
-            - **python_requirements** *(file path, default = '')*: Path to python requirements.txt.
-            - **python3_requirements** *(file path, default = '')*: Path to python requirements.txt.
-            - **copy_files** *(array\<file path\>, default = [])*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
+        - **base_image** *(mixed, default = [])*: Base (development environment) imags. It can be one of the followings:
+            - an object with the following fields:
+                - **name** *(string)*: Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.
+                - **variant** *(string)*: When multiple base_image are defined, this names the base_image variant.
+                - **root_image** *(string)*: The source image to build on. Defaults to docker.root_image.
+                - **version** *(string, default = latest
+...)*: Deprecated, not used anymore, will be removed later.
+                - **install_scripts** *(array\<file path\>, default = [])*: 
+                - **python_requirements** *(file path, default = '')*: Path to python requirements.txt.
+                - **python3_requirements** *(file path, default = '')*: Path to python requirements.txt.
+                - **copy_files** *(array\<file or directory path\>, default = [])*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
+            - an array of objects with the following fields:
+                - **name** *(string)*: Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.
+                - **variant** *(string)*: When multiple base_image are defined, this names the base_image variant.
+                - **root_image** *(string)*: The source image to build on. Defaults to docker.root_image.
+                - **version** *(string, default = latest
+...)*: Deprecated, not used anymore, will be removed later.
+                - **install_scripts** *(array\<file path\>, default = [])*: 
+                - **python_requirements** *(file path, default = '')*: Path to python requirements.txt.
+                - **python3_requirements** *(file path, default = '')*: Path to python requirements.txt.
+                - **copy_files** *(array\<file or directory path\>, default = [])*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
+        - **mount_point** *(string, default = /app
+...)*: Mount point of the app in the built docker image. Needs to be an absolute path.
         - **command** *(string, default = bash
 ...)*: Only used when running 'dmake shell': set the command of the container.
 - **docker_links** *(array\<object\>, default = [])*: List of link to create, they are shared across the whole application, so potentially across multiple dmake files.
     - **image_name** *(string)*: Name and tag of the image to launch.
     - **link_name** *(string)*: Link name.
-    - **deployed_options** *(string, default = '')*: Additional Docker options when deployed.
+    - **volumes** *(array\<object\>, default = [])*: Either shared volumes to mount. Or: for the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.
+        - an object with the following fields:
+            - **source** *(string)*: The shared volume name (declared in .
+            - **target** *(string)*: The path in the container where the volume is mounted.
+        - an object with the following fields:
+            - **container_volume** *(string)*: Path of the volume mounted in the container.
+            - **host_volume** *(string)*: Path of the volume from the host.
+    - **need_gpu** *(boolean, default = false
+...)*: Whether the docker link needs to be run on a GPU node.
     - **testing_options** *(string, default = '')*: Additional Docker options when testing on Jenkins.
-- **build** *(object, optional)*: Commands to run for building the application. It must be an object with the following fields:
-    - **env** *(object, optional)*: Environment variable to define when building. It must be an object with the following fields:
-        - **testing** *(free style object, default = {})*: List of environment variables that will be set when building for testing.
-        - **production** *(free style object, default = {})*: List of environment variables that will be set when building for production.
+    - **probe_ports** *(mixed, default = auto
+...)*: Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp. It can be one of the followings:
+        - a string
+        - an array of strings
+    - **env** *(free style object, default = {})*: Additional environment variables defined when running this image.
+    - **env_exports** *(free style object, default = {})*: A set of environment variables that will be exported in services that use this link when testing.
+- **build** *(object)*: Commands to run for building the application. It must be an object with the following fields:
+    - **env** *(free style object, default = {})*: List of environment variables used when building applications (excluding base_image).
     - **commands** *(array\<object\>, default = [])*: Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.
         - a string
         - an array of strings
-- **pre_test_commands** *(array\<string\>, default = [])*: Command list to run before running tests.
-- **post_test_commands** *(array\<string\>, default = [])*: Command list to run after running tests.
+- **pre_test_commands** *(array\<string\>, default = [])*: Deprecated, not used anymore, will be removed later. Use `tests.commands` instead.
+- **post_test_commands** *(array\<string\>, default = [])*: Deprecated, not used anymore, will be removed later. Use `tests.commands` instead.
 - **services** *(array\<object\>, default = [])*: Service list.
     - **service_name** *(string, default = '')*: The name of the application part.
-    - **needed_services** *(array\<string\>, default = [])*: List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.
+    - **needed_services** *(array\<object\>, default = [])*: List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.
+        - **service_name** *(string)*: The name of the needed application part.
+        - **link_name** *(string)*: Link name.
+        - **env** *(free style object, default = {})*: List of environment variables that will be set when executing the needed service.
+    - **needed_links** *(array\<string\>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
     - **sources** *(array\<object\>)*: If specified, this service will be considered as updated only when the content of those directories or files have changed.
         - a file path
         - a directory
-    - **config** *(object, optional)*: Deployment configuration. It must be an object with the following fields:
-        - **docker_image** *(object, optional)*: Docker to build for running and deploying. It must be an object with the following fields:
-            - **name** *(string)*: Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.
-            - **check_private** *(boolean, default = true
+    - **config** *(object)*: Deployment configuration. It must be an object with the following fields:
+        - **docker_image** *(mixed)*: Docker to build for running and deploying. It can be one of the followings:
+            - an object with the following fields:
+                - **name** *(string)*: Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.
+                - **base_image_variant** *(mixed)*: Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'. It can be one of the followings:
+                    - a string
+                    - an array of strings
+                - **check_private** *(boolean, default = true
 ...)*: Check that the docker repository is private before pushing the image.
-            - **tag** *(string)*: Tag of the docker image to build. By default it will be {:branch_name}-{:build_id}.
-            - **workdir** *(directory path)*: Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.
-            - **copy_directories** *(array\<directory path\>, default = [])*: Directories to copy in the docker image.
-            - **install_script** *(file path)*: The install script (will be run in the docker). It has to be executable.
-            - **entrypoint** *(file path)*: Set the entrypoint of the docker image generated to run the app.
-            - **start_script** *(file path)*: The start script (will be run in the docker). It has to be executable.
-        - **docker_links_names** *(array\<string\>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
+                - **tag** *(string)*: Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}'.
+                - **workdir** *(directory path)*: Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.
+                - **copy_directories** *(array\<directory path\>, default = [])*: Directories to copy in the docker image.
+                - **install_script** *(file path)*: The install script (will be run in the docker). It has to be executable.
+                - **entrypoint** *(file path)*: Set the entrypoint of the docker image generated to run the app.
+                - **start_script** *(file path)*: The start script (will be run in the docker). It has to be executable.
+            - an object with the following fields:
+                - **name** *(string)*: Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.
+                - **base_image_variant** *(mixed)*: Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'. It can be one of the followings:
+                    - a string
+                    - an array of strings
+                - **check_private** *(boolean, default = true
+...)*: Check that the docker repository is private before pushing the image.
+                - **tag** *(string)*: Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}'.
+                - **build** *(object)*: Docker build options for service built using user-provided Dockerfile (ignore `.build.commands`), like in Docker Compose files.`. It must be an object with the following fields:
+                    - **context** *(directory path)*: Docker build context directory.
+                    - **dockerfile** *(string)*: Alternate Dockerfile, relative path to `context` directory.
+                    - **args** *(free style object, default = {})*: Add build arguments, which are environment variables accessible only during the build process. Higher precedence than `.build.env`.
+                    - **labels** *(free style object, default = {})*: Add metadata to the resulting image using Docker labels. It's recommended that you use reverse-DNS notation to prevent your labels from conflicting with those used by other software.
         - **docker_opts** *(string, default = '')*: Docker options to add.
+        - **need_gpu** *(boolean, default = false
+...)*: Whether the service needs to be run on a GPU node.
         - **ports** *(array\<object\>, default = [])*: Ports to open.
             - **container_port** *(int)*: Port on the container.
             - **host_port** *(int)*: Port on the host.
-        - **volumes** *(array\<object\>, default = [])*: Volumes to open.
-            - **container_volume** *(string)*: Volume on the container.
-            - **host_volume** *(string)*: Volume on the host.
-        - **pre_deploy_script** *(string, default = '')*: Scripts to run before launching new version.
-        - **mid_deploy_script** *(string, default = '')*: Scripts to run after launching new version and before stopping the old one.
-        - **post_deploy_script** *(string, default = '')*: Scripts to run after stopping old version.
+        - **volumes** *(array\<object\>, default = [])*: Volumes to mount.
+            - an object with the following fields:
+                - **source** *(string)*: The shared volume name (declared in .
+                - **target** *(string)*: The path in the container where the volume is mounted.
+            - an object with the following fields:
+                - **container_volume** *(string)*: Path of the volume mounted in the container.
+                - **host_volume** *(string)*: Path of the volume from the host.
+        - **readiness_probe** *(object, optional)*: A probe that waits until the container is ready. It must be an object with the following fields:
+            - **command** *(array\<string\>, default = [])*: The command to run to check if the container is ready. The command should fail with a non-zero code if not ready.
+            - **initial_delay_seconds** *(int, default = 0
+...)*: The delay before the first probe is launched.
+            - **period_seconds** *(int, default = 5
+...)*: The delay between two first probes.
+            - **max_seconds** *(int, default = 0
+...)*: The maximum delay after failure.
     - **tests** *(object, optional)*: Unit tests list. It must be an object with the following fields:
         - **docker_links_names** *(array\<string\>, default = [])*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
+        - **data_volumes** *(array\<object\>, default = [])*: The read only data volumes to mount. Only S3 is supported for now.
+            - **container_volume** *(string)*: Path of the volume mounted in the container.
+            - **source** *(string)*: Only host path and s3 URLs are supported for now.
+            - **read_only** *(boolean, default = false
+...)*: Flag to set the volume as read-only.
         - **commands** *(array\<string\>)*: The commands to run for integration tests.
         - **junit_report** *(string)*: Uses JUnit plugin to generate unit test report.
-        - **cobertura_report** *(string)*: Publish a Cobertura report (not working for now).
+        - **cobertura_report** *(string)*: Publish a Cobertura report. **WARNING** only one is allowed per repository.
         - **html_report** *(object, optional)*: Publish an HTML report. It must be an object with the following fields:
             - **directory** *(string)*: Directory of the html pages.
             - **index** *(string, default = index.html
@@ -82,7 +147,7 @@
             - **title** *(string, default = HTML Report
 ...)*: Main page title.
     - **deploy** *(object, optional)*: Deploy stage. It must be an object with the following fields:
-        - **deploy_name** *(string)*: The name used for deployment. Will default to "${DMAKE_DEPLOY_PREFIX}-app_name-service_name" if not specified.
+        - **deploy_name** *(string)*: The name used for deployment. Will default to '{:app_name}-{:service_name}' if not specified.
         - **stages** *(array\<object\>)*: Deployment possibilities.
             - **description** *(string)*: Deploy stage description.
             - **branches** *(mixed, default = [stag])*: Branch list for which this stag is active, '*' can be used to match any branch. Can also be a simple string. It can be one of the followings:
@@ -90,14 +155,32 @@
                 - an array of strings
             - **env** *(free style object, default = {})*: Additionnal environment variables for deployment.
             - **aws_beanstalk** *(object, optional)*: Deploy via Elastic Beanstalk. It must be an object with the following fields:
+                - **name_prefix** *(string, default = ${DMAKE_DEPLOY_PREFIX}
+...)*: The prefix to add to the 'deploy_name'. Can be useful as application name have to be unique across all users of Elastic BeanStalk.
                 - **region** *(string, default = eu-west-1
 ...)*: The AWS region where to deploy.
                 - **stack** *(string, default = 64bit Amazon Linux 2016.03 v2.1.6 running Docker 1.11.2
 ...)*: 
                 - **options** *(file path)*: AWS Option file as described here: http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html.
-                - **credentials** *(string, default = S3 path to the credential file to aurthenticate a private docker repository.
-...)*: 
+                - **credentials** *(string)*: S3 path to the credential file to authenticate a private docker repository.
+                - **ebextensions** *(directory path)*: Path to the ebextension directory. See http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ebextensions.html.
             - **ssh** *(object, optional)*: Deploy via SSH. It must be an object with the following fields:
                 - **user** *(string)*: User name.
                 - **host** *(string)*: Host address.
                 - **port** *(int, default = '22')*: SSH port.
+            - **k8s_continuous_deployment** *(object, optional)*: Continuous deployment via Kubernetes. Look for all the deployments running this service. It must be an object with the following fields:
+                - **context** *(string)*: kubectl context to use.
+                - **namespace** *(string, default = default
+...)*: Kubernetes namespace to target.
+                - **selectors** *(free style object, default = {})*: Selectors to restrict the deployment.
+            - **kubernetes** *(object, optional)*: Deploy to Kubernetes cluster. It must be an object with the following fields:
+                - **context** *(string)*: kubectl context to use.
+                - **namespace** *(string)*: Kubernetes namespace to target (overrides kubectl context default namespace.
+                - **manifest** *(object)*: Kubernetes manifest file (template) defining all the resources needed to deploy the service.
+                    - **template** *(file path)*: Kubernetes manifest file (template) defining all the resources needed to deploy the service.
+                    - **variables** *(free style object, default = {})*: Defines variables used in the kubernetes manifest template.
+                - **config_maps** *(array\<object\>, default = [])*: Additional Kubernetes ConfigMaps.
+                    - **name** *(string)*: Kubernetes ConfigMap name.
+                    - **from_files** *(array\<object\>, default = [])*: Kubernetes ConfigMap from files.
+                        - **key** *(string)*: File key.
+                        - **path** *(file path)*: File path.
