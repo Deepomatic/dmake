@@ -82,7 +82,7 @@ def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=N
         prev_stdout = p.stdout
 
     # python3 compatibility
-    if stdin is not None:
+    if sys.version_info >= (3, 0) and stdin is not None:
         stdin = stdin.encode('utf-8')
 
     stdout, stderr = p.communicate(stdin)
