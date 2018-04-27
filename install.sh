@@ -4,6 +4,12 @@ set -e
 
 DMAKE_VERSION=0.1
 
+# TODO: we should turn all this script into a Python script
+NON_INTERACTIVE=0
+if [ $1 == "--non-interactive" ]; then
+  NON_INTERACTIVE=1
+fi
+
 function prompt {
     QUESTION=$1
     VAR=$2
@@ -29,6 +35,13 @@ function prompt {
     while [ 1 ]; do
         # Ask question
         echo "${QUESTION}"
+
+	# if non-interactive mode, leaves
+        if [ "${NON_INTERACTIVE}" == "1" ]; then
+            echo "Non-interactive mode activated, using '${DEFAULT}'"
+            break
+        fi
+
         # Print options
         if [ ! -z "${OPTIONS}" ]; then
             N=${#OPTIONS[*]}
@@ -112,15 +125,15 @@ if [ -z "${DMAKE_SSH_KEY}" ]; then
     if [ -z "${KEYS}" ]; then
         while [ true ]; do
             DMAKE_SSH_KEY=
-            prompt "Please type in the path to the SSH key we should use to clone private repositories ?" "DMAKE_SSH_KEY"
-            if [ -f "${DMAKE_SSH_KEY}" ]; then
+            prompt "Please type in the path to the SSH key we should use to clone private repositories ?" "DMAKE_SSH_KEY" "" ""
+            if [ -f "${DMAKE_SSH_KEY}" ] || [ -z "${DMAKE_SSH_KEY}" ]; then
                 break
             else
                 echo "No such file: ${DMAKE_SSH_KEY} ! Again:"
             fi
         done
     else
-        prompt "Which SSH key should we use to clone private repositories ? (enter number)" "DMAKE_SSH_KEY" KEYS[@]
+        prompt "Which SSH key should we use to clone private repositories ? (enter number)" "DMAKE_SSH_KEY" KEYS[@] "${OPTIONS[0]}"
     fi
     DMAKE_SSH_KEY=$(echo ${DMAKE_SSH_KEY} | sed "s/\.pub//")
 fi
@@ -132,7 +145,7 @@ echo "export DMAKE_CONFIG_DIR=${DMAKE_CONFIG_DIR}" >> ${CONFIG_FILE}
 echo "export DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR}" >> ${CONFIG_FILE}
 echo "export DMAKE_SSH_KEY=${DMAKE_SSH_KEY}" >> ${CONFIG_FILE}
 echo "export PYTHONPATH=\$PYTHONPATH:${DMAKE_PATH}" >> ${CONFIG_FILE}
-echo "export PATH=\$PATH:${DMAKE_PATH}/deepomatic/dmake/:${DMAKE_PATH}/deepomatic/dmake/utils" >> ${CONFIG_FILE}
+echo "export PATH=\$PATH:${DMAKE_PATH}/dmake/:${DMAKE_PATH}/dmake/utils" >> ${CONFIG_FILE}
 
 LINE="source ${CONFIG_FILE}"
 if [ -z "`which dmake`" ]; then
@@ -147,11 +160,12 @@ if [ -z "`which dmake`" ]; then
             echo "Patched ${SHRC} to source ${CONFIG_FILE}."
         fi
     done
-    echo "Install the python dependencies with the following command:"
-    echo "pip install --user -r requirements.txt"
-    echo "Then restart your shell session and test the 'dmake' command !"
 else
     echo "Patched config to version ${DMAKE_VERSION}"
-    echo "Update the python dependencies with the following command:"
-    echo "pip install --user -r requirements.txt"
 fi
+
+echo "Installing python dependencies with: pip install --user -r requirements.txt"
+pip install --user -r $(dirname $0)/requirements.txt
+echo ""
+echo "You should be good to go !"
+echo "IMPORTANT: restart your shell session before testing the 'dmake' command !"

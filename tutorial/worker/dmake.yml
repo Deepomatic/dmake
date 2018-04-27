@@ -34,10 +34,6 @@ docker_links:
       RABBITMQ_DEFAULT_USER: user
       RABBITMQ_DEFAULT_PASS: password
 
-build:
-  commands:
-    - make
-
 services:
   - service_name: worker
     needed_links:
@@ -48,12 +44,21 @@ services:
         base_image_variant:
           - ubuntu-1604
           - ubuntu-1804
-        entrypoint: deploy/entrypoint.sh
-        start_script: deploy/start.sh
+        # short form: `build: .`
+        build:
+          context: .
+          dockerfile: Dockerfile
+          args:
+            BUILD_HOSTNAME: ${HOSTNAME}
+          labels:
+            vendor: "deepomatic"
+            com.deepomatic.version.is-on-premises: "false"
+            build-host: "${HOSTNAME}"
+          target: runtime
       volumes:
         - source: shared_rabbitmq_var_lib
           target: /var/lib/rabbitmq
-        - shared_volume2:/shared_volume2
+        - shared_volume_web_and_workers:/shared_volume
     tests:
       commands:
         - ./deploy/test-shared-volumes.sh

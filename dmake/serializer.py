@@ -1,16 +1,16 @@
 import os, sys
 import copy
 from collections import OrderedDict
-from deepomatic.dmake.common import DMakeException
-import deepomatic.dmake.common as common
+from dmake.common import DMakeException
+import dmake.common as common
 
 # Define the base class for YAML2PipelineSerializer
 # If using Python3, we can keep track of the order of the field
 # in order to generate a proper doc.
 if sys.version_info >= (3,0):
-    from deepomatic.dmake.python_3x import BaseYAML2PipelineSerializer
+    from dmake.python_3x import BaseYAML2PipelineSerializer
 else:
-    from deepomatic.dmake.python_2x import BaseYAML2PipelineSerializer
+    from dmake.python_2x import BaseYAML2PipelineSerializer
 
 # Custom Exceptions
 class ValidationError(Exception):
@@ -25,10 +25,11 @@ class FieldSerializer(object):
             data_type,
             optional=False,
             default=None,
+            allow_null=False,
             blank=False,
             child=None,
             post_validation=lambda x: x,
-            child_path_only=False,
+            child_path_only=False,        # if True, return path relative to dmake.yml file, else return path relative to repo root
             check_path=True,
             executable=False,
             no_slash_no_space=False,
@@ -55,6 +56,7 @@ class FieldSerializer(object):
         self.data_type = data_type
         self.optional = optional
         self.default = default
+        self.allow_null = allow_null
         self.blank = blank
         self.post_validation = post_validation
         self.child_path_only = child_path_only
@@ -70,7 +72,7 @@ class FieldSerializer(object):
         self.value = None
 
     def _validate_(self, file, needed_migrations, data, field_name):
-        if data is None:
+        if data is None and not self.allow_null:
             if not self.optional:
                 raise ValidationError("got 'Null', expected a value of type %s" % (" -OR-\n".join([str(t) for t in self.data_type])))
             else:
@@ -122,11 +124,9 @@ class FieldSerializer(object):
                 raise WrongType("Expecting bool")
             return data
         elif data_type == "int":
-            if isinstance(data, int) or isinstance(data, float):
-                data = int(data)
             if not isinstance(data, int):
                 raise WrongType("Expecting int")
-            return str(data)
+            return data
         elif data_type == "string":
             if isinstance(data, int) or isinstance(data, float):
                 data = str(data)
@@ -140,38 +140,47 @@ class FieldSerializer(object):
                         raise ValidationError("Character '%s' not allowed" % c)
             return data
         elif data_type in ["path", "file", "dir"]:
-            path = os.path.join(os.path.dirname(file), '')
+            dmake_path = os.path.join(os.path.dirname(file), '')  # `dmake.yml` directory, relative to repo root; ending with slash, or empty string
+            assert(len(dmake_path) == 0 or dmake_path[-1] == '/')
             if not common.is_string(data):
                 raise WrongType("Expecting string")
-            if len(data) > 0 and data[0] == '/':
+            original_data = data
+            data = os.path.normpath(data)
+            if data.startswith('/'):
+                # then interpret data as absolute from repo root, not from `/` host root
                 data = data[1:]
+                if data.startswith('/'):
+                    raise WrongType("Double slash not allowed: %s" % original_data)
+                # full_path is relative to repo root
                 full_path = data
                 if self.child_path_only:
-                    if full_path.startswith(path):
-                        data = data[len(path)]
-                        if len(data) > 0 and data[0] == '/':
-                            data = data[1:]
-                    else:
-                        raise WrongType("Path must be sub-paths to dmake file for this field.")
+                    # then make it relative to `dmake.yml` directory
+                    data = os.path.relpath(full_path, dmake_path)
             else:
-                full_path = os.path.join(path, data)
+                # then interpret data as relative to `dmake.yml` directory
+                # full_path is relative to repo root
+                full_path = os.path.join(dmake_path, data)
                 if not self.child_path_only:
                     data = full_path
+            # at this point `data` is:
+            # - either relative to repo root (`child_path_only==False`)
+            # - or relative to `dmake.yml` directory (`child_path_only==True`)
             data = os.path.normpath(data)
-            if data.startswith("../"):
-                raise WrongType("Trying to access a parent directory is forbidden")
+            if data.startswith(".."):
+                # then we are outside of the allowed scope (defined by `child_path_only`)
+                raise WrongType("Trying to access a parent directory is forbidden: '%s' ('%s')" % (data, original_data))
             if self.check_path:
                 if data_type == "path":
                     if not (os.path.isfile(full_path) or os.path.isdir(full_path)):
-                        raise WrongType("Could not find file or directory: %s" % data)
+                        raise WrongType("Could not find file or directory: '%s' ('%s')" % (data, original_data))
                 elif data_type == "file":
                     if not os.path.isfile(full_path):
-                        raise WrongType("Could not find file: %s" % data)
+                        raise WrongType("Could not find file: '%s' ('%s')" % (data, original_data))
                     if self.executable and not os.access(full_path, os.X_OK):
-                        raise WrongType("The file must be executable: %s" % full_path)
+                        raise WrongType("The file must be executable: '%s' ('%s')" % (data, original_data))
                 elif data_type == "dir":
                     if not os.path.isdir(full_path):
-                        raise WrongType("Could not find directory: %s" % data)
+                        raise WrongType("Could not find directory: '%s' ('%s')" % (data, original_data))
             return data
         elif data_type == "array":
             if not isinstance(data, list):

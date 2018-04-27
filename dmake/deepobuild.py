@@ -5,11 +5,11 @@ import uuid
 import importlib
 import re
 import requests.exceptions
-from deepomatic.dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
-import deepomatic.dmake.common as common
-from deepomatic.dmake.common import DMakeException, SharedVolumeNotFoundException
-import deepomatic.dmake.kubernetes as k8s_utils
-import deepomatic.dmake.docker_registry as docker_registry
+from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
+import dmake.common as common
+from dmake.common import DMakeException, SharedVolumeNotFoundException
+import dmake.kubernetes as k8s_utils
+import dmake.docker_registry as docker_registry
 
 ###############################################################################
 
@@ -606,7 +606,7 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
         common.run_shell_command(cmd)
 
-        cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%s"' % (tmp_dir, app_name, self.user, self.host, self.port)
+        cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%d"' % (tmp_dir, app_name, self.user, self.host, self.port)
         append_command(commands, 'sh', shell = cmd)
 
 class K8SCDDeploySerializer(YAML2PipelineSerializer):
@@ -761,17 +761,11 @@ class DeployStageSerializer(YAML2PipelineSerializer):
     k8s_continuous_deployment = K8SCDDeploySerializer(optional = True, help_text = "Continuous deployment via Kubernetes. Look for all the deployments running this service.")
     kubernetes    = KubernetesDeploySerializer(optional = True, help_text = "Deploy to Kubernetes cluster.")
 
-class ServiceDockerSerializer(YAML2PipelineSerializer):
+class ServiceDockerCommonSerializer(YAML2PipelineSerializer):
     name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.")
     base_image_variant = FieldSerializer(["string", "array"], optional = True, child = "string", help_text = "Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'.")
     check_private    = FieldSerializer("bool",   default = True,  help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}'")
-    workdir          = FieldSerializer("dir",    optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
-    #install_targets = FieldSerializer("array", child = FieldSerializer([InstallExeSerializer(), InstallLibSerializer(), InstallDirSerializer()]), default = [], help_text = "Target files or directories to install.")
-    copy_directories = FieldSerializer("array", child = "dir", default = [], help_text = "Directories to copy in the docker image.")
-    install_script   = FieldSerializer("file", child_path_only = True, executable = True, optional = True, example = "install.sh", help_text = "The install script (will be run in the docker). It has to be executable.")
-    entrypoint       = FieldSerializer("file", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
-    start_script     = FieldSerializer("file", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
 
     def set_service(self, service):
         self.service = service
@@ -800,7 +794,32 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
         image_name = name + ":" + tag
         return image_name
 
-    def generate_build_docker(self, commands, path_dir, docker_base, build, config):
+    def is_runnable(self):
+        return self._is_runnable()
+
+    def _is_runnable(self):
+        # pure virtual method, implemented in children classes
+        raise NotImplementedError()
+
+    def generate_build_docker(self, commands, path_dir, docker_base, build):
+        self._generate_build_docker(commands, path_dir, docker_base, build)
+
+    def _generate_build_docker(self, commands, path_dir, docker_base, build):
+        # pure virtual method, implemented in children classes
+        raise NotImplementedError()
+
+class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
+    # v1: dmake generated Dockerfile
+    workdir          = FieldSerializer("dir",    optional = True, help_text = "Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.")
+    copy_directories = FieldSerializer("array", child = "dir", default = [], help_text = "Directories to copy in the docker image.")
+    install_script   = FieldSerializer("file", child_path_only = True, executable = True, optional = True, example = "install.sh", help_text = "The install script (will be run in the docker). It has to be executable.")
+    entrypoint       = FieldSerializer("file", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
+    start_script     = FieldSerializer("file", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
+
+    def _is_runnable(self):
+        return self.start_script is not None
+
+    def _generate_build_docker(self, commands, path_dir, docker_base, build):
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
         common.run_shell_command('mkdir %s' % os.path.join(tmp_dir, 'app'))
 
@@ -822,8 +841,8 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
             workdir = os.path.join(mount_point, workdir)
             f.write('WORKDIR %s\n' % workdir)
 
-            for port in config.ports:
-                f.write('EXPOSE %s\n' % port.container_port)
+            for port in self.service.config.ports:
+                f.write('EXPOSE %d\n' % port.container_port)
 
             if build.has_value():
                 for key, value in build.env.items():
@@ -851,9 +870,58 @@ class ServiceDockerSerializer(YAML2PipelineSerializer):
                 f.write('ENTRYPOINT ["%s"]\n' % os.path.join(mount_point, path_dir, self.entrypoint))
 
         image_name = self.get_image_name()
-        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
+        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s" --squash' % (tmp_dir, image_name))
 
-        return tmp_dir
+class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
+    context    = FieldSerializer("dir", help_text = "Docker build context directory.", example = '.')
+    dockerfile = FieldSerializer("string", optional = True, help_text = "Alternate Dockerfile, relative path to `context` directory.", example = 'deploy/Dockerfile')
+    args       = FieldSerializer("dict", child = "string", default = {}, help_text = "Add build arguments, which are environment variables accessible only during the build process. Higher precedence than `.build.env`.", example = {'BUILD': '${BUILD}'})
+    labels     = FieldSerializer('dict', child="string", default = {}, help_text = "Add metadata to the resulting image using Docker labels. It's recommended that you use reverse-DNS notation to prevent your labels from conflicting with those used by other software.", example={'vendor': 'deepomatic', 'build': '${BUILD}'})
+    target     = FieldSerializer("string", optional = True, help_text = "Build the specified stage as defined inside the Dockerfile. See the [multi-stage build docs](https://docs.docker.com/engine/userguide/eng-image/multistage-build/) for details.", example = 'runtime')
+
+    def _validate_(self, file, needed_migrations, data, field_name):
+        # also accept simple variant where data is a string: the `context` directory
+        if common.is_string(data):
+            data = {'context': data}
+        result = super(ServiceDockerBuildSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        return result
+
+    def _serialize_(self, commands, path_dir, image_name, build_args):
+        # variables substitution from dmake process environment
+        common.eval_values_in_env(self.args, strict=True)
+        common.eval_values_in_env(self.labels, strict=True)
+
+        program = 'dmake_build_docker'
+        args = [self.context, image_name]
+        # dockerfile
+        if self.dockerfile:
+            # in docker-compose the `dockerfile` path is relative to the `context`, we do the same in dmake; but in `docker image build the `--file` path is relative to CWD, not to `context`.
+            dockerfile_path = os.path.join(self.context, self.dockerfile)
+            args += ["--file=%s" % (dockerfile_path)]
+        # build arg
+        build_args.update(self.args)
+        args += ["--build-arg=%s=%s" % (key, value) for key, value in build_args.items()]
+        # labels
+        args += ["--label=%s=%s" % (key, value) for key, value in self.labels.items()]
+        # target
+        if self.target:
+            args.append("--target=%s" % (self.target))
+        cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
+        append_command(commands, 'sh', shell = cmd)
+
+class ServiceDockerV2Serializer(ServiceDockerCommonSerializer):
+    # v2: user provided Dockerfile
+    build            = ServiceDockerBuildSerializer(help_text = "Docker build options for service built using user-provided Dockerfile (ignore `.build.commands`), like in Docker Compose files.`")
+
+    def _is_runnable(self):
+        # assume the user-provided Dockerfile is a runnable service
+        return True
+
+    def _generate_build_docker(self, commands, path_dir, docker_base, build):
+        image_name = self.get_image_name()
+        base_image_name = docker_base.get_docker_base_image(self.base_image_variant)
+        build_args = {'BASE_IMAGE': base_image_name}
+        self.build._serialize_(commands, path_dir, image_name, build_args)
 
 class ReadinessProbeSerializer(YAML2PipelineSerializer):
     command               = FieldSerializer("array", child = "string", default = [], example = ['cat', '/tmp/worker_ready'], help_text = "The command to run to check if the container is ready. The command should fail with a non-zero code if not ready.")
@@ -866,20 +934,20 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
             return ""
 
         if self.max_seconds > 0:
-            condition = "$T -le %s" % self.max_seconds
+            condition = "$T -le %d" % self.max_seconds
         else:
             condition = "1"
 
-        period = max(int(self.period_seconds), 1)
+        period = max(self.period_seconds, 1)
 
         # Make the command with "" around parameters
         cmd = self.command[0] + ' ' + (' '.join([common.wrap_cmd(c) for c in self.command[1:]]))
-        cmd = """T=0; sleep %s; while [ %s ]; do echo "Running readyness probe"; %s; if [ "$?" = "0" ]; then exit 0; fi; T=$((T+%d)); sleep %d; done; exit 1;""" % (self.initial_delay_seconds, condition, cmd, period, period)
+        cmd = """T=0; sleep {initial_delay:d}; while [ {condition} ]; do echo "Running readiness probe"; {cmd}; if [ "$?" = "0" ]; then echo "... ready"; exit 0; fi; T=$((T+{period:d})); sleep {period:d}; done; exit 1;""".format(initial_delay=self.initial_delay_seconds, condition=condition, cmd=cmd, period=period)
         cmd = common.escape_cmd(cmd)
         return 'bash -c "%s"' % cmd
 
 class DeployConfigSerializer(YAML2PipelineSerializer):
-    docker_image       = ServiceDockerSerializer(help_text = "Docker to build for running and deploying.")
+    docker_image       = FieldSerializer([ServiceDockerV1Serializer(), ServiceDockerV2Serializer()], allow_null = True, help_text = "Docker to build for running and deploying.")
     docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add.")
     need_gpu           = FieldSerializer("bool", default = False, help_text = "Whether the service needs to be run on a GPU node.")
     ports              = FieldSerializer("array", child = DeployConfigPortsSerializer(), default = [], help_text = "Ports to open.")
@@ -893,9 +961,9 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
         opts = []
         for ports in self.ports:
             if testing_mode:
-                opts.append("-p %s" % ports.container_port)
+                opts.append("-p %d" % ports.container_port)
             else:
-                opts.append("-p 0.0.0.0:%s:%s" % (ports.host_port, ports.container_port))
+                opts.append("-p 0.0.0.0:%d:%d" % (ports.host_port, ports.container_port))
 
         for volume in self.volumes:
             if isinstance(volume, SharedVolumeMountSerializer):
@@ -937,7 +1005,7 @@ class DeploySerializer(YAML2PipelineSerializer):
     def set_service(self, service):
         self.service = service
 
-    def generate_deploy(self, commands, app_name, package_dir, env, config):
+    def generate_deploy(self, commands, app_name, env, config):
         deploy_env = env.get_replaced_variables()
         if self.deploy_name is not None:
             app_name = self.deploy_name
@@ -1042,37 +1110,63 @@ class TestSerializer(YAML2PipelineSerializer):
                            index     = html['index'],
                            title     = html['title'],)
 
+
+allowed_link_name_pattern = re.compile("^[a-z0-9-]{1,63}$")  # too laxist, but easy to read
 class NeededServiceSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", help_text = "The name of the needed application part.", example = "worker-nn", no_slash_no_space = True)
+    link_name       = FieldSerializer("string", optional = True, example = "worker-nn", help_text = "Link name.")
     env             = FieldSerializer("dict", child = "string", optional = True, default = {}, help_text = "List of environment variables that will be set when executing the needed service.", example = {'CNN_ID': '2'})
 
     def __init__(self, **kwargs):
         super(NeededServiceSerializer, self).__init__(**kwargs)
         self._specialized = True
 
+    def __str__(self):
+        s = "%s" % (self.service_name)
+        if self.link_name:
+            s += " (%s)" % (self.link_name)
+        if self._specialized:
+            s += " -- env: %s" % (self.env)
+        return s
+
+    def __repr__(self):
+        return "NeededServiceSerializer(service_name=%r, link_name=%r, env=%r)" % (self.service_name, self.link_name, self.env)
+
     def __eq__(self, other):
         # NeededServiceSerializer objects are equal if equivalent, to deduplicate their instances at runtime
         # objects are not comparable before the call to _validate_(), because fields are not populated yet
         assert self.__has_value__, "NeededServiceSerializer objects are not comparable before validation"
-        return self.service_name == other.service_name and self.env == other.env
+        # easiest implementation for now: handle different link_name as different needed_services; later should try to aggregate various link_names to one instance of NeededServiceSerializer in `service_customization`
+        return self.service_name == other.service_name \
+            and self.link_name == other.link_name \
+            and self.env == other.env
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
-        # env is not hashable, so skipping it, it's OK, it will just be negligibly less efficient
-        return hash(self.service_name)
+        # object is not hashable before the call to _validate_(), because fields are not populated yet
+        assert self.__has_value__, "NeededServiceSerializer object is not hashable before validation"
+        if not hasattr(self, '_env_frozenset'):
+            self._env_frozenset = frozenset(self.env.items())
+        return hash((self.service_name, self.link_name, self._env_frozenset))
 
     def _validate_(self, file, needed_migrations, data, field_name):
         # also accept simple variant where data is a string: the service_name
         if common.is_string(data):
             data = {'service_name': data}
         result = super(NeededServiceSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        if self.link_name and \
+           not allowed_link_name_pattern.match(self.link_name):
+            raise ValidationError("Invalid link name '%s': only '[a-z0-9-]{1,63}' is allowed. " % (self.link_name))
         self._specialized = len(self.env) > 0
+        # a unique identifier that is the same for all equivalent NeededServices
+        self._id = hash(self)
+        common.logger.debug("NeededService _id: %s for %r" % (self._id, self))
         return result
 
     def get_service_name_unique_suffix(self):
-        return "--%s" % id(self) if self._specialized else ""
+        return "--%s" % (self._id) if self._specialized else ""
 
 class ServicesSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", default = "", help_text = "The name of the application part.", example = "api", no_slash_no_space = True)
@@ -1091,7 +1185,7 @@ class ServicesSerializer(YAML2PipelineSerializer):
         self.variant = None
         self.original_service_name = self.service_name
 
-        # populate back_link to this Service
+        # populate back-link to this Service
         self.config.docker_image.set_service(self)
         self.deploy.set_service(self)
 
@@ -1213,7 +1307,6 @@ class DMakeFile(DMakeFileSerializer):
                 self.__fields__['env'] = env
 
         self.docker_services_image = None
-        self.app_package_dirs = {}
 
         # set common.is_release_branch: does the current branch have a deployment in any dmake.yml file?
         if common.is_release_branch is None:
@@ -1262,7 +1355,7 @@ class DMakeFile(DMakeFileSerializer):
             env = {}
         mount_point = docker_base.mount_point
         if service is not None and \
-           service.config.docker_image.workdir is not None:
+           getattr(service.config.docker_image, 'workdir', None) is not None:
             workdir = common.join_without_slash(mount_point, service.config.docker_image.workdir)
         else:
             workdir = os.path.join(mount_point, self.__path__)
@@ -1285,7 +1378,7 @@ class DMakeFile(DMakeFileSerializer):
 
     def _get_link_opts_(self, commands, service):
         if common.options.dependencies:
-            needed_links = service.needed_links
+            needed_links = service.needed_links + [ns.link_name for ns in service.needed_services if ns.link_name]
             if len(needed_links) > 0:
                 append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(needed_links)), fail_if_empty = True)
 
@@ -1318,11 +1411,12 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_run(self, commands, service_name, docker_links, service_customization):
         service = self._get_service_(service_name)
-        if service.config.docker_image.start_script is None:
+        if not service.config.docker_image.is_runnable():
             raise DMakeException("You need to specify a 'config.docker_image.start_script' when running service '%s'." % service_name)
 
         unique_service_name = service_name
         additional_customization_env_variables = {}
+        link_name = None
         if service_customization:
             # customization variables will be evaluated later:
             #   by `env.get_replaced_variables()` in the wrong dmake file runtime `.env`, but sometimes OK thanks to needed_links env_exports
@@ -1330,10 +1424,11 @@ class DMakeFile(DMakeFileSerializer):
             additional_customization_env_variables = service_customization.env
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; service_name already contains "<app_name>/"
             unique_service_name += service_customization.get_service_name_unique_suffix()
+            link_name = service_customization.link_name
 
         docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, additional_env_variables = additional_customization_env_variables)
         docker_opts += service.tests.get_mounts_opt(service_name, env)
-        docker_cmd = 'dmake_run_docker_daemon "%s" "" %s -i %s' % (unique_service_name, docker_opts, image_name)
+        docker_cmd = 'dmake_run_docker_daemon "%s" "%s" "%s" "" %s -i %s' % (self.app_name, unique_service_name, link_name or "", docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
         # Run daemon
@@ -1346,13 +1441,12 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
-        tmp_dir = service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build, service.config)
-        self.app_package_dirs[service.service_name] = tmp_dir
+        service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build)
 
     def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, additional_env = None, additional_env_variables = None):
         if additional_env is None:
             additional_env = {}
-        if run_base_image and service.config.docker_image.entrypoint is not None:
+        if run_base_image and getattr(service.config.docker_image, 'entrypoint', None) is not None:
             full_path_container = os.path.join(self.docker.mount_point,
                                                self.__path__,
                                                service.config.docker_image.entrypoint)
@@ -1418,7 +1512,6 @@ class DMakeFile(DMakeFileSerializer):
         if not service.deploy.has_value():
             # no deploy specified, nothing to generate for deploy
             return
-        if service.config.docker_image.start_script is None:
+        if not service.config.docker_image.is_runnable():
             raise DMakeException("You need to specify a 'config.docker_image.start_script' when deploying service '%s'." % service_name)
-        assert(service.service_name in self.app_package_dirs)
-        service.deploy.generate_deploy(commands, self.app_name, self.app_package_dirs[service.service_name], self.env, service.config)
+        service.deploy.generate_deploy(commands, self.app_name, self.env, service.config)

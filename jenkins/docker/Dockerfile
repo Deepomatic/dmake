@@ -14,7 +14,7 @@ RUN apt-get install -y sudo && usermod -a -G sudo jenkins && echo "jenkins ALL=(
 
 # Setup DMake variables
 ENV DMAKE_PATH              /dmake
-ENV DMAKE_JENKINS_FILE      $DMAKE_PATH/deepomatic/dmake/templates/jenkins/Jenkinsfile
+ENV DMAKE_JENKINS_FILE      $DMAKE_PATH/dmake/templates/jenkins/Jenkinsfile
 ENV DMAKE_ON_BUILD_SERVER   1
 ENV DMAKE_SSH_KEY           ""
 ENV DMAKE_CONFIG_DIR        ""
@@ -23,7 +23,7 @@ ENV DMAKE_CONFIG_DIR        ""
 RUN git clone https://github.com/Deepomatic/dmake.git $DMAKE_PATH && pip install -r $DMAKE_PATH/requirements.txt
 
 # Add DMake to path
-ENV PATH                  $PATH:$DMAKE_PATH/deepomatic/dmake:$DMAKE_PATH/deepomatic/dmake/utils
+ENV PATH                  $PATH:$DMAKE_PATH/dmake:$DMAKE_PATH/dmake/utils
 ENV PYTHONPATH            $PYTHONPATH:$DMAKE_PATH
 
 # Import local docker sockets for jenkins
