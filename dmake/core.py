@@ -799,7 +799,7 @@ def make(root_dir, sub_dir, command, app, options):
                 elif command == "shared_volume":
                     dmake_file.generate_shared_volume(step_commands, service)
                 elif command == "shell":
-                    dmake_file.generate_shell(step_commands, service, links)
+                    dmake_file.generate_shell(step_commands, service, links, common.options.command)
                 elif command == "test":
                     dmake_file.generate_test(step_commands, service, links)
                 elif command == "run":
