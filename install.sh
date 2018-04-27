@@ -5,9 +5,9 @@ set -e
 DMAKE_VERSION=0.1
 
 # TODO: we should turn all this script into a Python script
-QUIET=0
-if [ $1 == "--quiet" ]; then
-  QUIET=1
+NON_INTERACTIVE=0
+if [ $1 == "--non-interactive" ]; then
+  NON_INTERACTIVE=1
 fi
 
 function prompt {
@@ -36,9 +36,9 @@ function prompt {
         # Ask question
         echo "${QUESTION}"
 
-	# if quiet mode, leaves
-        if [ "${QUIET}" == "1" ]; then
-            echo "Quiet mode activated, using '${DEFAULT}'"
+	# if non-interactive mode, leaves
+        if [ "${NON_INTERACTIVE}" == "1" ]; then
+            echo "Non-interactive mode activated, using '${DEFAULT}'"
             break
         fi
 
