@@ -283,7 +283,7 @@ class FieldSerializer(object):
             else:
                 # complex type: yaml dump
                 default_str = common.yaml_ordered_dump(self.default, normalize_indent=True, default_flow_style=True).strip()
-            infos.append('default = %s' % default_str)
+            infos.append('default = `%s`' % default_str)
 
         return infos, help_text, doc_string
 
