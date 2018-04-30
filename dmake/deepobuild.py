@@ -1466,7 +1466,7 @@ class DMakeFile(DMakeFileSerializer):
 
         return docker_opts, env
 
-    def generate_shell(self, commands, service_name, docker_links):
+    def generate_shell(self, commands, service_name, docker_links, command=None):
         service = self._get_service_(service_name)
 
         docker_opts, env = self._launch_options_(commands, service, docker_links, run_base_image=True, mount_root_dir=True, additional_env=self.build.env)
@@ -1478,7 +1478,9 @@ class DMakeFile(DMakeFileSerializer):
         docker_cmd = "dmake_run_docker_command %s " % docker_opts
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
-        append_command(commands, 'sh', shell = docker_cmd + self.docker.command)
+        if command is None:
+            command = self.docker.command
+        append_command(commands, 'sh', shell=docker_cmd + command)
 
     def generate_test(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
