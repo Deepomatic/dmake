@@ -40,7 +40,7 @@
                 - **python3_requirements** *(file path, default = ``)*: Path to python requirements.txt.
                 - **copy_files** *(array\<file or directory path\>, default = `[]`)*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
         - **mount_point** *(string, default = `/app`)*: Mount point of the app in the built docker image. Needs to be an absolute path.
-        - **command** *(string, default = `bash`)*: Only used when running 'dmake shell': set the command of the container.
+        - **command** *(string, default = `bash`)*: Only used when running 'dmake shell': command passed to `docker run`.
 - **docker_links** *(array\<object\>, default = `[]`)*: List of link to create, they are shared across the whole application, so potentially across multiple dmake files.
     - **image_name** *(string)*: Name and tag of the image to launch.
     - **link_name** *(string)*: Link name.
