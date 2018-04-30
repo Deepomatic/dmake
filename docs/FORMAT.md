@@ -109,6 +109,7 @@
                     - **dockerfile** *(string)*: Alternate Dockerfile, relative path to `context` directory.
                     - **args** *(free style object, default = {})*: Add build arguments, which are environment variables accessible only during the build process. Higher precedence than `.build.env`.
                     - **labels** *(free style object, default = {})*: Add metadata to the resulting image using Docker labels. It's recommended that you use reverse-DNS notation to prevent your labels from conflicting with those used by other software.
+                    - **target** *(string)*: Build the specified stage as defined inside the Dockerfile. See the [multi-stage build docs](https://docs.docker.com/engine/userguide/eng-image/multistage-build/) for details.
         - **docker_opts** *(string, default = '')*: Docker options to add.
         - **need_gpu** *(boolean, default = false
 ...)*: Whether the service needs to be run on a GPU node.
@@ -167,7 +168,8 @@
             - **ssh** *(object, optional)*: Deploy via SSH. It must be an object with the following fields:
                 - **user** *(string)*: User name.
                 - **host** *(string)*: Host address.
-                - **port** *(int, default = '22')*: SSH port.
+                - **port** *(int, default = 22
+...)*: SSH port.
             - **k8s_continuous_deployment** *(object, optional)*: Continuous deployment via Kubernetes. Look for all the deployments running this service. It must be an object with the following fields:
                 - **context** *(string)*: kubectl context to use.
                 - **namespace** *(string, default = default

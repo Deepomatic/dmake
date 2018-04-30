@@ -251,7 +251,7 @@ class FieldSerializer(object):
 
         return type_str, help_text, doc_string
 
-    # Returns a tuple (optional, infos, help_text, doc_string)
+    # Returns a tuple (infos, help_text, doc_string)
     def generate_doc(self, padding):
         infos = []
 
@@ -298,7 +298,7 @@ class FieldSerializer(object):
                 value = [self.child.generate_example()]
             elif value is None:
                 if t == "int":
-                    value = "1"
+                    value = 1
                 elif t in ["path", "file", "dir"]:
                     if self.child_path_only:
                         value = "some/relative/%s/example" % t
@@ -307,7 +307,7 @@ class FieldSerializer(object):
                 elif t == "string":
                     value = "Some string"
                 elif t == "bool":
-                    value = "true"
+                    value = True
                 else:
                     raise DMakeException("Unknown type: %s" % str(t))
         return value
@@ -390,13 +390,13 @@ class YAML2PipelineSerializer(BaseYAML2PipelineSerializer):
                 raise DMakeException("Field '%s': %s" % (k, str(e)))
         return value
 
-    # Returns a tuple (optional, infos, help_text, doc_string)
+    # Returns a tuple (infos, help_text, doc_string)
     def generate_doc(self, padding = 0):
         lines = []
         for key, field in self.__fields__.items():
             infos, help_text, doc_string = field.generate_doc(padding + 4)
 
-            infos = ', '.join(copy.deepcopy(infos))
+            infos = ', '.join(infos)
             if infos:
                 infos = ' *(%s)*' % infos
 

@@ -581,7 +581,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
 class SSHDeploySerializer(YAML2PipelineSerializer):
     user = FieldSerializer("string", example = "ubuntu", help_text = "User name")
     host = FieldSerializer("string", example = "192.168.0.1", help_text = "Host address")
-    port = FieldSerializer("int", default = "22", help_text = "SSH port")
+    port = FieldSerializer("int", default = 22, help_text = "SSH port")
 
     def _serialize_(self, commands, app_name, config, image_name, env):
         if not self.has_value():
@@ -925,9 +925,9 @@ class ServiceDockerV2Serializer(ServiceDockerCommonSerializer):
 
 class ReadinessProbeSerializer(YAML2PipelineSerializer):
     command               = FieldSerializer("array", child = "string", default = [], example = ['cat', '/tmp/worker_ready'], help_text = "The command to run to check if the container is ready. The command should fail with a non-zero code if not ready.")
-    initial_delay_seconds = FieldSerializer("int", default = 0, example = "0", help_text = "The delay before the first probe is launched")
-    period_seconds        = FieldSerializer("int", default = 5, example = "5", help_text = "The delay between two first probes")
-    max_seconds           = FieldSerializer("int", default = 0, example = "40", help_text = "The maximum delay after failure")
+    initial_delay_seconds = FieldSerializer("int", default = 0, example = 1, help_text = "The delay before the first probe is launched")
+    period_seconds        = FieldSerializer("int", default = 5, example = 5, help_text = "The delay between two first probes")
+    max_seconds           = FieldSerializer("int", default = 0, example = 40, help_text = "The maximum delay after failure")
 
     def get_cmd(self):
         if not self.has_value() or len(self.command) == 0:
