@@ -3,10 +3,14 @@
 set -e
 
 DMAKE_VERSION=0.1
+DMAKE_CONFIG_DIR=${DMAKE_CONFIG_DIR:-${HOME}/.dmake}
+DMAKE_UID=${DMAKE_UID:-}
+DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR:-1}
+DMAKE_NO_GPU=${DMAKE_NO_GPU:-1}
 
 # TODO: we should turn all this script into a Python script
 NON_INTERACTIVE=0
-if [ $1 == "--non-interactive" ]; then
+if [ "$1" == "--non-interactive" ]; then
   NON_INTERACTIVE=1
 fi
 
@@ -90,13 +94,9 @@ DMAKE_PATH=`pwd -P`
 popd > /dev/null
 
 # Set DMAKE_CONFIG_DIR
-if [ -z "${DMAKE_CONFIG_DIR}" ]; then
-    DMAKE_CONFIG_DIR=${HOME}/.dmake
-fi
 if [ ! -d "${DMAKE_CONFIG_DIR}" ]; then
     mkdir ${DMAKE_CONFIG_DIR}
 fi
-DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR:-1}
 CONFIG_FILE=${DMAKE_CONFIG_DIR}/config.sh
 
 # Deprecated: move old config file to new location
@@ -139,10 +139,11 @@ if [ -z "${DMAKE_SSH_KEY}" ]; then
 fi
 
 echo "export DMAKE_VERSION=${DMAKE_VERSION}" > ${CONFIG_FILE}
-echo "export DMAKE_UID=\$(id -u)" >> ${CONFIG_FILE}
 echo "export DMAKE_PATH=${DMAKE_PATH}" >> ${CONFIG_FILE}
 echo "export DMAKE_CONFIG_DIR=${DMAKE_CONFIG_DIR}" >> ${CONFIG_FILE}
+echo "export DMAKE_UID=${DMAKE_UID}" >> ${CONFIG_FILE}
 echo "export DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR}" >> ${CONFIG_FILE}
+echo "export DMAKE_NO_GPU=${DMAKE_NO_GPU}" >> ${CONFIG_FILE}
 echo "export DMAKE_SSH_KEY=${DMAKE_SSH_KEY}" >> ${CONFIG_FILE}
 echo "export PYTHONPATH=\$PYTHONPATH:${DMAKE_PATH}" >> ${CONFIG_FILE}
 echo "export PATH=\$PATH:${DMAKE_PATH}/dmake/:${DMAKE_PATH}/dmake/utils" >> ${CONFIG_FILE}
