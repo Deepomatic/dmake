@@ -960,7 +960,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
 
         opts = []
         for ports in self.ports:
-            if testing_mode:
+            if testing_mode and not common.use_host_ports:
                 opts.append("-p %d" % ports.container_port)
             else:
                 opts.append("-p 0.0.0.0:%d:%d" % (ports.host_port, ports.container_port))
