@@ -153,7 +153,7 @@ if [ -z "`which dmake`" ]; then
     INSTALLED=0
     for SHRC in `ls ~/\.*shrc`; do
         if [ -z "`grep \"${LINE}\" ${SHRC}`" ]; then
-            echo "We detected a shell config file here: ${SHRC}, patching to source ${CONFIG_FILE}."
+            echo "We detected a shell config file here: ${SHRC}, patching to source ${CONFIG_FILE}"
             echo "${LINE}" >> ${SHRC}
             INSTALLED=1
         else
