@@ -6,7 +6,7 @@ DMAKE_VERSION=0.1
 
 # TODO: we should turn all this script into a Python script
 NON_INTERACTIVE=0
-if [ $1 == "--non-interactive" ]; then
+if [[ "$1" == "--non-interactive" ]]; then
   NON_INTERACTIVE=1
 fi
 
@@ -37,7 +37,7 @@ function prompt {
         echo "${QUESTION}"
 
 	# if non-interactive mode, leaves
-        if [ "${NON_INTERACTIVE}" == "1" ]; then
+        if [[ "${NON_INTERACTIVE}" == "1" ]]; then
             echo "Non-interactive mode activated, using '${DEFAULT}'"
             break
         fi
