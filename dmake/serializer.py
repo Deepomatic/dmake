@@ -124,11 +124,9 @@ class FieldSerializer(object):
                 raise WrongType("Expecting bool")
             return data
         elif data_type == "int":
-            if isinstance(data, int) or isinstance(data, float):
-                data = int(data)
             if not isinstance(data, int):
                 raise WrongType("Expecting int")
-            return str(data)
+            return data
         elif data_type == "string":
             if isinstance(data, int) or isinstance(data, float):
                 data = str(data)
@@ -253,7 +251,7 @@ class FieldSerializer(object):
 
         return type_str, help_text, doc_string
 
-    # Returns a tuple (optional, infos, help_text, doc_string)
+    # Returns a tuple (infos, help_text, doc_string)
     def generate_doc(self, padding):
         infos = []
 
@@ -280,7 +278,12 @@ class FieldSerializer(object):
         infos.append(type_str)
 
         if self.default is not None:
-            infos.append('default = %s' % common.yaml_ordered_dump(self.default, normalize_indent=True, default_flow_style=True).strip())
+            if type(self.default) in [str, int, bool]:
+                default_str = str(self.default)
+            else:
+                # complex type: yaml dump
+                default_str = common.yaml_ordered_dump(self.default, normalize_indent=True, default_flow_style=True).strip()
+            infos.append('default = `%s`' % default_str)
 
         return infos, help_text, doc_string
 
@@ -300,7 +303,7 @@ class FieldSerializer(object):
                 value = [self.child.generate_example()]
             elif value is None:
                 if t == "int":
-                    value = "1"
+                    value = 1
                 elif t in ["path", "file", "dir"]:
                     if self.child_path_only:
                         value = "some/relative/%s/example" % t
@@ -309,7 +312,7 @@ class FieldSerializer(object):
                 elif t == "string":
                     value = "Some string"
                 elif t == "bool":
-                    value = "true"
+                    value = True
                 else:
                     raise DMakeException("Unknown type: %s" % str(t))
         return value
@@ -392,13 +395,13 @@ class YAML2PipelineSerializer(BaseYAML2PipelineSerializer):
                 raise DMakeException("Field '%s': %s" % (k, str(e)))
         return value
 
-    # Returns a tuple (optional, infos, help_text, doc_string)
+    # Returns a tuple (infos, help_text, doc_string)
     def generate_doc(self, padding = 0):
         lines = []
         for key, field in self.__fields__.items():
             infos, help_text, doc_string = field.generate_doc(padding + 4)
 
-            infos = ', '.join(copy.deepcopy(infos))
+            infos = ', '.join(infos)
             if infos:
                 infos = ' *(%s)*' % infos
 

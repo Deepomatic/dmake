@@ -1,11 +1,51 @@
+// default parameters from dmake repo user
+try {
+    default_dmake_app=DEFAULT_DMAKE_APP
+} catch (e) {
+    default_dmake_app='*'
+}
+
+try {
+    default_dmake_skip_tests=DEFAULT_DMAKE_SKIP_TESTS
+} catch (e) {
+    default_dmake_skip_tests=false
+}
+
+try {
+    default_dmake_debug=DEFAULT_DMAKE_DEBUG
+} catch (e) {
+    default_dmake_debug=false
+}
+
+try {
+    default_dmake_force_base_image_build=DEFAULT_DMAKE_FORCE_BASE_IMAGE_BUILD
+} catch (e) {
+    default_dmake_force_base_image_build=false
+}
+
+try {
+    default_custom_environment=DEFAULT_CUSTOM_ENVIRONMENT
+} catch (e) {
+    default_custom_environment=''
+}
+
 properties([
     parameters([
         string(name: 'DMAKE_APP',
-               defaultValue: '',
+               defaultValue: default_dmake_app,
                description: '(optional) Application to deploy. You can also specify a service name if there is no ambiguity. Use * to force the deployment of all applications. Leave empty for default behaviour.'),
         booleanParam(name: 'DMAKE_SKIP_TESTS',
-                     defaultValue: false,
-                     description: 'Skip tests if checked')
+                     defaultValue: default_dmake_skip_tests,
+                     description: 'Skip tests if checked'),
+        booleanParam(name: 'DMAKE_DEBUG',
+                     defaultValue: default_dmake_debug,
+                     description: 'Enable dmake debug logs'),
+        booleanParam(name: 'DMAKE_FORCE_BASE_IMAGE_BUILD',
+                     defaultValue: default_dmake_force_base_image_build,
+                     description: 'Force base image build (don\'t use base image cache)'),
+        string(name: 'CUSTOM_ENVIRONMENT',
+               defaultValue: default_custom_environment,
+               description: '(optional) Custom environment variables, for custom build. Example: \'FOO=1 BAR=2\'')
     ]),
     pipelineTriggers([])
 ])
@@ -16,7 +56,11 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
               branches: scm.branches,
               extensions: scm.extensions + [[$class: 'SubmoduleOption', recursiveSubmodules: true]],
               userRemoteConfigs: scm.userRemoteConfigs])
-
-    sh 'dmake deploy "${DMAKE_APP}"'
+    // params are automatically exposed as environment variables
+    // but booleans to string generates "true"
+    if (params.DMAKE_DEBUG) {
+        env.DMAKE_DEBUG=1
+    }
+    sh "${params.CUSTOM_ENVIRONMENT} dmake deploy '${params.DMAKE_APP}'"
     load 'DMakefile'
 }

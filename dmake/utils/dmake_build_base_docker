@@ -53,19 +53,23 @@ elif command -v lockfile >/dev/null 2>&1; then
 fi
 
 
-# Check if base image already exists
-echo "Checking cache for docker base image (${BASE_IMAGE})"
-# first locally
-BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
-if [ -z "${BASE_IMAGE_ID}" ]; then
-  # then remotely
-  if [[ "${BASE_IMAGE}" =~ .+/.+ ]]; then
-    docker pull $BASE_IMAGE || :
-  fi
+if [ "${DMAKE_FORCE_BASE_IMAGE_BUILD:-0}" = "0" ]; then
+  # Check if base image already exists
+  echo "Checking cache for docker base image (${BASE_IMAGE})"
+  # first locally
   BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
+  if [ -z "${BASE_IMAGE_ID}" ]; then
+    # then remotely
+    if [[ "${BASE_IMAGE}" =~ .+/.+ ]]; then
+      docker pull $BASE_IMAGE || :
+    fi
+    BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
+  fi
+else
+  echo "Docker base image build forced by \$DMAKE_FORCE_BASE_IMAGE_BUILD=${DMAKE_FORCE_BASE_IMAGE_BUILD} for docker base image (${BASE_IMAGE})"
 fi
 
-# Check if we need to re-build
+# build base image if needed
 if [ -z "${BASE_IMAGE_ID}" ]; then
     echo "Docker base image not found in cache, building it (${BASE_IMAGE})"
 
@@ -78,6 +82,7 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
     fi
 
     DOCKER_RUN_ARGS=( run
+                      --runtime=runc
                       -u 0
                       --cidfile ${TMP_DIR}/cid.txt $SSH_AUTH_SOCK_VOLUME
                       -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK

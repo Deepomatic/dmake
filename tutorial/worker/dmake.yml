@@ -53,10 +53,12 @@ services:
           labels:
             vendor: "deepomatic"
             com.deepomatic.version.is-on-premises: "false"
+            build-host: "${HOSTNAME}"
+          target: runtime
       volumes:
         - source: shared_rabbitmq_var_lib
           target: /var/lib/rabbitmq
-        - shared_volume2:/shared_volume2
+        - shared_volume_web_and_workers:/shared_volume
     tests:
       commands:
         - ./deploy/test-shared-volumes.sh

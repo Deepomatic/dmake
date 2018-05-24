@@ -1,0 +1,21 @@
+dmake_version: 0.1
+app_name: dmake-tutorial
+
+docker:
+  root_image:
+    name: ubuntu
+    tag: 16.04
+
+services:
+  - service_name: e2e
+    needed_services:
+     - service_name: web
+       link_name: web
+    config:
+      docker_image:
+        build:
+          context: .
+          dockerfile: ./deploy/Dockerfile
+    tests:
+      commands:
+        - curl -sSf "http://web:8000/api/factorial/?n=5"

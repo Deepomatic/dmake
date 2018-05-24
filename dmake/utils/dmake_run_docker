@@ -5,7 +5,7 @@
 #
 # Result:
 # Run a docker and save its name in the list of containers. If name is empty, it will generate one
-# If NAME is non empty, it will be named this way.
+# If NAME is non empty, it will be named this way, otherwise it will default to a unique, readable generated name
 # If TMP_DIR is specified, the container entry will be recorded in this directory for further suppression
 
 test "${DMAKE_DEBUG}" = "1" && set -x

@@ -13,7 +13,7 @@ logger.addHandler(logging.StreamHandler())
 
 ###############################################################################
 
-if sys.version_info >= (3,0):
+if sys.version_info >= (3, 0):
     from dmake.python_3x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
 else:
     from dmake.python_2x import StringIO, is_string, to_string, read_input, subprocess_output_to_string
@@ -78,9 +78,15 @@ def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=N
     prev_stdout = subprocess.PIPE if stdin else None
     for cmd in commands:
         cmd = ['bash', '-c', cmd]
-        p = subprocess.Popen(cmd, stdin = prev_stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE, env = env)
+        p = subprocess.Popen(cmd, stdin=prev_stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
         prev_stdout = p.stdout
+
+    # python3 compatibility
+    if sys.version_info >= (3, 0) and stdin is not None:
+        stdin = stdin.encode('utf-8')
+
     stdout, stderr = p.communicate(stdin)
+
     if len(stderr) > 0 and not ignore_error and not raise_on_return_code:
         raise ShellError(subprocess_output_to_string(stderr))
     if raise_on_return_code and p.returncode != 0:
@@ -107,6 +113,10 @@ def eval_str_in_env(value, env=None, strict=False, source=None):
         cmd += 'source %s && ' % (source)
     cmd += 'echo %s' % wrap_cmd(value)
     return run_shell_command(cmd, additional_env=env).strip()
+
+def eval_values_in_env(d, env=None, strict=False, source=None):
+    for key in d:
+        d[key] = eval_str_in_env(d[key], env, strict, source)
 
 # Docker has some trouble mounting volumes with trailing '/'.
 # See http://stackoverflow.com/questions/38338612/mounting-file-system-in-docker-fails-sometimes
