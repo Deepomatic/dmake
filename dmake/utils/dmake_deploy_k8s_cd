@@ -124,6 +124,10 @@ def print_deployment(deployment, msg):
     logger.debug("Deployment %s: %s" %(msg, deployment))
 
 def patch_deployment(name):
+    #TODO use container name from label value (using `selector)
+    assert(len(i.spec.template.spec.containers) == 1, \
+        "Multiple containers found in Pod definition; not yet supported.")
+
     # patch container image
     json_patch = [
         { "op": "replace", "path": "/spec/template/spec/containers/0/image", "value": image }
