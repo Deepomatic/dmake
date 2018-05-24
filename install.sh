@@ -6,7 +6,7 @@ DMAKE_VERSION=0.1
 
 # TODO: we should turn all this script into a Python script
 NON_INTERACTIVE=0
-if [ $1 == "--non-interactive" ]; then
+if [[ "$1" == "--non-interactive" ]]; then
   NON_INTERACTIVE=1
 fi
 
@@ -37,7 +37,7 @@ function prompt {
         echo "${QUESTION}"
 
 	# if non-interactive mode, leaves
-        if [ "${NON_INTERACTIVE}" == "1" ]; then
+        if [[ "${NON_INTERACTIVE}" == "1" ]]; then
             echo "Non-interactive mode activated, using '${DEFAULT}'"
             break
         fi
@@ -125,7 +125,7 @@ if [ -z "${DMAKE_SSH_KEY}" ]; then
     if [ -z "${KEYS}" ]; then
         while [ true ]; do
             DMAKE_SSH_KEY=
-            prompt "Please type in the path to the SSH key we should use to clone private repositories ?" "DMAKE_SSH_KEY" "" ""
+            prompt "Please type in the path to the SSH key we should use to clone private repositories ? (leave empty for none)" "DMAKE_SSH_KEY" "" "BLANK_OK"
             if [ -f "${DMAKE_SSH_KEY}" ] || [ -z "${DMAKE_SSH_KEY}" ]; then
                 break
             else
@@ -138,14 +138,24 @@ if [ -z "${DMAKE_SSH_KEY}" ]; then
     DMAKE_SSH_KEY=$(echo ${DMAKE_SSH_KEY} | sed "s/\.pub//")
 fi
 
-echo "export DMAKE_VERSION=${DMAKE_VERSION}" > ${CONFIG_FILE}
-echo "export DMAKE_UID=\$(id -u)" >> ${CONFIG_FILE}
-echo "export DMAKE_PATH=${DMAKE_PATH}" >> ${CONFIG_FILE}
-echo "export DMAKE_CONFIG_DIR=${DMAKE_CONFIG_DIR}" >> ${CONFIG_FILE}
-echo "export DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR}" >> ${CONFIG_FILE}
-echo "export DMAKE_SSH_KEY=${DMAKE_SSH_KEY}" >> ${CONFIG_FILE}
-echo "export PYTHONPATH=\$PYTHONPATH:${DMAKE_PATH}" >> ${CONFIG_FILE}
-echo "export PATH=\$PATH:${DMAKE_PATH}/dmake/:${DMAKE_PATH}/dmake/utils" >> ${CONFIG_FILE}
+cat <<EOF > ${CONFIG_FILE}
+# Global config
+: \${DMAKE_GLOBAL_CONFIG_DIR:=/etc/dmake}
+if [ -f \${DMAKE_GLOBAL_CONFIG_DIR}/config ]; then
+  source \${DMAKE_GLOBAL_CONFIG_DIR}/config
+fi
+
+
+# User-specific config
+export DMAKE_VERSION=\${DMAKE_VERSION:-${DMAKE_VERSION}}
+export DMAKE_UID=\${DMAKE_UID:-\$(id -u)}
+export DMAKE_PATH=\${DMAKE_PATH:-${DMAKE_PATH}}
+export DMAKE_CONFIG_DIR=\${DMAKE_CONFIG_DIR:-${DMAKE_CONFIG_DIR}}
+export DMAKE_PULL_CONFIG_DIR=\${DMAKE_PULL_CONFIG_DIR:-${DMAKE_PULL_CONFIG_DIR}}
+export DMAKE_SSH_KEY=\${DMAKE_SSH_KEY:-${DMAKE_SSH_KEY}}
+export PYTHONPATH=\$PYTHONPATH:\${DMAKE_PATH}
+export PATH=\$PATH:\${DMAKE_PATH}/dmake/:\${DMAKE_PATH}/dmake/utils
+EOF
 
 LINE="source ${CONFIG_FILE}"
 if [ -z "`which dmake`" ]; then
@@ -153,7 +163,7 @@ if [ -z "`which dmake`" ]; then
     INSTALLED=0
     for SHRC in `ls ~/\.*shrc`; do
         if [ -z "`grep \"${LINE}\" ${SHRC}`" ]; then
-            echo "We detected a shell config file here: ${SHRC}, patching to source ${CONFIG_FILE}."
+            echo "We detected a shell config file here: ${SHRC}, patching to source ${CONFIG_FILE}"
             echo "${LINE}" >> ${SHRC}
             INSTALLED=1
         else
