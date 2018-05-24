@@ -78,6 +78,7 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
     fi
 
     DOCKER_RUN_ARGS=( run
+                      --runtime=runc
                       -u 0
                       --cidfile ${TMP_DIR}/cid.txt $SSH_AUTH_SOCK_VOLUME
                       -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK
