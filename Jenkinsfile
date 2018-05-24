@@ -15,6 +15,9 @@ properties([
         booleanParam(name: 'DMAKE_DEBUG',
                      defaultValue: true,
                      description: 'Enable dmake debug logs'),
+        booleanParam(name: 'DMAKE_FORCE_BASE_IMAGE_BUILD',
+                     defaultValue: false,
+                     description: 'Force base image build (don\'t use base image cache)'),
         string(name: 'CUSTOM_ENVIRONMENT',
                defaultValue: '',
                description: '(optional) Custom environment variables, for custom build. Example: \'FOO=1 BAR=2\'')
