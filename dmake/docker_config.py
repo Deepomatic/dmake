@@ -5,6 +5,12 @@ import json
 import os
 from requests.auth import HTTPBasicAuth
 
+# python2 support
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
+
 def convert_to_hostname(url):
     """ConvertToHostname converts a registry url which has http|https prepended to just an hostname."""
     stripped = url
@@ -24,8 +30,11 @@ def get_docker_config_auth(registry_url, dockercfg = '~/.docker/config.json'):
     """
     # https://docs.docker.com/engine/reference/commandline/login/#privileged-user-requirement
     dockercfg = os.path.expanduser(dockercfg)
-    with open(dockercfg, 'r') as f:
-        cfg_data = json.load(f)
+    try:
+        with open(dockercfg, 'r') as f:
+            cfg_data = json.load(f)
+    except FileNotFoundError:
+        raise common.DockerConfigFileNotFoundException(dockercfg)
 
     credentials_store = None
     if 'credHelpers' in cfg_data:

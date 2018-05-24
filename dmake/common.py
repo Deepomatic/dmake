@@ -37,6 +37,10 @@ class SharedVolumeNotFoundException(DMakeException):
         super(SharedVolumeNotFoundException, self).__init__("Unknown volume named '%s'" % (name))
         self.name = name
 
+class DockerConfigFileNotFoundException(DMakeException):
+    def __init__(self, filename):
+        super(DockerConfigFileNotFoundException, self).__init__('Docker config file not found (needed for registry credentials: maybe run `docker login`): %s' % (filename))
+
 ###############################################################################
 
 def yaml_ordered_load(stream, all=False):
