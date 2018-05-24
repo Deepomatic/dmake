@@ -180,6 +180,7 @@ def init(_command, _root_dir, _app, _options):
     global build_description
     global command, options, uname
     global do_pull_config_dir
+    global use_host_ports
     global session_id
     root_dir = os.path.join(_root_dir, '')
     command = _command
@@ -197,6 +198,7 @@ def init(_command, _root_dir, _app, _options):
     except OSError:
         pass
     do_pull_config_dir = os.getenv('DMAKE_PULL_CONFIG_DIR', '1') != '0'
+    use_host_ports = os.getenv('DMAKE_USE_HOST_PORTS', '0') != '0'
 
     tmp_dir = run_shell_command("dmake_make_tmp_dir")
     os.environ['DMAKE_TMP_DIR'] = tmp_dir
