@@ -125,7 +125,7 @@ if [ -z "${DMAKE_SSH_KEY}" ]; then
     if [ -z "${KEYS}" ]; then
         while [ true ]; do
             DMAKE_SSH_KEY=
-            prompt "Please type in the path to the SSH key we should use to clone private repositories ?" "DMAKE_SSH_KEY" "" ""
+            prompt "Please type in the path to the SSH key we should use to clone private repositories ? (leave empty for none)" "DMAKE_SSH_KEY" "" "BLANK_OK"
             if [ -f "${DMAKE_SSH_KEY}" ] || [ -z "${DMAKE_SSH_KEY}" ]; then
                 break
             else
