@@ -138,14 +138,24 @@ if [ -z "${DMAKE_SSH_KEY}" ]; then
     DMAKE_SSH_KEY=$(echo ${DMAKE_SSH_KEY} | sed "s/\.pub//")
 fi
 
-echo "export DMAKE_VERSION=${DMAKE_VERSION}" > ${CONFIG_FILE}
-echo "export DMAKE_UID=\$(id -u)" >> ${CONFIG_FILE}
-echo "export DMAKE_PATH=${DMAKE_PATH}" >> ${CONFIG_FILE}
-echo "export DMAKE_CONFIG_DIR=${DMAKE_CONFIG_DIR}" >> ${CONFIG_FILE}
-echo "export DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR}" >> ${CONFIG_FILE}
-echo "export DMAKE_SSH_KEY=${DMAKE_SSH_KEY}" >> ${CONFIG_FILE}
-echo "export PYTHONPATH=\$PYTHONPATH:${DMAKE_PATH}" >> ${CONFIG_FILE}
-echo "export PATH=\$PATH:${DMAKE_PATH}/dmake/:${DMAKE_PATH}/dmake/utils" >> ${CONFIG_FILE}
+cat <<EOF > ${CONFIG_FILE}
+# Global config
+: \${DMAKE_GLOBAL_CONFIG_DIR:=/etc/dmake}
+if [ -f \${DMAKE_GLOBAL_CONFIG_DIR}/config ]; then
+  source \${DMAKE_GLOBAL_CONFIG_DIR}/config
+fi
+
+
+# User-specific config
+export DMAKE_VERSION=\${DMAKE_VERSION:-${DMAKE_VERSION}}
+export DMAKE_UID=\${DMAKE_UID:-\$(id -u)}
+export DMAKE_PATH=\${DMAKE_PATH:-${DMAKE_PATH}}
+export DMAKE_CONFIG_DIR=\${DMAKE_CONFIG_DIR:-${DMAKE_CONFIG_DIR}}
+export DMAKE_PULL_CONFIG_DIR=\${DMAKE_PULL_CONFIG_DIR:-${DMAKE_PULL_CONFIG_DIR}}
+export DMAKE_SSH_KEY=\${DMAKE_SSH_KEY:-${DMAKE_SSH_KEY}}
+export PYTHONPATH=\$PYTHONPATH:\${DMAKE_PATH}
+export PATH=\$PATH:\${DMAKE_PATH}/dmake/:\${DMAKE_PATH}/dmake/utils
+EOF
 
 LINE="source ${CONFIG_FILE}"
 if [ -z "`which dmake`" ]; then
