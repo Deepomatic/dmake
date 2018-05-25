@@ -13,7 +13,7 @@ Table of content:
 ## Installation
 
 In order to run **DMake**, you will need:
-- Python 2.7 or newer
+- Python 2.7 or 3.5+
 - Docker 1.13 or newer
 
 **DMake** uses an experimental feature of docker to squash images during build; you need to enable experimental features on your docker configuration:
@@ -36,10 +36,10 @@ $ cd dmake
 $ ./install.sh
 ```
 
-After following instructions of ```install.sh```, check that **DMake** is found by running:
+After following the instructions, check that **DMake** is found by running:
 
 ```
-$ dmake
+$ dmake help
 ```
 
 It should display the help message with the list of commands.
