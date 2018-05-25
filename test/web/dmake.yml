@@ -1,26 +1,42 @@
 dmake_version: 0.1
-app_name: dmake-tutorial
+app_name: dmake-test
 
 env:
   default:
     variables:
       AMQP_URL: amqp://rabbitmq/dev
+  branches:
+    master:
+      variables:
+        AMQP_URL: amqp://1.2.3.4/prod
+
+volumes:
+  - shared_rabbitmq_var_lib
+  - name: shared_volume_web_and_workers
+  - unused_shared_volume
 
 docker:
+  root_image:
+    name: ubuntu
+    tag: 16.04
   base_image:
-    name: dmake-tutorial-web-base
-    root_image: ubuntu:16.04
-    copy_files:
-      - deploy/requirements.txt
+    name: dmake-test-web-base
     install_scripts:
       - deploy/dependencies.sh
+    python_requirements: requirements.txt
 
 services:
-  - service_name: web
+  - service_name: test-web
     needed_links:
       - rabbitmq
     needed_services:
-      - worker
+      - service_name: test-worker:ubuntu-1604
+        env:
+          TEST_SHARED_VOLUME: 1
+      - service_name: test-worker:ubuntu-1804
+        link_name: worker-ubuntu-1804
+        env:
+          TEST_SHARED_VOLUME: 1
     config:
       docker_image:
         entrypoint: deploy/entrypoint.sh
@@ -37,8 +53,15 @@ services:
           - /dev/null
         period_seconds: 1
         max_seconds: 10
+      volumes:
+        - source: shared_volume_web_and_workers
+          target: /shared_volume_with_workers
     tests:
       commands:
+        - touch 'tag' # test shared environment for multiple commands test
+        - test -f "tag"  # test command escaping
+        - deploy/test-shared-volumes.sh /shared_volume_with_workers
+        - deploy/test-needed-service-link.sh worker-ubuntu-1804
         - >-
           ./manage.py test
           --verbosity=2 --noinput
