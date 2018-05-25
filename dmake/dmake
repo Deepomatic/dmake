@@ -49,10 +49,11 @@ os.chdir(root_dir)
 try:
     sys.argv.pop(0)
     parser = argparse.ArgumentParser(prog='dmake %s' % command)
+    app_args = None
     if command in ["test", "deploy"]:
         parser.add_argument("app", nargs='?', help="Apply command to the full repository or, if specified, to the app/service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
         app_args = 'app'
-    elif command in ["run", "stop"]:
+    elif command in ["run"]:
         parser.add_argument("app", help="Run an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
         app_args = 'app'
     elif command in ["shell"]:
@@ -66,7 +67,7 @@ try:
     options = parser.parse_args()
     if command in ["deploy"]:
         options.dependencies = True
-    app = getattr(options, app_args)
+    app = getattr(options, app_args) if app_args else None
     core.make(root_dir, sub_dir, command, app, options)
 except DMakeException as e:
     print('ERROR: ' + str(e))

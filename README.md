@@ -63,7 +63,7 @@ Once it has completed, the factorial demo is available at [http://localhost:8000
 Before moving to the details, do not forget to shutdown the launched containers with:
 
 ```
-$ dmake stop dmake-tutorial
+$ dmake stop
 ```
 
 Alright ! To simulate an application made of several micro-services, this project is made of two services:
