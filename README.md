@@ -55,7 +55,7 @@ $ cd tutorial
 For those who just want to see the results, just run:
 
 ```
-$ dmake run web -d
+$ dmake run web
 ```
 
 Once it has completed, the factorial demo is available at [http://localhost:8000](http://localhost:8000)

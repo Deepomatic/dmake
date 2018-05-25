@@ -109,7 +109,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                 replaced_variables[var] = common.eval_str_in_env(value, source=self.source).replace('\n', '')
 
         # second pass: add docker_links env_exports
-        if docker_links is not None and getattr(common.options, 'dependencies', None):
+        if docker_links is not None and common.options.with_dependencies:
             # docker_links is a dictionnary of all declared links, we want to export only
             # env_export of linked services
             if needed_links is None:
@@ -1377,13 +1377,13 @@ class DMakeFile(DMakeFileSerializer):
         raise DMakeException("Could not find service '%s'" % service)
 
     def _get_link_opts_(self, commands, service):
-        if common.options.dependencies:
+        if common.options.with_dependencies:
             needed_links = service.needed_links + [ns.link_name for ns in service.needed_services if ns.link_name]
             if len(needed_links) > 0:
                 append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(needed_links)), fail_if_empty = True)
 
     def _get_check_needed_services_(self, commands, service):
-        if common.options.dependencies and len(service.needed_services) > 0:
+        if common.options.with_dependencies and len(service.needed_services) > 0:
             app_name = self.app_name
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; needed_service.service_name doesn't contain app_name
             needed_services = map(lambda needed_service: "%s/%s%s" % (app_name, needed_service.service_name, needed_service.get_service_name_unique_suffix()), service.needed_services)

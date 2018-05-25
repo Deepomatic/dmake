@@ -197,7 +197,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
     if command == 'test' and common.skip_tests:
         return []
 
-    with_dependencies = getattr(common.options, 'dependencies', None)
+    with_dependencies = common.options.with_dependencies
 
     if node not in service_dependencies:
         if service not in service_providers:
@@ -708,8 +708,6 @@ def make(root_dir, sub_dir, command, app, options):
             del deps[i]
 
     is_app_only = auto_completed_app is None or auto_completed_app.find('/') < 0
-    if common.command == "run" and is_app_only:
-        common.options.dependencies = True
 
     if auto_completed_app is None:
         # Find file where changes have happened
