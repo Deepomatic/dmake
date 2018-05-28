@@ -172,8 +172,8 @@ def get_dmake_build_type():
 
 ###############################################################################
 
-def init(_command, _root_dir, _app, _options):
-    global root_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
+def init(_options):
+    global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
     global repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global no_gpu, need_gpu
@@ -182,9 +182,16 @@ def init(_command, _root_dir, _app, _options):
     global do_pull_config_dir
     global use_host_ports
     global session_id
-    root_dir = os.path.join(_root_dir, '')
-    command = _command
+
     options = _options
+    command = _options.cmd
+
+    try:
+        root_dir, sub_dir = find_repo_root()
+    except ShellError as e:
+        raise DMakeException("Current directory is not a Git repository:\n{}".format(str(e)))
+
+    root_dir = os.path.join(root_dir, '')  # make sure it is suffixed by /
 
     session_id = uuid.uuid4()
 
@@ -200,6 +207,8 @@ def init(_command, _root_dir, _app, _options):
     do_pull_config_dir = os.getenv('DMAKE_PULL_CONFIG_DIR', '1') != '0'
     use_host_ports = os.getenv('DMAKE_USE_HOST_PORTS', '0') != '0'
 
+    if 'DMAKE_TMP_DIR' in os.environ:
+        del os.environ['DMAKE_TMP_DIR']
     tmp_dir = run_shell_command("dmake_make_tmp_dir")
     os.environ['DMAKE_TMP_DIR'] = tmp_dir
 
@@ -269,11 +278,9 @@ def init(_command, _root_dir, _app, _options):
         repo_github_owner = repo_github_owner.groups()[0]
 
     # Set Job description
-    if _app == "" or _app == "*":
-        _app = "All targets"
     build_description = None
     if use_pipeline:
-        run_shell_command('git submodule update --init', ignore_error = True)
+        run_shell_command('git submodule update --init', ignore_error=True)
         if is_pr:
             build_description = "%s/%s: <a href=%s>PR #%s</a>: %s" % (
                 repo_github_owner or '', repo,
@@ -282,10 +289,11 @@ def init(_command, _root_dir, _app, _options):
                 os.getenv('CHANGE_TITLE'))
         else:
             if repo_github_owner is not None:
+                app = getattr(options, 'service', '*')
                 build_description = "%s/%s: <a href=%s>%s</a> - %s" % (
                     repo_github_owner, repo,
                     "https://github.com/%s/%s/tree/%s" % (repo_github_owner, repo, branch),
-                    branch, _app)
+                    branch, "All targets" if app == '*' else app)
 
     os.environ["REPO"]        = repo
     os.environ["BRANCH"]      = str(branch)
