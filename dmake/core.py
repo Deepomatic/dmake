@@ -692,7 +692,7 @@ def release(options):
     prerelease = tag_to_key(next_version)[3] is not None
 
     # Compute change log
-    common.run_shell_command("git fetch --tags")
+    common.run_shell_command("git fetch --tags", ignore_error=True)  # git fetch outputs to stderr ?
     change_log_cmd = "git log {prev}...deployed_version_{branch} --pretty=%s".format(prev=prev_version, branch=branch)
     change_log = common.run_shell_command(change_log_cmd)
 
