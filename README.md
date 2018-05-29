@@ -6,7 +6,6 @@ Table of content:
 - [Installation](#installation)
 - [Tutorial](#tutorial)
 - [Using DMake with Jenkins](#using-dmake-with-jenkins)
-- [Configuring Docker](#configuring-docker)
 - [Documentation](#documentation)
 
 ## Installation
@@ -199,43 +198,26 @@ $ dmake run -d dmake-tutorial/web
 
 ## Using DMake with Jenkins
 
-Jenkins is an automation server to build an deploy your applications. In order to test it, just do:
+DMake can generate a `Jenkinsfile` instead of a `bash` file, allowing to execute dmake in [Jenkins](https://jenkins.io/), for continuous integration and deployment.
 
+Quickstart:
+- Configure Jenkins node:
 ```
-$ cd jenkins
-$ make
+export DMAKE_ON_BUILD_SERVER=1`
+export DMAKE_PATH=/dmake
+export DMAKE_JENKINS_FILE=$DMAKE_PATH/dmake/templates/jenkins/Jenkinsfile
+export PATH=$PATH:$DMAKE_PATH/dmake:$DMAKE_PATH/dmake/utils
+export PYTHONPATH=$PYTHONPATH:$DMAKE_PATH
 ```
-
-It will build a Docker image for Jenkins (cf `jenkins/docker/Dockerfile`) and launch it locally. Once launched, you can access it on [http://localhost:8080/](http://localhost:8080/) and connect with user `admin` and password `password`. You will see a job called `dmake-tutorial`. You can trigger a build of this job by clicking on the "play" button on the right and look at the build's output on [http://localhost:8080/job/dmake-tutorial/job/master/lastBuild/console](http://localhost:8080/job/dmake-tutorial/job/master/lastBuild/console).
-
-In order to setup DMake in your own Jenkins server, you can adjust the Dockerfile in `jenkins/docker/Dockerfile` to your taste.
-
-## Configuring Docker
-
-When experiencing with DMake (either on your own machine or on Jenkins), you may notice that files produced when building your app belong to the root user.
-
-You may check if this is the case on your machine by running `docker run -v `pwd`:/mnt -ti ubuntu touch /mnt/foobar && ls -l foobar && rm foobar`. If the resulting owner of the file is root, you might need to adapt the configuration of Docker as indicated below.
-
-One simple solution would be to perform a `sudo chown $(id -u):$(id -g) -R .` after each build. This is however not very convenient nor suitable.
-
-Another solution consists of configuring Docker to map your user on the host machine to the root user of containers. In the following we assume the default non root user of the machine is `deepomatic` with UID 1000 and GID 1000. You simply need to:
-- ensure that the file `/etc/subuid` (respectively `/etc/subgid`) contains a line like `deepomatic:1000:65536` where 1000 stands for your UID (respectively GID).
-- Edit the file `/etc/default/docker` so that it contains the following line:
-```bash
-DOCKER_OPTS="-g /mnt/docker --userns-remap=ubuntu"
+- Install dmake at `${DMAKE_PATH}`
+- Define a job using a `Jenkinsfile` commited in the git repository
+- `Jenkinsfile` content:
 ```
-- Restart Docker: `sudo restart docker`
-- If you use the provided Jenkins image, change the Docker socket ownership to your user: e.g. `sudo chown deepomatic /var/run/docker.sock`. This will allow Jenkins to interact with Docker within its container. You need to do this each time you start Jenkins so you might want to include this into Jenkins start script.
-
-This poses another problem when you try to use the Dockerfile provided in this repository for Jenkins: `jenkins/docker/Dockerfile`. As a user called `jenkins` is declared in the original Jenkins Dockerfile, Jenkins won't start because all the file in the container belong to root and not to the `jenkins` user. In order to set the ownership to `jenkins` (with a UID of 1000 and GID 1000) in the container, the files need to have a UID and GID of 2000 on the host machine (or 1000+x if x is the UID/GID of your user). See [Docker Documentation](https://docs.docker.com/engine/reference/commandline/dockerd/#/daemon-user-namespace-options).
-
-A convenient way to achieve this is to create a new `jenkins` user on our machine with the correct UID and GID:
-
+node {
+	load "${DMAKE_JENKINS_FILE}"
+}
 ```
-$ groupadd -g 2000 jenkins
-$ useradd -u 2000 -g 2000 -d ${DMAKE_PATH}/jenkins/jenkins_home -s /bin/bash jenkins
-$ chown jenkins:jenkins -R ${DMAKE_PATH}/jenkins/jenkins_home
-```
+- For example with github you can use github webhooks to setup continuous build, test, and deployment to kubernetes (with https://wiki.jenkins.io/display/JENKINS/GitHub+Branch+Source+Plugin).
 
 ## Documentation
 
