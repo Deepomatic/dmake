@@ -1,0 +1,65 @@
+dmake_version: 0.1
+app_name: dmake-test
+
+docker:
+  base_image:
+    - &base
+      name: dmake-test-worker-base
+      variant: ubuntu-1604
+      root_image: ubuntu:16.04
+      install_scripts:
+        - deploy/dependencies.sh
+    - <<: *base
+      variant: ubuntu-1804
+      root_image: ubuntu:18.04
+
+env:
+  default:
+    variables:
+      AMQP_URL: amqp://rabbitmq/dev
+  branches:
+    master:
+      variables:
+        AMQP_URL: amqp://1.2.3.4/prod
+
+docker_links:
+  - image_name: rabbitmq:3.6
+    link_name: rabbitmq
+    probe_ports:
+      - 5672/tcp
+    volumes:
+      - shared_rabbitmq_var_lib:/var/lib/rabbitmq
+    testing_options: -e RABBITMQ_DEFAULT_VHOST=dev
+    env:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+
+services:
+  - service_name: test-worker
+    needed_links:
+      - rabbitmq
+    config:
+      docker_image:
+        name: dmake-test-worker
+        base_image_variant:
+          - ubuntu-1604
+          - ubuntu-1804
+        # short form: `build: .`
+        build:
+          context: .
+          dockerfile: Dockerfile
+          args:
+            BUILD_HOSTNAME: ${HOSTNAME}
+          labels:
+            vendor: "deepomatic"
+            com.deepomatic.version.is-on-premises: "false"
+            build-host: "${HOSTNAME}"
+          target: runtime
+      volumes:
+        - source: shared_rabbitmq_var_lib
+          target: /var/lib/rabbitmq
+        - shared_volume_web_and_workers:/shared_volume
+    tests:
+      commands:
+        - ./deploy/test-shared-volumes.sh
+        - ./bin/worker_test
