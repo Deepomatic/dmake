@@ -52,7 +52,8 @@ def entry_point(options):
     for tag in repo.get_tags():
         if tag.name == target_tag:
             target_commit = tag.commit
-    if target_commit is None:
+            break
+    else:
         raise DMakeException("Could not find deployment tag {tag}: run `dmake deploy` on this branch first.".format(tag=target_tag))
 
     # List releases
