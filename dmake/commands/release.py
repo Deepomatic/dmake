@@ -33,6 +33,7 @@ def key_to_tag(key):
 def entry_point(options):
     app = getattr(options, 'app')
     branch = options.branch
+    target_tag = "deployed_version_{branch}".format(branch=branch)
 
     token = os.getenv('DMAKE_GITHUB_TOKEN', None)
     owner = os.getenv('DMAKE_GITHUB_OWNER', None)
@@ -45,6 +46,14 @@ def entry_point(options):
     g = Github(token)
     owner = g.get_user(owner)
     repo = owner.get_repo(app)
+
+    # List tags to make sure that `target_tag` exists
+    target_commit = None
+    for tag in repo.get_tags():
+        if tag.name == target_tag:
+            target_commit = tag.commit
+    if target_commit is None:
+        raise DMakeException("Could not find deployment tag {tag}: run `dmake deploy` on this branch first.".format(tag=target_tag))
 
     # List releases
     release_list = {}
@@ -104,7 +113,7 @@ def entry_point(options):
     # Compute change log
     # TODO: use https://github.com/vaab/gitchangelog
     common.run_shell_command("git fetch --tags --quiet")
-    change_log_cmd = "git log {prev}...deployed_version_{branch} --pretty=%s".format(prev=prev_version, branch=branch)
+    change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_version, target=target_tag)
     change_log = common.run_shell_command(change_log_cmd)
 
     if change_log == "":
@@ -115,7 +124,7 @@ def entry_point(options):
     questions = [
         inquirer.List(
             'choice',
-            message="We will create a release tagged {tag} from branch '{branch}'".format(tag=next_version, branch=branch),
+            message="We will create a release tagged {tag} from tag '{target_tag}' (commit {commit})".format(tag=next_version, target_tag=target_tag, commit=target_commit.sha),
             choices=['Yes', 'No'],
         ),
     ]
@@ -125,5 +134,5 @@ def entry_point(options):
         return
 
     # Creates the release
-    repo.create_git_release(next_version, next_version, change_log, prerelease=prerelease)
+    repo.create_git_release(next_version, next_version, change_log, prerelease=prerelease, target_commitish=target_commit)
     print("Done ! Check it at: https://github.com/{owner}/{repo}/releases/tag/{tag}".format(owner=owner.name, repo=repo.name, tag=next_version))
