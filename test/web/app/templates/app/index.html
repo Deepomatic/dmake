@@ -1,0 +1,69 @@
+<html>
+    <head>
+        <title>DMake Hello World</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    </head>
+    <body>
+        <div class="row">
+            <div class="col-xs-10 col-xs-offset-1">
+                <h3>Let's do some complicated stuff that obviously require a worker !</h3>
+                <h4>Let's compute n factorial !</h4>
+            </div>
+        </div>
+        <div class="row" style="padding-top: 30px">
+            <div class="col-xs-4 col-xs-offset-1">
+                <form id="form" method="GET" action="/api/factorial">
+                    <div class="form-group">
+                        <div><label for="n">Enter a number:</label></div>
+                        <div><span id="error" style="color: #f00"></span></div>
+                        <input type="text" class="form-control" id="n" placeholder="12"/>
+                    </div>
+                    <button type="submit" class="btn btn-default">Submit</button>
+                </form>
+            </div>
+        </div>
+        <div class="row" style="padding-top: 20px">
+            <div class="col-xs-10 col-xs-offset-1">
+                <h3><em id="result"></em></h3>
+            </div>
+        </div>
+    </body>
+</html>
+
+<!-- JQuery -->
+<script
+  src="https://code.jquery.com/jquery-3.1.1.min.js"
+  integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+  crossorigin="anonymous">
+</script>
+
+<script type="text/javascript">
+    $(document).ready(function() {
+        $('#form').on('submit', function(e) {
+            e.preventDefault();
+
+            $('#error').text('');
+            $('#result').text('');
+            var n = $('#n').val();
+            if(n == '' || isNaN(n)) {
+                $('#error').text("Please enter a valid number !");
+            } else if (n < 0) {
+                $('#error').text("Please entre a non-negative number !");
+            }
+            else if (n > 20) {
+                $('#error').text("The result won't fit on 64 bits, we leave the extension of this demo to computing the factorial of an arbitrary number as an exercice ;-)");
+            }
+            else {
+                var form = $(this);
+                $.ajax({
+                    url: form.attr('action'),
+                    type: form.attr('method'),
+                    data: {'n': n},
+                    success: function(json) {
+                        $('#result').text('Breaking news: ' + n + '! = ' + json['result']);
+                    }
+                });
+            }
+        });
+    });
+</script>
