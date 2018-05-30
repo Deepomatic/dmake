@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-import sys, os
+import sys
+import os
 import argparse
+import dmake.commands as commands
 import dmake.core as core
 import dmake.common as common
-from   dmake.common import DMakeException
+from dmake.common import DMakeException
 
 
 def check_is_git_repo():
@@ -19,6 +21,7 @@ def check_is_git_repo():
 def add_argument(parsers, *args, **kwargs):
     for parser in parsers:
         parser.add_argument(*args, **kwargs)
+
 
 # Find root
 try:
@@ -41,8 +44,8 @@ parser_deploy  = subparsers.add_parser('deploy', help="Deploy specified apps and
 parser_release = subparsers.add_parser('release', help="Create a release of the app on Github.")
 
 
-add_argument([parser_test, parser_deploy], "service", nargs='?', help="Apply command to the full repository or, if specified, to the app/service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
-add_argument([parser_shell],               "service", nargs='?', help="Run a shell session withing the docker base image for the given service. You may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
+add_argument([parser_test, parser_deploy], "service", nargs='?', default='*', help="Apply command to the full repository or, if specified, to the app/service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
+add_argument([parser_shell],               "service", nargs='?', default='.', help="Run a shell session withing the docker base image for the given service. You may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
 add_argument([parser_run, parser_stop],    "service", help="Run an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
 
 parser_shell.add_argument("-c", '--command', nargs='?', help="Pass to `docker run` specified command instead of `docker.command` defined in `dmake.yml` (default: `bash`).")
@@ -54,10 +57,10 @@ parser_release.add_argument('branch', nargs='?', default="master", help="The bra
 
 parser_test.set_defaults(func=core.make)
 parser_run.set_defaults(func=core.make)
-parser_stop.set_defaults(func=core.stop)
+parser_stop.set_defaults(func=commands.stop.entry_point)
 parser_shell.set_defaults(func=core.make)
-parser_deploy.set_defaults(func=core.deploy)
-parser_release.set_defaults(func=core.release)
+parser_deploy.set_defaults(func=commands.deploy.entry_point)
+parser_release.set_defaults(func=commands.release.entry_point)
 
 try:
     # Parse command args

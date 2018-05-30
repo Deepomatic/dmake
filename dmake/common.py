@@ -289,7 +289,7 @@ def init(_options):
                 os.getenv('CHANGE_TITLE'))
         else:
             if repo_github_owner is not None:
-                app = getattr(options, 'service', '*')
+                app = getattr(options, 'service')
                 build_description = "%s/%s: <a href=%s>%s</a> - %s" % (
                     repo_github_owner, repo,
                     "https://github.com/%s/%s/tree/%s" % (repo_github_owner, repo, branch),
