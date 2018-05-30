@@ -112,9 +112,9 @@ def entry_point(options):
 
     # Compute change log
     # TODO: use https://github.com/vaab/gitchangelog
-    common.run_shell_command("git fetch --tags --quiet")
+    common.run_shell_command2("git fetch --tags --quiet")
     change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_version, target=target_tag)
-    change_log = common.run_shell_command(change_log_cmd)
+    change_log = common.run_shell_command2(change_log_cmd)
 
     if change_log == "":
         print("No changes found. Exiting...")

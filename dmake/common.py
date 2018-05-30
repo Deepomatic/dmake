@@ -68,6 +68,7 @@ def yaml_ordered_dump(data, stream=None, default_flow_style=False, all=False, no
 ###############################################################################
 
 def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=None, raise_on_return_code=False):
+    """Deprecated, use run_shell_command2 instead."""
     if not isinstance(commands, list):
         commands = [commands]
     if additional_env is None:
@@ -96,6 +97,9 @@ def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=N
     if raise_on_return_code and p.returncode != 0:
         raise ShellError("return code: %s; stdout: %sstderr: %s" % (p.returncode, subprocess_output_to_string(stdout), subprocess_output_to_string(stderr)))
     return subprocess_output_to_string(stdout).strip()
+
+def run_shell_command2(commands, additional_env=None, stdin=None):
+    return run_shell_command(commands, ignore_error=False, additional_env=additional_env, stdin=stdin, raise_on_return_code=True)
 
 def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
