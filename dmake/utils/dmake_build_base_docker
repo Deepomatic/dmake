@@ -6,6 +6,7 @@
 #                         ROOT_IMAGE_DIGEST \
 #                         DOCKER_IMAGE_NAME \
 #                         DOCKER_IMAGE_TAG \
+#                         DOCKER_IMAGE_TAG_V1 \
 #                         DMAKE_DIGEST \
 #                         PUSH_IMAGE
 #
@@ -14,9 +15,15 @@
 
 test "${DMAKE_DEBUG}" = "1" && set -x
 
-if [ $# -ne 7 ]; then
+# allow logging from functions that return values by output
+exec 3>&1
+function log() {
+  echo "$@" >&3
+}
+
+if [ $# -ne 8 ]; then
     dmake_fail "$0: Wrong arguments"
-    echo "exit 1"
+    log "exit 1"
     exit 1
 fi
 
@@ -27,6 +34,7 @@ ROOT_IMAGE_NAME=$1; shift
 ROOT_IMAGE_DIGEST=$1; shift
 DOCKER_IMAGE_NAME=$1; shift
 DOCKER_IMAGE_TAG=$1; shift
+DOCKER_IMAGE_TAG_V1=$1; shift
 DMAKE_DIGEST=$1; shift
 PUSH_IMAGE=$1; shift
 
@@ -35,8 +43,43 @@ function docker_get_image_id() {
   docker image ls "$1" --format '{{.ID}}'
 }
 
+function docker_get_image_id_from_v1() {
+  local BASE_IMAGE=$1
+  local BASE_IMAGE_V1=$2
+  local BASE_IMAGE_V1_ID=$(docker_get_image_id $BASE_IMAGE_V1)
+  if [ -n "${BASE_IMAGE_V1_ID}" ]; then
+    # found version 1: tag it as version 2: they have the same sources: they are equivalent
+    log "Migrating docker base image from version 1 to version 2 (${BASE_IMAGE_V1_ID}: ${BASE_IMAGE_V1} => ${BASE_IMAGE})"
+    docker tag ${BASE_IMAGE_V1_ID} ${BASE_IMAGE}
+    local BASE_IMAGE_ID=BASE_IMAGE_V1_ID
+    # push it if asked to
+    docker_maybe_push_image
+  fi
+  echo ${BASE_IMAGE_V1_ID}
+}
+
 BASE_IMAGE="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+BASE_IMAGE_V1="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG_V1}"
 ROOT_IMAGE_NAME="${ROOT_IMAGE_NAME%:*}"  # strip tag if exists: we use the digest instead
+
+if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ ]]; then
+  REMOTE_IMAGE=1
+else
+  REMOTE_IMAGE=0
+fi
+
+if [[ ${REMOTE_IMAGE} == 1 && "${DMAKE_PUSH_BASE_IMAGE:-0}" != "0" && "${PUSH_IMAGE}" == "1" ]]; then
+  DO_PUSH_IMAGE=1
+else
+  DO_PUSH_IMAGE=0
+fi
+
+function docker_maybe_push_image() {
+  if [[ ${DO_PUSH_IMAGE} == 1 ]]; then
+    log "Pushing ${BASE_IMAGE}"
+    docker push ${BASE_IMAGE}
+  fi
+}
 
 # Avoid multiple rebuilds of the same base image in parallel
 LOCK="/tmp/dmake-build-docker-base-image-${BASE_IMAGE//\//_}.lock"  # replace `/` by `_` in base image name
@@ -56,24 +99,31 @@ fi
 
 
 if [ "${DMAKE_FORCE_BASE_IMAGE_BUILD:-0}" = "0" ]; then
-  # Check if base image already exists
-  echo "Checking cache for docker base image (${BASE_IMAGE})"
-  # first locally
+  log "Checking cache for docker base image (${BASE_IMAGE})"
+  # Check if base image exists locally
   BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
   if [ -z "${BASE_IMAGE_ID}" ]; then
-    # then remotely
-    if [[ "${BASE_IMAGE}" =~ .+/.+ ]]; then
-      docker pull $BASE_IMAGE || :
-    fi
+    # not found; backward compatibility: check if version 1 exists locally
+    BASE_IMAGE_ID=$(docker_get_image_id_from_v1 ${BASE_IMAGE} ${BASE_IMAGE_V1})
+  fi
+
+  # then check remotely
+  if [[ -z "${BASE_IMAGE_ID}" && ${REMOTE_IMAGE} == 1 ]]; then
+    docker pull $BASE_IMAGE || :
     BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
+    if [ -z "${BASE_IMAGE_ID}" ]; then
+      # not found; backward compatibility: check if version 1 exists remotely
+      docker pull $BASE_IMAGE_V1 || :
+      BASE_IMAGE_ID=$(docker_get_image_id_from_v1 ${BASE_IMAGE} ${BASE_IMAGE_V1})
+    fi
   fi
 else
-  echo "Docker base image build forced by \$DMAKE_FORCE_BASE_IMAGE_BUILD=${DMAKE_FORCE_BASE_IMAGE_BUILD} for docker base image (${BASE_IMAGE})"
+  log "Docker base image build forced by \$DMAKE_FORCE_BASE_IMAGE_BUILD=${DMAKE_FORCE_BASE_IMAGE_BUILD} for docker base image (${BASE_IMAGE})"
 fi
 
 # build base image if needed
 if [ -z "${BASE_IMAGE_ID}" ]; then
-    echo "Docker base image not found in cache, building it (${BASE_IMAGE})"
+    log "Docker base image not found in cache, building it (${BASE_IMAGE})"
 
     if [ `uname` = "Darwin" ] && [ ! -z "${DMAKE_SSH_KEY}" ]; then
         OTHER_OPTS="-v ${DMAKE_SSH_KEY}:/key"
@@ -94,7 +144,7 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
                       /bin/bash /base_volume/make_base.sh
                     )
 
-    echo "Executing docker ${DOCKER_RUN_ARGS[@]}"
+    log "Executing docker ${DOCKER_RUN_ARGS[@]}"
 
     rm -f ${TMP_DIR}/cid.txt
     docker "${DOCKER_RUN_ARGS[@]}"
@@ -107,10 +157,8 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
     # We commit the container into the base image
     docker commit --change='CMD ["/bin/bash"]' ${CID} ${BASE_IMAGE}
 
-    if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ && "${DMAKE_PUSH_BASE_IMAGE:-0}" != "0" && "${PUSH_IMAGE}" == "1" ]]; then
-        echo "Pushing ${BASE_IMAGE}"
-        docker push ${BASE_IMAGE}
-    fi
+    # Then push if asked to
+    docker_maybe_push_image
 else
-    echo "Docker base image found in cache, using it (${BASE_IMAGE})"
+    log "Docker base image found in cache, using it (${BASE_IMAGE})"
 fi
