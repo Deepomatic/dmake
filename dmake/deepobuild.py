@@ -874,7 +874,7 @@ class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
                 f.write('ENTRYPOINT ["%s"]\n' % os.path.join(mount_point, path_dir, self.entrypoint))
 
         image_name = self.get_image_name()
-        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s" --squash' % (tmp_dir, image_name))
+        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
 
 class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
     context    = FieldSerializer("dir", help_text = "Docker build context directory.", example = '.')
