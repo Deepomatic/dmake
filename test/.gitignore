@@ -1,0 +1,6 @@
+.dmake
+.venv
+*.sqlite3
+*.pyc
+
+/worker/bin
