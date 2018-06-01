@@ -328,6 +328,9 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         # Generate base image tag
         self.tag = self._get_base_image_tag(root_image_digest, dmake_digest)
 
+        # Never push locally-built base_image from local machines
+        push_image = "0" if common.is_local else "1"
+
         # Append Docker Base build command
         program = 'dmake_build_base_docker'
         args = [tmp_dir,
@@ -335,7 +338,8 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 root_image_digest,
                 self.name,
                 self.tag,
-                dmake_digest]
+                dmake_digest,
+                push_image]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell=cmd)
 

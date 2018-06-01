@@ -6,14 +6,15 @@
 #                         ROOT_IMAGE_DIGEST \
 #                         DOCKER_IMAGE_NAME \
 #                         DOCKER_IMAGE_TAG \
-#                         DMAKE_DIGEST
+#                         DMAKE_DIGEST \
+#                         PUSH_IMAGE
 #
 # Result:
 # Will build and cache the base docker images with libs.
 
 test "${DMAKE_DEBUG}" = "1" && set -x
 
-if [ $# -ne 6 ]; then
+if [ $# -ne 7 ]; then
     dmake_fail "$0: Wrong arguments"
     echo "exit 1"
     exit 1
@@ -27,6 +28,7 @@ ROOT_IMAGE_DIGEST=$1; shift
 DOCKER_IMAGE_NAME=$1; shift
 DOCKER_IMAGE_TAG=$1; shift
 DMAKE_DIGEST=$1; shift
+PUSH_IMAGE=$1; shift
 
 
 function docker_get_image_id() {
@@ -105,7 +107,7 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
     # We commit the container into the base image
     docker commit --change='CMD ["/bin/bash"]' ${CID} ${BASE_IMAGE}
 
-    if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ ]]; then
+    if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ && "${DMAKE_PUSH_BASE_IMAGE:-0}" != "0" && "${PUSH_IMAGE}" == "1" ]]; then
         echo "Pushing ${BASE_IMAGE}"
         docker push ${BASE_IMAGE}
     fi
