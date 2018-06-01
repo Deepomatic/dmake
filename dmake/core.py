@@ -13,7 +13,7 @@ tag_push_error_msg = "Unauthorized to push the current state of deployment to gi
 def find_symlinked_directories():
     symlinks = []
     for line in common.run_shell_command("for f in $(dmake_find . -type l); do echo \"$f $(ls -l $f | sed -e 's/.* -> //')\"; done").split('\n'):
-        l = line.split(' ')
+        l = line.split(' ')  # noqa E741
         if len(l) != 2:
             continue
         link_path = os.path.normpath(l[0])

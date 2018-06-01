@@ -1,4 +1,4 @@
-from io import StringIO
+from io import StringIO  # noqa: F401
 
 from collections import OrderedDict
 
