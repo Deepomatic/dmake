@@ -1,4 +1,5 @@
-from StringIO import StringIO
+from StringIO import StringIO  # noqa: F401
+
 
 class BaseYAML2PipelineSerializer(object):
     pass
