@@ -1477,6 +1477,7 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts += service.tests.get_mounts_opt(service_name, env)
 
         docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
+        docker_opts += """ --security-opt="apparmor=unconfined" --cap-add=SYS_PTRACE"""
         docker_opts += " -i %s" % docker_base_image
 
         docker_cmd = "dmake_run_docker_command %s " % docker_opts
