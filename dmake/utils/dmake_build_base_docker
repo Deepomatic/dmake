@@ -98,7 +98,7 @@ elif command -v lockfile >/dev/null 2>&1; then
 fi
 
 
-if [ "${DMAKE_FORCE_BASE_IMAGE_BUILD:-0}" = "0" ]; then
+if [ "${DMAKE_FORCE_BASE_IMAGE_BUILD:-false}" = "false" ]; then
   log "Checking cache for docker base image (${BASE_IMAGE})"
   # Check if base image exists locally
   BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
