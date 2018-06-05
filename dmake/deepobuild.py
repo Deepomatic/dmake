@@ -279,10 +279,6 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             f.write(run_cmd)
         md5s[file] = common.run_shell_command('dmake_md5 %s' % os.path.join(tmp_dir, file))
 
-        # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
-        if common.key_file is not None:
-            common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
-
         # Local environment for templates
         local_env = []
         local_env.append("export ROOT_IMAGE=%s" % self.root_image)
@@ -295,12 +291,20 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             md5s[file] = common.run_shell_command('%s dmake_copy_template docker-base/%s %s' % (local_env, file, os.path.join(tmp_dir, file)))
 
         # Compute md5 `dmake_digest`
+        #  Version 2
+        dmake_digest = common.run_shell_command('dmake_md5 %s 2' % (tmp_dir))
+
+        #  Version 1 too for backward compatibility: if version 2 is not found we first check version 1 and tag it as version 2 (it's OK because they are built from the same source: they are equivalent)
         md5_file = os.path.join(tmp_dir, 'md5s')
         with open(md5_file, 'w') as f:
             # sorted for stability
             for md5 in sorted(md5s.items()):
                 f.write('%s %s\n' % md5)
-        dmake_digest = common.run_shell_command('dmake_md5 %s' % (md5_file))
+        dmake_digest_v1 = common.run_shell_command('dmake_md5 %s' % (md5_file))
+
+        # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
+        if common.key_file is not None:
+            common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
 
         # Get root_image digest
         try:
@@ -320,6 +324,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
 
         # Generate base image tag
         self.tag = self._get_base_image_tag(root_image_digest, dmake_digest)
+        tag_v1 = self._get_base_image_tag(root_image_digest, dmake_digest_v1, version=1)
 
         # Never push locally-built base_image from local machines
         push_image = "0" if common.is_local else "1"
@@ -331,13 +336,16 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 root_image_digest,
                 self.name,
                 self.tag,
+                tag_v1,
                 dmake_digest,
                 push_image]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
-    def _get_base_image_tag(self, root_image_digest, dmake_digest):
-        tag = 'base-rid-%s-dd-%s' % (root_image_digest.replace(':', '-'), dmake_digest)
+    @staticmethod
+    def _get_base_image_tag(root_image_digest, dmake_digest, version=2):
+        dmake_digest_name = 'd2' if version == 2 else 'dd'
+        tag = 'base-rid-%s-%s-%s' % (root_image_digest.replace(':', '-'), dmake_digest_name, dmake_digest)
         assert len(tag) <= 128, "docker tag limit"
         return tag
 
