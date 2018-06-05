@@ -2,6 +2,8 @@ from io import StringIO
 
 from collections import OrderedDict
 
+from functools import lru_cache
+
 class MetaYAML2PipelineSerialize(type):
     @classmethod
     def __prepare__(metacls, name, bases, **kwargs):
