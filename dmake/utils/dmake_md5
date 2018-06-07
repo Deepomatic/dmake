@@ -25,9 +25,10 @@ set -e
 TARGET=$1
 VERSION=${2:-1}
 
-function md5sum_postproc {
+function md5sum_normalize_output {
     if [ $(uname) = "Darwin" ]; then
-        sed -e "s/\([a-f0-9]*\) /\1  /"
+        # this is necessary to return the same output as coreutils md5sum: 2 spaces between hash and path
+        sed -e 's/ /  /'
     else
         cat -
     fi
@@ -54,9 +55,9 @@ elif [ ${VERSION} -eq 1 ]; then
 elif [ ${VERSION} -eq 2 ]; then
     # For a directory, it hashes the set of MD5s+filepath (ordered for stability)
     pushd ${TARGET} >& /dev/null
-    # 1 - we remove the `.git` file that may occur in  submodules as it may point to the parent git dir using absolute path
+    # 1 - we remove the `.git` file that may occur in submodules as it may point to the parent git dir using absolute path which is not stable across machines
     # 2 - we use the final `cut`function because the outputs `md5sum` (Linux) outputs a `-` when run on stdin, whereas `md5` (MacOS) does not
-    find . -type f ! -name .git -print0 | xargs -0 $CMD | md5sum_postproc | LC_ALL=C sort | $CMD | cut -d ' ' -f 1
+    find . -type f ! -name .git -print0 | xargs -0 $CMD | md5sum_normalize_output | LC_ALL=C sort | $CMD | cut -d ' ' -f 1
     popd >& /dev/null
 else
     dmake_fail "$0: Invalid version: ${VERSION}"
