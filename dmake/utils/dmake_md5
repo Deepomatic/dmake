@@ -38,9 +38,11 @@ if [ $(uname) = "Darwin" ]; then
     # MacOS compatibility
     # -r provides the same output as md5sum, except only one space separates the hash and the path
     CMD="md5 -r"
+    COLUMN="4"
 else
     # Linux
     CMD="md5sum"
+    COLUMN="1"
 fi
 
 if [ -f ${TARGET} ]; then
