@@ -2,6 +2,7 @@ import os
 import re
 import dmake.common as common
 import inquirer
+import semver
 from github import Github
 
 from dmake.common import DMakeException
@@ -10,30 +11,20 @@ from dmake.common import DMakeException
 release_re = re.compile(r'v(\d+)\.(\d+)(?:\.(\d+))?(?:-rc\.(\d+))?')
 
 
+def remove_tag_prefix(tag):
+    return tag[1:] if tag.startswith('v') else tag
+
+
 def tag_to_key(tag):
-    match = release_re.match(tag)
-    if match is None:
+    try:
+        return semver.parse_version_info(remove_tag_prefix(tag))
+    except ValueError:
         return None
-    major = int(match.group(1))
-    minor = int(match.group(2))
-    patch = int(match.group(3)) if match.group(3) is not None else None
-    rc    = int(match.group(4)) if match.group(4) is not None else None
-    return (major, minor, patch, rc)
-
-
-def key_to_tag(key):
-    tag = "v{}.{}".format(key[0], key[1])
-    if key[2] is not None:
-        tag += '.{}'.format(key[2])
-    if key[3] is not None:
-        tag += '-rc.{}'.format(key[3])
-    return tag
 
 
 def entry_point(options):
     app = getattr(options, 'app')
-    branch = options.branch
-    target_tag = "deployed_version_{branch}".format(branch=branch)
+    release_tag = getattr(options, 'tag')
 
     token = os.getenv('DMAKE_GITHUB_TOKEN', None)
     owner = os.getenv('DMAKE_GITHUB_OWNER', None)
@@ -47,93 +38,77 @@ def entry_point(options):
     owner = g.get_user(owner)
     repo = owner.get_repo(app)
 
-    # List tags to make sure that `target_tag` exists
-    target_commit = None
-    for tag in repo.get_tags():
-        if tag.name == target_tag:
-            target_commit = tag.commit
-            break
-    else:
-        raise DMakeException("Could not find deployment tag {tag}: run `dmake deploy` on this branch first.".format(tag=target_tag))
-
     # List releases
-    release_list = {}
-    for release in repo.get_releases():
-        key = tag_to_key(release.tag_name)
+    tags_list = {}
+    for tag in repo.get_tags():
+        key = tag_to_key(tag.name)
         if key is not None:
-            release_list[key] = release
-    sorted_release_keys = sorted(release_list.keys(), reverse=True)
+            tags_list[key] = tag
+    sorted_release_keys = sorted(tags_list.keys(), key=lambda x: x[1], reverse=True)
     latest_per_major_minor = {}
     for key in sorted_release_keys:
-        major, minor, patch, rc = key
-        if (major, minor) not in latest_per_major_minor:
-            latest_per_major_minor[(major, minor)] = key
+        if (key.major, key.minor) not in latest_per_major_minor:
+            latest_per_major_minor[(key.major, key.minor)] = key
 
     # Ask for previous version
-    questions = [
-        inquirer.List(
-            'prev',
-            message="Which was the previously released version?",
-            choices=[release_list[key].tag_name for key in sorted_release_keys if key[0:2] in latest_per_major_minor and latest_per_major_minor[key[0:2]] == key] + ['Other'],
-        ),
-    ]
-    answers = inquirer.prompt(questions)
-    if answers['prev'] == 'Other':
+    if release_tag is None:
         questions = [
             inquirer.List(
-                'prev',
+                'release_tag',
                 message="Which was the previously released version?",
-                choices=[release_list[key].tag_name for key in sorted_release_keys],
-                carousel=True
+                choices=[tags_list[key].name for key in sorted_release_keys if (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[(key.major, key.minor)] == key] + ['Other'],
             ),
         ]
         answers = inquirer.prompt(questions)
-    prev_version = answers['prev']
+        if answers['release_tag'] == 'Other':
+            questions = [
+                inquirer.List(
+                    'release_tag',
+                    message="Which was the previously released version?",
+                    choices=[tags_list[key].name for key in sorted_release_keys],
+                    carousel=True
+                ),
+            ]
+            answers = inquirer.prompt(questions)
+        release_tag = answers['release_tag']
 
-    # Ask for next version
-    key = tag_to_key(prev_version)
-    next_tag = [
-        (key[0], key[1] + 1, 0 if key[2] is not None else None, None),
-        (key[0] + 1, 0, 0 if key[2] is not None else None, None)
-    ]
-    if key[2] is not None:
-        next_tag.insert(0, (key[0], key[1], key[2] + 1, None))
-    first = next_tag[0]
-    next_tag.insert(len(next_tag), (first[0], first[1], first[2], first[3] + 1 if first[3] is not None else 1))
+    release_key = tag_to_key(release_tag)
+    if release_key not in tags_list:
+        raise DMakeException("Could not find target tag: {tag}.".format(tag=release_tag))
+    else:
+        prerelease = release_key.prerelease is not None
+        release_tag = tags_list[release_key]
+        target_commit = release_tag.commit
+        tags_index = sorted_release_keys.index(release_key)
 
-    questions = [
-        inquirer.List(
-            'next',
-            message="Which will be the next version?",
-            choices=[key_to_tag(tag) for tag in next_tag],
-        ),
-    ]
-    next_version = inquirer.prompt(questions)['next']
-    prerelease = tag_to_key(next_version)[3] is not None
+    # Look for previous version
+    if tags_index == len(sorted_release_keys) - 1:
+        change_log = "Initial commit"
+    else:
+        prev_key = sorted_release_keys[tags_index + 1]
+        prev_version = tags_list[prev_key]
+        no_prefix_next = remove_tag_prefix(release_tag.name)
+        no_prefix_prev = remove_tag_prefix(prev_version.name)
+        if semver.bump_major(no_prefix_prev) != no_prefix_next and \
+           semver.bump_minor(no_prefix_prev) != no_prefix_next and \
+           semver.bump_patch(no_prefix_prev) != no_prefix_next and \
+           semver.bump_prerelease(no_prefix_prev) != no_prefix_next and \
+            (release_key.major != prev_key.major or
+             release_key.minor != prev_key.minor or
+             release_key.patch != prev_key.patch or
+             release_key.prerelease != prev_key.prerelease):
+            raise DMakeException("Could not find any corresponding correct candidate previous version when bumping to {tag}. Previous version candidate: {prev}".format(tag=release_tag.name, prev=prev_version.name))
 
-    # Compute change log
-    # TODO: use https://github.com/vaab/gitchangelog
-    common.run_shell_command2("git fetch --tags --quiet")
-    change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_version, target=target_tag)
-    change_log = common.run_shell_command2(change_log_cmd)
+        # Compute change log
+        # TODO: use https://github.com/vaab/gitchangelog
+        common.run_shell_command2("git fetch --tags --quiet")
+        change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_version.commit.sha, target=target_commit.sha)
+        change_log = common.run_shell_command2(change_log_cmd)
 
-    if change_log == "":
-        print("No changes found. Exiting...")
-        return
-
-    # Recap
-    questions = [
-        inquirer.List(
-            'choice',
-            message="We will create a release tagged {tag} from tag '{target_tag}' (commit {commit})".format(tag=next_version, target_tag=target_tag, commit=target_commit.sha),
-            choices=['Yes', 'No'],
-        ),
-    ]
-    answers = inquirer.prompt(questions)
-    if answers['choice'] == 'No':
-        print('Aborting...')
-        return
+        if change_log == "":
+            print("No changes found. Exiting...")
+            return
 
     # Creates the release
-    repo.create_git_release(next_version, next_version, change_log, prerelease=prerelease, target_commitish=target_commit)
-    print("Done ! Check it at: https://github.com/{owner}/{repo}/releases/tag/{tag}".format(owner=owner.name, repo=repo.name, tag=next_version))
+    repo.create_git_release(release_tag.name, release_tag.name, change_log, prerelease=prerelease, target_commitish=target_commit)
+    print("Done ! Check it at: https://github.com/{owner}/{repo}/releases/tag/{tag}".format(owner=owner.name, repo=repo.name, tag=release_tag.name))
