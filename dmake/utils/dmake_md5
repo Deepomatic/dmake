@@ -1,14 +1,14 @@
 #!/bin/bash
 #
 # Usage:
-# MD5=$(dmake_md5 file)
+# MD5=$(dmake_md5 file [version])
 #
 # Result:
 # Returns the file's MD5.
 
 test "${DMAKE_DEBUG}" = "1" && set -x
 
-if [ $# -lt 1 ]; then
+if [ $# -ne 1 -a $# -ne 2 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"
     exit 1
@@ -22,10 +22,23 @@ fi
 
 set -e
 
+TARGET=$1
+VERSION=${2:-1}
+
+function md5sum_normalize_output {
+    if [ $(uname) = "Darwin" ]; then
+        # this is necessary to return the same output as coreutils md5sum: 2 spaces between hash and path
+        sed -e 's/ /  /'
+    else
+        cat -
+    fi
+}
+
 # Command get md5 from piped list of files
-if [ `which md5sum | wc -l` = "0" ]; then
+if [ $(uname) = "Darwin" ]; then
     # MacOS compatibility
-    CMD="md5"
+    # -r provides the same output as md5sum, except only one space separates the hash and the path
+    CMD="md5 -r"
     COLUMN="4"
 else
     # Linux
@@ -33,10 +46,21 @@ else
     COLUMN="1"
 fi
 
-if [ -f $1 ]; then
+if [ -f ${TARGET} ]; then
     # For files, directly get the md5
-    echo $($CMD $1 | cut -d ' ' -f $COLUMN)
-else
+    $CMD ${TARGET} | cut -d ' ' -f $COLUMN
+elif [ ${VERSION} -eq 1 ]; then
     # For a directory, it hashes the list of MD5s
     echo $(dmake_find $1 -type f -print0 | xargs -0 $CMD | cut -d ' ' -f $COLUMN | $CMD)
+elif [ ${VERSION} -eq 2 ]; then
+    # For a directory, it hashes the set of MD5s+filepath (ordered for stability)
+    pushd ${TARGET} >& /dev/null
+    # 1 - we remove the `.git` file that may occur in submodules as it may point to the parent git dir using absolute path which is not stable across machines
+    # 2 - we use the final `cut`function because the outputs `md5sum` (Linux) outputs a `-` when run on stdin, whereas `md5` (MacOS) does not
+    find . -type f ! -name .git -print0 | xargs -0 $CMD | md5sum_normalize_output | LC_ALL=C sort | $CMD | cut -d ' ' -f 1
+    popd >& /dev/null
+else
+    dmake_fail "$0: Invalid version: ${VERSION}"
+    echo "exit 1"
+    exit 1
 fi

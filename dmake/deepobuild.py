@@ -279,10 +279,6 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             f.write(run_cmd)
         md5s[file] = common.run_shell_command('dmake_md5 %s' % os.path.join(tmp_dir, file))
 
-        # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
-        if common.key_file is not None:
-            common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
-
         # Local environment for templates
         local_env = []
         local_env.append("export ROOT_IMAGE=%s" % self.root_image)
@@ -295,12 +291,20 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             md5s[file] = common.run_shell_command('%s dmake_copy_template docker-base/%s %s' % (local_env, file, os.path.join(tmp_dir, file)))
 
         # Compute md5 `dmake_digest`
+        #  Version 2
+        dmake_digest = common.run_shell_command('dmake_md5 %s 2' % (tmp_dir))
+
+        #  Version 1 too for backward compatibility: if version 2 is not found we first check version 1 and tag it as version 2 (it's OK because they are built from the same source: they are equivalent)
         md5_file = os.path.join(tmp_dir, 'md5s')
         with open(md5_file, 'w') as f:
             # sorted for stability
             for md5 in sorted(md5s.items()):
                 f.write('%s %s\n' % md5)
-        dmake_digest = common.run_shell_command('dmake_md5 %s' % (md5_file))
+        dmake_digest_v1 = common.run_shell_command('dmake_md5 %s' % (md5_file))
+
+        # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
+        if common.key_file is not None:
+            common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
 
         # Get root_image digest
         try:
@@ -320,6 +324,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
 
         # Generate base image tag
         self.tag = self._get_base_image_tag(root_image_digest, dmake_digest)
+        tag_v1 = self._get_base_image_tag(root_image_digest, dmake_digest_v1, version=1)
 
         # Never push locally-built base_image from local machines
         push_image = "0" if common.is_local else "1"
@@ -331,13 +336,16 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 root_image_digest,
                 self.name,
                 self.tag,
+                tag_v1,
                 dmake_digest,
                 push_image]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
-    def _get_base_image_tag(self, root_image_digest, dmake_digest):
-        tag = 'base-rid-%s-dd-%s' % (root_image_digest.replace(':', '-'), dmake_digest)
+    @staticmethod
+    def _get_base_image_tag(root_image_digest, dmake_digest, version=2):
+        dmake_digest_name = 'd2' if version == 2 else 'dd'
+        tag = 'base-rid-%s-%s-%s' % (root_image_digest.replace(':', '-'), dmake_digest_name, dmake_digest)
         assert len(tag) <= 128, "docker tag limit"
         return tag
 
@@ -595,7 +603,7 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         app_name = app_name + "-%s" % common.branch.lower()
         env_file = generate_env_file(tmp_dir, env)
 
-        opts = config.full_docker_opts(False) + " --env-file " + os.path.basename(env_file)
+        opts = config.full_docker_opts(mount_host_volumes=True) + " --env-file " + os.path.basename(env_file)
 
         # TODO: find a proper way to login on docker when deploying via SSH
         common.run_shell_command('cp -R ${HOME}/.docker* %s/ || :' % tmp_dir)
@@ -874,7 +882,7 @@ class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
                 f.write('ENTRYPOINT ["%s"]\n' % os.path.join(mount_point, path_dir, self.entrypoint))
 
         image_name = self.get_image_name()
-        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s" --squash' % (tmp_dir, image_name))
+        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
 
 class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
     context    = FieldSerializer("dir", help_text = "Docker build context directory.", example = '.')
@@ -958,13 +966,16 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
     volumes            = FieldSerializer("array", child = FieldSerializer([SharedVolumeMountSerializer(), VolumeMountSerializer()]), default = [], example = ["datasets:/datasets"], help_text = "Volumes to mount.")
     readiness_probe    = ReadinessProbeSerializer(optional = True, help_text = "A probe that waits until the container is ready.")
 
-    def full_docker_opts(self, testing_mode):
+    def full_docker_opts(self, mount_host_volumes, use_host_ports=None):
         if not self.has_value():
             return ""
 
+        if use_host_ports is None:
+            # None means do it if user asked it via global config
+            use_host_ports = common.use_host_ports
         opts = []
         for ports in self.ports:
-            if testing_mode and not common.use_host_ports:
+            if not use_host_ports:
                 opts.append("-p %d" % ports.container_port)
             else:
                 opts.append("-p 0.0.0.0:%d:%d" % (ports.host_port, ports.container_port))
@@ -972,7 +983,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
         for volume in self.volumes:
             if isinstance(volume, SharedVolumeMountSerializer):
                 # named shared volume
-                if not testing_mode:
+                if mount_host_volumes:
                     raise DMakeException("Named shared volume not supported by ssh deployment: '%s'" % (volume))
                 volume_id = volume.get_shared_volume().get_volume_id()
                 opts.append("-v %s:%s" % (volume_id, volume.target))
@@ -980,7 +991,8 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
 
             # else: VolumeMountSerializer
             assert isinstance(volume, VolumeMountSerializer), "Unknown DeployConfig volume type"
-            if testing_mode:
+            if not mount_host_volumes:
+                # fake mount: mount to a dmake-local directory
                 host_volume = os.path.join(common.cache_dir, 'volumes', volume.host_volume)
                 try:
                     os.mkdir(host_volume)
@@ -1407,8 +1419,8 @@ class DMakeFile(DMakeFileSerializer):
         base_image = self.docker.get_base_image_from_service_name(base_image_service_name)
         base_image._serialize_(commands, self.__path__)
 
-    def _generate_run_docker_opts_(self, commands, service, docker_links, additional_env_variables=None):
-        docker_opts, env = self._launch_options_(commands, service, docker_links, additional_env_variables=additional_env_variables, run_base_image=False, mount_root_dir=False)
+    def _generate_run_docker_opts_(self, commands, service, docker_links, additional_env_variables=None, use_host_ports=None):
+        docker_opts, env = self._launch_options_(commands, service, docker_links, additional_env_variables=additional_env_variables, run_base_image=False, mount_root_dir=False, use_host_ports=use_host_ports)
         image_name = service.config.docker_image.get_image_name(env=env)
 
         return docker_opts, image_name, env
@@ -1447,7 +1459,7 @@ class DMakeFile(DMakeFileSerializer):
         service = self._get_service_(service_name)
         service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build)
 
-    def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, additional_env = None, additional_env_variables = None):
+    def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, additional_env = None, additional_env_variables = None, use_host_ports = None):
         if additional_env is None:
             additional_env = {}
         if run_base_image and getattr(service.config.docker_image, 'entrypoint', None) is not None:
@@ -1465,7 +1477,7 @@ class DMakeFile(DMakeFileSerializer):
 
         self._get_check_needed_services_(commands, service)
         self._get_link_opts_(commands, service)
-        docker_opts += " " + service.config.full_docker_opts(True)
+        docker_opts += " " + service.config.full_docker_opts(mount_host_volumes=False, use_host_ports=use_host_ports)
         docker_opts += " ${DOCKER_LINK_OPTS}"
 
         return docker_opts, env
@@ -1477,6 +1489,7 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts += service.tests.get_mounts_opt(service_name, env)
 
         docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
+        docker_opts += """ --security-opt="apparmor=unconfined" --cap-add=SYS_PTRACE"""
         docker_opts += " -i %s" % docker_base_image
 
         docker_cmd = "dmake_run_docker_command %s " % docker_opts
@@ -1492,7 +1505,7 @@ class DMakeFile(DMakeFileSerializer):
             # no test specified, nothing to generate for tests
             return
 
-        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links)
+        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, use_host_ports=False)
         docker_opts += service.tests.get_mounts_opt(service_name, env)
         docker_cmd = 'dmake_run_docker_test %s "" %s -i %s ' % (service_name, docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd

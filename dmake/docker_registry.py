@@ -5,7 +5,7 @@ import requests
 import argparse
 import re
 
-from dmake.common import DMakeException, to_string
+from dmake.common import DMakeException, to_string, lru_cache, logger
 import dmake.docker_config as docker_config
 
 
@@ -73,8 +73,12 @@ def parse_docker_image(image):
 
     return namespace, name, tag
 
+
+@lru_cache()
 def get_image_digest(image):
     """Get image digest (sha256)"""
+    logger.debug('get_image_digest: %s', image)
+
     namespace, name, tag = parse_docker_image(image)
 
     # https://docs.docker.com/registry/spec/api/#pulling-an-image

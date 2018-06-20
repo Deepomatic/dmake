@@ -16,3 +16,10 @@ def subprocess_output_to_string(output):
     """Returns a python 2 str (bytes characters string)"""
     return output
 
+
+def lru_cache(**kwargs):
+
+    def decorator(target):
+        # not implemented in python 2: use python3
+        return target
+    return decorator
