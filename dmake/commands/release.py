@@ -1,14 +1,10 @@
 import os
-import re
 import dmake.common as common
 import inquirer
 import semver
 from github import Github
 
 from dmake.common import DMakeException
-
-
-release_re = re.compile(r'v(\d+)\.(\d+)(?:\.(\d+))?(?:-rc\.(\d+))?')
 
 
 def remove_tag_prefix(tag):
