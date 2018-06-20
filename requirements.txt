@@ -5,3 +5,6 @@ backports.ssl-match-hostname>=3.5.0.1
 ipaddress>=1.0.18
 oauthlib>=2.0.6
 requests-oauthlib==0.8.0
+inquirer==2.2.0
+PyGithub==1.39
+semver==2.8.0

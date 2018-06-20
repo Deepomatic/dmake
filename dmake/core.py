@@ -1,10 +1,10 @@
-import os, sys
+import os
+import sys
 import uuid
 
 import dmake.common as common
-from   dmake.common import DMakeException, SharedVolumeNotFoundException
-from   dmake.deepobuild import DMakeFile, append_command
-
+from dmake.common import DMakeException, SharedVolumeNotFoundException
+from dmake.deepobuild import DMakeFile, append_command
 
 tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that the credentials declared in the DMAKE_JENKINS_SSH_AGENT_CREDENTIALS and DMAKE_JENKINS_HTTP_CREDENTIALS allow you to write to the repository."
 
@@ -596,18 +596,8 @@ def get_tag_name():
 
 ###############################################################################
 
-def make(root_dir, sub_dir, command, app, options):
-    if 'DMAKE_TMP_DIR' in os.environ:
-        del os.environ['DMAKE_TMP_DIR']
-    common.init(command, root_dir, app, options)
-
-    if app == "":
-        app = None
-
-    if common.command == "stop":
-        common.logger.info('Stopping all containers for current repo and branch.')
-        common.run_shell_command('CONTAINER_IDS=$(docker ps -q -f name=%s.%s.%s); test -n "${CONTAINER_IDS}" && docker rm -f ${CONTAINER_IDS}' % (common.repo, common.branch, common.build_id))
-        return
+def make(options):
+    app = getattr(options, 'service', None)
 
     # Format args
     auto_complete = False
@@ -676,7 +666,7 @@ def make(root_dir, sub_dir, command, app, options):
 
             if auto_complete:
                 if app is None:
-                    if dmake_file.get_path().startswith(sub_dir):
+                    if dmake_file.get_path().startswith(common.sub_dir):
                         if auto_completed_app is None:
                             auto_completed_app = full_service_name
                             break # A bit hacky: we actually do not care about the full service name: we just want to select the proper dmake file.
@@ -714,7 +704,7 @@ def make(root_dir, sub_dir, command, app, options):
 
     if auto_completed_app is None:
         # Find file where changes have happened
-        find_active_files(loaded_files, service_providers, service_dependencies, sub_dir, common.command)
+        find_active_files(loaded_files, service_providers, service_dependencies, common.sub_dir, common.command)
     else:
         if is_app_only: # app only
             if common.command == 'shell':
