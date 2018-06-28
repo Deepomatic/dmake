@@ -221,6 +221,8 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children += activate_base(base_variant)
         elif command == 'run':
             children += activate_service_shared_volumes(loaded_files, service_providers, service)
+            if common.command in ['test', 'deploy']:
+                children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
