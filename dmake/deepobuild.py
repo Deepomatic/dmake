@@ -1184,11 +1184,15 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
     def get_service_name_unique_suffix(self):
         return "--%s" % (self._id) if self._specialized else ""
 
+class DevConfigSerializer(YAML2PipelineSerializer):
+    entrypoint       = FieldSerializer("file", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint used with `dmake shell`.")
+
 class ServicesSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", default = "", help_text = "The name of the application part.", example = "api", no_slash_no_space = True)
     needed_services = FieldSerializer("array", child = FieldSerializer(NeededServiceSerializer()), default = [], help_text = "List here the sub apps (as defined by service_name) of our application that are needed for this sub app to run.")
     needed_links    = FieldSerializer("array", child = "string", default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     sources         = FieldSerializer("array", child = FieldSerializer(["file", "dir"]), optional = True, help_text = "If specified, this service will be considered as updated only when the content of those directories or files have changed.", example = 'path/to/app')
+    dev             = DevConfigSerializer(help_text = "Development runtime configuration.")
     config          = DeployConfigSerializer(help_text = "Deployment configuration.")
     tests           = TestSerializer(optional = True, help_text = "Unit tests list.")
     deploy          = DeploySerializer(optional = True, help_text = "Deploy stage")
@@ -1462,10 +1466,18 @@ class DMakeFile(DMakeFileSerializer):
     def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, additional_env = None, additional_env_variables = None, use_host_ports = None):
         if additional_env is None:
             additional_env = {}
-        if run_base_image and getattr(service.config.docker_image, 'entrypoint', None) is not None:
+
+        entrypoint = None
+        if run_base_image:
+            if service.dev.entrypoint is not None:
+                entrypoint = service.dev.entrypoint
+            elif getattr(service.config.docker_image, 'entrypoint', None) is not None:
+                entrypoint = service.config.docker_image.entrypoint
+
+        if entrypoint:
             full_path_container = os.path.join(self.docker.mount_point,
                                                self.__path__,
-                                               service.config.docker_image.entrypoint)
+                                               entrypoint)
             entrypoint_opt = ' --entrypoint %s' % full_path_container
         else:
             entrypoint_opt = ''
