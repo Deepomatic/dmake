@@ -38,6 +38,8 @@ services:
   - service_name: test-worker
     needed_links:
       - rabbitmq
+    dev:
+      entrypoint: deploy/entrypoint.sh
     config:
       docker_image:
         name: dmake-test-worker
