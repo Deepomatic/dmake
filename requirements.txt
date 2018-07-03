@@ -8,3 +8,4 @@ requests-oauthlib==0.8.0
 inquirer==2.2.0
 PyGithub==1.39
 semver==2.8.0
+graphviz==0.8.4
