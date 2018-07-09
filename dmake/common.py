@@ -176,7 +176,33 @@ def get_dmake_build_type():
 
 ###############################################################################
 
+def dump_dot_graph(dependencies, attributes):
+    if not generate_dot_graph:
+        return
+
+    from graphviz import Digraph
+
+    def node2name(node):
+        # there is a bug in graphviz around `:` escaping, see https://github.com/xflr6/graphviz/issues/53
+        name = str(node).replace(':', '_')
+        if node in attributes:
+            name += '\n' + str(attributes[node])
+        return name
+
+    dot = Digraph(comment='DMake Services', filename=dot_graph_filename, format=dot_graph_format)
+
+    for node, deps in dependencies.items():
+        dot.node(node2name(node))
+        for dep in deps:
+            dot.edge(node2name(node), node2name(dep))
+
+    dot.render()
+    logger.info("Generated debug DOT graph: '%s' and '%s'" % (dot_graph_filename, dot_graph_filename + '.' + dot_graph_format))
+
+###############################################################################
+
 def init(_options):
+    global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_filename, dot_graph_format
     global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
     global repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
@@ -189,6 +215,11 @@ def init(_options):
 
     options = _options
     command = _options.cmd
+
+    generate_dot_graph = options.debug_graph or options.debug_graph_and_exit
+    exit_after_generate_dot_graph = options.debug_graph_and_exit
+    dot_graph_filename = options.debug_graph_output_filename
+    dot_graph_format = options.debug_graph_output_format
 
     try:
         root_dir, sub_dir = find_repo_root()

@@ -727,6 +727,11 @@ def make(options):
     sorted_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, sorted_leaves)
     build_files_order = order_dependencies(service_dependencies, sorted_leaves)
 
+    common.dump_dot_graph(service_dependencies, build_files_order)
+    if common.exit_after_generate_dot_graph:
+        print('Exiting after debug graph generation')
+        sys.exit(0)
+
     # Sort by order
     ordered_build_files = sorted(build_files_order.items(), key = lambda file_order: file_order[1])
 

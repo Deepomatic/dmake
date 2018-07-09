@@ -33,6 +33,12 @@ os.chdir(root_dir)
 
 # Defines command line parser
 argparser = argparse.ArgumentParser(prog='dmake')
+
+argparser.add_argument('--debug-graph', default=False, action='store_true', help="Generate dmake steps DOT graph for debug purposes.")
+argparser.add_argument('--debug-graph-and-exit', default=False, action='store_true', help="Generate dmake steps DOT graph for debug purposes then exit.")
+argparser.add_argument('--debug-graph-output-filename', default='dmake-services.gv', help="The generated DOT graph filename.")
+argparser.add_argument('--debug-graph-output-format', default='png', help="The generated DOT graph format (`png`, `svg`, `pdf`, ...).")
+
 subparsers = argparser.add_subparsers(dest='cmd')
 subparsers.required = True
 
