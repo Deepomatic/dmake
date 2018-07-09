@@ -19,3 +19,4 @@ services:
     tests:
       commands:
         - curl -sSf "http://web:8000/api/factorial/?n=5"
+      timeout: 5

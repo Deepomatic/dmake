@@ -29,6 +29,10 @@ def append_command(commands, cmd, prepend = False, **args):
         check_cmd(args, ['resource'])
     elif cmd == "lock_end":
         check_cmd(args, [])
+    elif cmd == "timeout":
+        check_cmd(args, ['time'])
+    elif cmd == "timeout_end":
+        check_cmd(args, [])
     elif cmd == "echo":
         check_cmd(args, ['message'])
     elif cmd == "sh":
@@ -1094,6 +1098,7 @@ class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer(deprecated="Use 'services:needed_links' instead", data_type="array", child = "string", migration='0001_docker_links_names_to_needed_links', default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
+    timeout            = FieldSerializer("string", optional = True, example = "600", help_text = "The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks).")
     junit_report       = FieldSerializer("string", optional = True, example = "test-reports/*.xml", help_text = "Uses JUnit plugin to generate unit test report.")
     cobertura_report   = FieldSerializer("string", optional = True, example = "**/coverage.xml", help_text = "Publish a Cobertura report. **WARNING** only one is allowed per repository.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
@@ -1111,7 +1116,15 @@ class TestSerializer(YAML2PipelineSerializer):
             return
 
         tests_cmd = '/bin/bash -c %s' % common.wrap_cmd(' && '.join(self.commands))
+
+        has_timeout = self.timeout is not None
+        if has_timeout:
+            append_command(commands, 'timeout', time = self.timeout)
+
         append_command(commands, 'sh', shell = docker_cmd + tests_cmd)
+
+        if has_timeout:
+            append_command(commands, 'timeout_end')
 
         if self.junit_report is not None:
             append_command(commands, 'junit', report = os.path.join(path, self.junit_report), service_name = service_name, mount_point = mount_point)
