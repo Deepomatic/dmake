@@ -1056,7 +1056,7 @@ class DataVolumeSerializer(YAML2PipelineSerializer):
     source            = FieldSerializer("string", example = "s3://my-bucket/some/folder", help_text = "Only host path and s3 URLs are supported for now.")
     read_only         = FieldSerializer("bool",   default = False,  help_text = "Flag to set the volume as read-only")
 
-    def get_mount_opt(self, service_name, env=None):
+    def get_mount_opt(self, service_name, path_dir, env=None):
         if env is None:
             env = {}
 
@@ -1069,6 +1069,9 @@ class DataVolumeSerializer(YAML2PipelineSerializer):
         if source[0:1] in ['/', '.']:
             scheme = 'file'
             path = source
+            if source[0:1] == '.':
+                # path relative to dmake.yml file, make it absolute for docker run
+                path = os.path.join(common.join_without_slash(common.root_dir), path_dir, path)
         else:
             i = source.find('://')
             if i >= 0:
@@ -1098,12 +1101,12 @@ class TestSerializer(YAML2PipelineSerializer):
     cobertura_report   = FieldSerializer("string", optional = True, example = "**/coverage.xml", help_text = "Publish a Cobertura report. **WARNING** only one is allowed per repository.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
 
-    def get_mounts_opt(self, service_name, env):
+    def get_mounts_opt(self, service_name, path_dir, env):
         if not self.has_value():
             return ''
         opts = []
         for data_volume in self.data_volumes:
-            opts.append(data_volume.get_mount_opt(service_name, env))
+            opts.append(data_volume.get_mount_opt(service_name, path_dir, env))
         return ' ' + ' '.join(opts)
 
     def generate_test(self, commands, path, service_name, docker_cmd, docker_links, mount_point):
@@ -1447,7 +1450,7 @@ class DMakeFile(DMakeFileSerializer):
             link_name = service_customization.link_name
 
         docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, additional_env_variables = additional_customization_env_variables)
-        docker_opts += service.tests.get_mounts_opt(service_name, env)
+        docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
         docker_cmd = 'dmake_run_docker_daemon "%s" "%s" "%s" "" %s -i %s' % (self.app_name, unique_service_name, link_name or "", docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
@@ -1498,7 +1501,7 @@ class DMakeFile(DMakeFileSerializer):
         service = self._get_service_(service_name)
 
         docker_opts, env = self._launch_options_(commands, service, docker_links, run_base_image=True, mount_root_dir=True, additional_env=self.build.env)
-        docker_opts += service.tests.get_mounts_opt(service_name, env)
+        docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
 
         docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
         docker_opts += """ --security-opt="apparmor=unconfined" --cap-add=SYS_PTRACE"""
@@ -1518,7 +1521,7 @@ class DMakeFile(DMakeFileSerializer):
             return
 
         docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, use_host_ports=False)
-        docker_opts += service.tests.get_mounts_opt(service_name, env)
+        docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
         docker_cmd = 'dmake_run_docker_test %s "" %s -i %s ' % (service_name, docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
