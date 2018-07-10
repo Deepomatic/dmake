@@ -182,19 +182,36 @@ def dump_dot_graph(dependencies, attributes):
 
     from graphviz import Digraph
 
-    def node2name(node):
+    def node2node_id(node):
         # there is a bug in graphviz around `:` escaping, see https://github.com/xflr6/graphviz/issues/53
-        name = str(node).replace(':', '_')
+        return str(node).replace(':', '_')
+
+    def node2label(node):
+        label = '{}\n{}\n{}'.format(*node)
         if node in attributes:
-            name += '\n' + str(attributes[node])
-        return name
+            label += '\n{}'.format(attributes[node])
+        return label
 
     dot = Digraph(comment='DMake Services', filename=dot_graph_filename, format=dot_graph_format)
+    dot.attr('node', shape='box')
 
+    # group nodes by commands
+    commands = {}
     for node, deps in dependencies.items():
-        dot.node(node2name(node))
-        for dep in deps:
-            dot.edge(node2name(node), node2name(dep))
+        command = node[0]
+        if command not in commands:
+            commands[command] = []
+        commands[command].append((node, deps))
+    for command, nodes_deps in commands.items():
+        # sub graph with same rank: horizontal node alignment per command
+        with dot.subgraph() as s:
+            s.attr(rank='same')
+            for node, deps in nodes_deps:
+                # create nodes
+                s.node(node2node_id(node), label=node2label(node))
+                for dep in deps:
+                    # create edges
+                    dot.edge(node2node_id(node), node2node_id(dep))
 
     dot.render()
     logger.info("Generated debug DOT graph: '%s' and '%s'" % (dot_graph_filename, dot_graph_filename + '.' + dot_graph_format))
