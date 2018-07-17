@@ -205,7 +205,7 @@ def init(_options):
     global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_filename, dot_graph_format
     global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
-    global repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
+    global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global no_gpu, need_gpu
     global build_description
     global command, options, uname
@@ -302,15 +302,27 @@ def init(_options):
         command = "test"
 
     # Find repo
-    repo_url = run_shell_command('git config --get remote.origin.url')
-    repo = re.search('/([^/]*?)(\.git)?$', repo_url).group(1)
-    assert repo
+    remote = None
+    repo = ''
+    repo_url = None
+    repo_github_owner = None
+    commit_id = ''
+    upstream_branch = run_shell_command('git rev-parse --abbrev-ref --symbolic-full-name @{upstream}', ignore_error=True)
+    if not upstream_branch:
+        # assume 'origin' as remote name
+        remote = 'origin'
+    else:
+        remote = upstream_branch.split('/')[0]
+    repo_url = run_shell_command('git config --get remote.%s.url' % (remote), ignore_error=True)
+    repo = re.search('/([^/]*?)(\.git)?$', repo_url)
+    if repo is not None:
+        repo = repo.group(1)
+    else:
+        repo = ''
     repo_github_owner = re.search('github.com[:/](.*?)/', repo_url)
-    assert repo_github_owner
-    commit_id = run_shell_command('git rev-parse HEAD')
-
     if repo_github_owner is not None:
         repo_github_owner = repo_github_owner.groups()[0]
+    commit_id = run_shell_command('git rev-parse HEAD')
 
     # Set Job description
     build_description = None
