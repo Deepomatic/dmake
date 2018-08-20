@@ -199,13 +199,22 @@ class SharedVolumeMountSerializer(YAML2PipelineSerializer):
         if not SharedVolumes.allowed_volume_name_pattern.match(self.source):
             raise ValidationError("Invalid volume mount: source '%s' must be a volume name" % (self.source))
 
-        if self.target[0] != '/':
+        if self.target[0] not in ['/', '$']:  # later variable expansion can still generate an absolute path
             raise ValidationError("Invalid volume mount: target '%s' must be an absolute path" % (self.target))
         return result
 
     def get_shared_volume(self):
         return SharedVolumes.get(self.source)
 
+    def get_mount_opt(self, env):
+        target = common.eval_str_in_env(self.target, env)
+
+        if target[0] != '/':
+            raise DMakeException("Invalid volume mount: source '%s', target '%s' (expanded from '%s') must be an absolute path" % (self.source, target, self.target))
+
+        volume_id = self.get_shared_volume().get_volume_id()
+        options = '-v %s:%s' % (volume_id, target)
+        return options
 
 class VolumeMountSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
@@ -441,8 +450,7 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
         for volume in self.volumes:
             if isinstance(volume, SharedVolumeMountSerializer):
                 # named shared volume
-                volume_id = volume.get_shared_volume().get_volume_id()
-                options += " -v %s:%s" % (volume_id, volume.target)
+                options += ' ' + volume.get_mount_opt(env)
             elif isinstance(volume, VolumeMountSerializer):
                 if not in_shell:
                     # skip host vols in non shell (i.e. in test: we don't want persistence)
@@ -603,7 +611,7 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         app_name = app_name + "-%s" % common.branch.lower()
         env_file = generate_env_file(tmp_dir, env)
 
-        opts = config.full_docker_opts(mount_host_volumes=True) + " --env-file " + os.path.basename(env_file)
+        opts = config.full_docker_opts(env, mount_host_volumes=True) + " --env-file " + os.path.basename(env_file)
 
         # TODO: find a proper way to login on docker when deploying via SSH
         common.run_shell_command('cp -R ${HOME}/.docker* %s/ || :' % tmp_dir)
@@ -966,7 +974,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
     volumes            = FieldSerializer("array", child = FieldSerializer([SharedVolumeMountSerializer(), VolumeMountSerializer()]), default = [], example = ["datasets:/datasets"], help_text = "Volumes to mount.")
     readiness_probe    = ReadinessProbeSerializer(optional = True, help_text = "A probe that waits until the container is ready.")
 
-    def full_docker_opts(self, mount_host_volumes, use_host_ports=None):
+    def full_docker_opts(self, env, mount_host_volumes, use_host_ports=None):
         if not self.has_value():
             return ""
 
@@ -985,8 +993,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
                 # named shared volume
                 if mount_host_volumes:
                     raise DMakeException("Named shared volume not supported by ssh deployment: '%s'" % (volume))
-                volume_id = volume.get_shared_volume().get_volume_id()
-                opts.append("-v %s:%s" % (volume_id, volume.target))
+                opts.append(volume.get_mount_opt(env))
                 continue
 
             # else: VolumeMountSerializer
@@ -1489,7 +1496,7 @@ class DMakeFile(DMakeFileSerializer):
 
         self._get_check_needed_services_(commands, service)
         self._get_link_opts_(commands, service)
-        docker_opts += " " + service.config.full_docker_opts(mount_host_volumes=False, use_host_ports=use_host_ports)
+        docker_opts += " " + service.config.full_docker_opts(env, mount_host_volumes=False, use_host_ports=use_host_ports)
         docker_opts += " ${DOCKER_LINK_OPTS}"
 
         return docker_opts, env

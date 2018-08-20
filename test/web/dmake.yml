@@ -5,6 +5,7 @@ env:
   default:
     variables:
       AMQP_URL: amqp://rabbitmq/dev
+      SHARED_VOLUME_ROOT: /shared_volume_root_value
   branches:
     master:
       variables:
@@ -55,12 +56,12 @@ services:
         max_seconds: 10
       volumes:
         - source: shared_volume_web_and_workers
-          target: /shared_volume_with_workers
+          target: ${SHARED_VOLUME_ROOT}/shared_volume_with_workers
     tests:
       commands:
         - touch 'tag' # test shared environment for multiple commands test
         - test -f "tag"  # test command escaping
-        - deploy/test-shared-volumes.sh /shared_volume_with_workers
+        - deploy/test-shared-volumes.sh /shared_volume_root_value/shared_volume_with_workers
         - deploy/test-needed-service-link.sh worker-ubuntu-1804
         - >-
           ./manage.py test
