@@ -183,7 +183,7 @@ class FieldSerializer(object):
                         raise WrongType("Could not find directory: '%s' ('%s')" % (data, original_data))
             return data
         elif data_type == "array":
-            if not isinstance(data, list):
+            if not hasattr(data, '__iter__'):
                 raise WrongType("Expecting array")
             valid_data = []
             for d in data:
@@ -191,7 +191,7 @@ class FieldSerializer(object):
                 valid_data.append(child._validate_(file, needed_migrations=needed_migrations, data=d, field_name=field_name))
             return valid_data
         elif data_type == "dict":
-            if not isinstance(data, dict):
+            if not hasattr(data, '__getitem__'):
                 raise WrongType("Expecting dict")
             valid_data = {}
             for k, d in data.items():
