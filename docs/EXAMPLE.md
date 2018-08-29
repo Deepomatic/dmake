@@ -47,6 +47,8 @@ services:
     needed_links:
       - mongo
     sources: path/to/app
+    dev:
+      entrypoint: some/relative/file/example
     config:
       docker_image:
         name: Some string

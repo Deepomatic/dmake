@@ -15,11 +15,9 @@
 - **docker** *(mixed)*: The environment in which to build and deploy. It can be one of the followings:
     - a file path to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field.
     - an object with the following fields:
-        - **root_image** *(mixed)*: The default source image name to build on. It can be one of the followings:
-            - a file path to another dmake file, in which base the root_image will be this file's base_image.
-            - an object with the following fields:
-                - **name** *(string)*: Root image name.
-                - **tag** *(string)*: Root image tag (you can use environment variables).
+        - **root_image** *(object)*: The default source image name to build on.
+            - **name** *(string)*: Root image name.
+            - **tag** *(string)*: Root image tag (you can use environment variables).
         - **base_image** *(mixed, default = `[]`)*: Base (development environment) imags. It can be one of the followings:
             - an object with the following fields:
                 - **name** *(string)*: Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.
@@ -75,6 +73,8 @@
     - **sources** *(array\<object\>)*: If specified, this service will be considered as updated only when the content of those directories or files have changed.
         - a file path
         - a directory
+    - **dev** *(object)*: Development runtime configuration. It must be an object with the following fields:
+        - **entrypoint** *(file path)*: Set the entrypoint used with `dmake shell`.
     - **config** *(object)*: Deployment configuration. It must be an object with the following fields:
         - **docker_image** *(mixed)*: Docker to build for running and deploying. It can be one of the followings:
             - an object with the following fields:
