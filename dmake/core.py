@@ -39,7 +39,7 @@ def look_for_changed_directories():
     else:
         common.logger.info("Looking for changes between HEAD and %s" % common.target)
         try:
-            output = common.run_shell_command("git diff --name-only origin/%s...HEAD" % common.target)
+            output = common.run_shell_command("git diff --name-only %s/%s...HEAD" % (common.remote, common.target))
         except common.ShellError as e:
             common.logger.error("Error: " + str(e))
             return None
@@ -497,7 +497,7 @@ def generate_command_pipeline(file, cmds):
                     indent_level -= 1
                     write_line('}')
                 else:
-                    write_line("sh('git push --force origin refs/tags/%s')" % kwargs['tag'])
+                    write_line("sh('git push --force %s refs/tags/%s')" % (common.remote, kwargs['tag']))
                     error_msg = tag_push_error_msg
                 indent_level -= 1
                 write_line('} catch(error) {')
@@ -582,7 +582,7 @@ def generate_command_bash(file, cmds):
             file.write('export %s\n' % kwargs['var'])
         elif cmd == "git_tag":
             file.write('git tag --force %s\n' % kwargs['tag'])
-            file.write('git push --force origin refs/tags/%s || echo %s\n' % (kwargs['tag'], tag_push_error_msg))
+            file.write('git push --force %s refs/tags/%s || echo %s\n' % (common.remote, kwargs['tag'], tag_push_error_msg))
         elif cmd == "junit" or cmd == "cobertura":
             container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
             host_report = make_path_unique_per_variant(kwargs['report'], kwargs['service_name'])
