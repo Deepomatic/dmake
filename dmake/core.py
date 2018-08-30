@@ -443,6 +443,13 @@ def generate_command_pipeline(file, cmds):
         elif cmd == "lock_end":
             indent_level -= 1
             write_line("}")
+        elif cmd == "timeout":
+            time = kwargs['time']
+            write_line("timeout(time: %s, unit: 'SECONDS') {" % time)
+            indent_level += 1
+        elif cmd == "timeout_end":
+            indent_level -= 1
+            write_line("}")
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
             write_line("echo '%s'" % message)
@@ -551,6 +558,11 @@ def generate_command_bash(file, cmds):
             # lock not supported with bash
             pass
         elif cmd == "lock_end":
+            pass
+        elif cmd == "timeout":
+            # timeout not supported with bash
+            pass
+        elif cmd == "timeout_end":
             pass
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
