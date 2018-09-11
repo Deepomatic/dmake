@@ -100,7 +100,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
     source    = FieldSerializer('string', optional=True, help_text='Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.')
     variables = FieldSerializer('dict', child="string", default={}, help_text="Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).", example={'ENV_TYPE': 'dev'})
 
-    def get_replaced_variables(self, additional_variables=None, docker_links=None, needed_links=None):
+    def get_replaced_variables(self, additional_variables=None, docker_links=None, needed_links=None, needed_services=None):
         if additional_variables is None:
             additional_variables = {}
 
@@ -121,6 +121,11 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
             for link_name in needed_links:
                 link = docker_links[link_name]
                 for var, value in link.env_exports.items():
+                    replaced_variables[var] = value
+        # also add needed_services env_exports
+        if needed_services is not None:
+            for needed_service in needed_services:
+                for var, value in needed_service.env_exports.items():
                     replaced_variables[var] = value
 
         # third pass: evaluate additional_variables in the context of second pass env
@@ -1152,6 +1157,7 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", help_text = "The name of the needed application part.", example = "worker-nn", no_slash_no_space = True)
     link_name       = FieldSerializer("string", optional = True, example = "worker-nn", help_text = "Link name.")
     env             = FieldSerializer("dict", child = "string", optional = True, default = {}, help_text = "List of environment variables that will be set when executing the needed service.", example = {'CNN_ID': '2'})
+    env_exports     = FieldSerializer("dict", child = "string", default = {}, help_text = "A set of environment variables that will be exported in services that use this service when testing.")
 
     def __init__(self, **kwargs):
         super(NeededServiceSerializer, self).__init__(**kwargs)
@@ -1163,10 +1169,11 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
             s += " (%s)" % (self.link_name)
         if self._specialized:
             s += " -- env: %s" % (self.env)
+            s += " -- env_exports: %s" % (self.env_exports)
         return s
 
     def __repr__(self):
-        return "NeededServiceSerializer(service_name=%r, link_name=%r, env=%r)" % (self.service_name, self.link_name, self.env)
+        return "NeededServiceSerializer(service_name=%r, link_name=%r, env=%r, env_exports=%r)" % (self.service_name, self.link_name, self.env, self.env_exports)
 
     def __eq__(self, other):
         # NeededServiceSerializer objects are equal if equivalent, to deduplicate their instances at runtime
@@ -1502,7 +1509,7 @@ class DMakeFile(DMakeFileSerializer):
         else:
             entrypoint_opt = ''
 
-        env = self.env.get_replaced_variables(additional_variables=additional_env_variables, docker_links=docker_links, needed_links=service.needed_links)
+        env = self.env.get_replaced_variables(additional_variables=additional_env_variables, docker_links=docker_links, needed_links=service.needed_links, needed_services=service.needed_services)
         env.update(additional_env)
         docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env, mount_root_dir=mount_root_dir)
         docker_opts += entrypoint_opt
