@@ -111,6 +111,10 @@ def escape_cmd(cmd):
 def wrap_cmd(cmd):
     return '"%s"' % cmd.replace('"', '\\"')
 
+def wrap_cmd_simple_quotes(cmd):
+    # Example: foo'bar -> 'foo'\''bar' (i.e. 3 concatenated literal strings: 'foo', \' and 'bar', which is interpreted by bash as one arg: foo'bar)
+    return "'%s'" % cmd.replace("'", "'\\''")
+
 def eval_str_in_env(value, env=None, strict=False, source=None):
     if env is None:
         env = {}
