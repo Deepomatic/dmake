@@ -507,7 +507,7 @@ def generate_command_pipeline(file, cmds):
             container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
             host_report = os.path.join(common.relative_cache_dir, 'tests_results', str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['report'])
             write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_report, host_report))
-            write_line("junit '%s'" % host_report)
+            write_line("junit keepLongStdio: true, testResults: '%s'" % host_report)
             write_line('''sh('rm -rf "%s"')''' % host_report)
         elif cmd == "cobertura":
             # coberturaPublisher plugin only supports one step, so we delay generating it, and make it get all reports
