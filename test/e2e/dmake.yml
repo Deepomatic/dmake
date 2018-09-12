@@ -11,6 +11,8 @@ services:
     needed_services:
      - service_name: test-web
        link_name: web
+       env_exports:
+         WEB_URL: http://web:8000
     config:
       docker_image:
         build:
@@ -18,5 +20,5 @@ services:
           dockerfile: ./deploy/Dockerfile
     tests:
       commands:
-        - curl -sSf "http://web:8000/api/factorial/?n=5"
+        - curl -sSf "${WEB_URL}/api/factorial/?n=5"
       timeout: 5
