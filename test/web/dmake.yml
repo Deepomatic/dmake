@@ -6,6 +6,7 @@ env:
     variables:
       AMQP_URL: amqp://rabbitmq/dev
       SHARED_VOLUME_ROOT: /shared_volume_root_value
+      ENV_EVALUATION_TEST: foobar
   branches:
     master:
       variables:
@@ -59,6 +60,7 @@ services:
           target: ${SHARED_VOLUME_ROOT}/shared_volume_with_workers
     tests:
       commands:
+        - test "${ENV_EVALUATION_TEST}" = 'foobar' # test environment evaluation: should be evaluated in container
         - touch 'tag' # test shared environment for multiple commands test
         - test -f "tag"  # test command escaping
         - deploy/test-shared-volumes.sh /shared_volume_root_value/shared_volume_with_workers
