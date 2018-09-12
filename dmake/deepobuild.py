@@ -112,8 +112,10 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                 # destructively remove newlines from environment variables values, as docker doesn't properly support them. It's fine for multiline jsons for example though.
                 replaced_variables[var] = common.eval_str_in_env(value, source=self.source).replace('\n', '')
 
-        # second pass: add docker_links env_exports
-        if docker_links is not None and getattr(common.options, 'dependencies', None):
+        # second pass: if dependencies also to be started:
+        #  add docker_links env_exports
+        with_dependencies = getattr(common.options, 'dependencies', None)
+        if with_dependencies and docker_links is not None:
             # docker_links is a dictionnary of all declared links, we want to export only
             # env_export of linked services
             if needed_links is None:
@@ -122,8 +124,8 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                 link = docker_links[link_name]
                 for var, value in link.env_exports.items():
                     replaced_variables[var] = value
-        # also add needed_services env_exports
-        if needed_services is not None:
+        #  and needed_services env_exports
+        if with_dependencies and needed_services is not None:
             for needed_service in needed_services:
                 for var, value in needed_service.env_exports.items():
                     replaced_variables[var] = value
