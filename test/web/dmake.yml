@@ -45,7 +45,7 @@ services:
         start_script: deploy/start.sh
       ports:
         - container_port: 8000
-          host_port: 8000
+          host_port: 9000
       readiness_probe:
         command:
           - curl
@@ -79,8 +79,8 @@ services:
       cobertura_report: coverage.xml
 
   - service_name: test-web2
-    # needed_links:
-    #   - rabbitmq
+    needed_links:
+      - rabbitmq
     config:
       docker_image:
         entrypoint: deploy/entrypoint.sh
