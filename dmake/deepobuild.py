@@ -781,7 +781,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
 
 class DeployConfigPortsSerializer(YAML2PipelineSerializer):
     container_port    = FieldSerializer("int", example = 8000, help_text = "Port on the container")
-    host_port         = FieldSerializer("int", example = 80, help_text = "Port on the host")
+    host_port         = FieldSerializer("int", optional = True, example = 80, help_text = "Port on the host. If not set, a random port will be used.")
 
 class DeployStageSerializer(YAML2PipelineSerializer):
     description   = FieldSerializer("string", example = "Deployment on AWS and via SSH", help_text = "Deploy stage description.")
@@ -994,7 +994,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
             use_host_ports = common.use_host_ports
         opts = []
         for ports in self.ports:
-            if not use_host_ports:
+            if not use_host_ports or ports.host_port is None:
                 opts.append("-p %d" % ports.container_port)
             else:
                 opts.append("-p 0.0.0.0:%d:%d" % (ports.host_port, ports.container_port))
