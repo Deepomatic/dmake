@@ -1,6 +1,12 @@
 dmake_version: 0.1
 app_name: dmake-test
 
+env:
+  default:
+    variables:
+      REPO: ${REPO}
+      REPO_SANITIZED: ${REPO_SANITIZED}
+
 docker:
   root_image:
     name: ubuntu
@@ -20,5 +26,7 @@ services:
           dockerfile: ./deploy/Dockerfile
     tests:
       commands:
+        - test "${REPO}" = 'dmake'
+        - test "${REPO_SANITIZED}" = 'dmake'
         - curl -sSf "${WEB_URL}/api/factorial/?n=5"
       timeout: 5

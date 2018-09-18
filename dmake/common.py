@@ -138,6 +138,13 @@ def join_without_slash(*args):
         path = path[:-1]
     return path
 
+def sanitize_name(name):
+    """Return sanitized name that follow regex '[a-z0-9]([-a-z0-9]*[a-z0-9])?'"""
+    name = name.lower()
+    name = re.sub(r'[^a-z0-9\-]+', '-', name)
+    name = name.lstrip('-')
+    return name
+
 ###############################################################################
 
 def find_repo_root(path=os.getcwd()):
@@ -367,6 +374,8 @@ def init(_options):
     os.environ["BRANCH"]      = str(branch)
     os.environ["COMMIT_ID"]   = commit_id
     os.environ["BUILD"]       = str(build_id)
+    os.environ["REPO_SANITIZED"]   = sanitize_name(repo)
+    os.environ["BRANCH_SANITIZED"] = sanitize_name(str(branch))
 
     logger.info("===============")
     logger.info("REPO : %s" % repo)
