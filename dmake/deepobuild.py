@@ -221,7 +221,7 @@ class SharedVolumeMountSerializer(YAML2PipelineSerializer):
         target = common.eval_str_in_env(self.target, env)
 
         if target[0] != '/':
-            raise DMakeException("Invalid volume mount: source '%s', target '%s' (expanded from '%s') must be an absolute path" % (self.source, target, self.target))
+            raise DMakeException("Invalid volume mount: `source` '%s', `target` '%s' (expanded from '%s') must be an absolute path" % (self.source, target, self.target))
 
         volume_id = self.get_shared_volume().get_volume_id()
         options = '-v %s:%s' % (volume_id, target)
@@ -1100,7 +1100,7 @@ class DataVolumeSerializer(YAML2PipelineSerializer):
             path = os.path.join(common.config_dir, 'data_volumes', 's3', service_name.replace(':', '-'), path)
             common.run_shell_command('aws s3 sync %s %s' % (source, path))
         else:
-            raise DMakeException("Field source must be a host path or start with 's3://'")
+            raise DMakeException("Invalid data volume mount: Field `source` '%s' (expanded from '%s') must be a host path or start with 's3://'" % (source, self.source))
 
         options = '-v %s:%s' % (path, container_volume)
         if self.read_only:
