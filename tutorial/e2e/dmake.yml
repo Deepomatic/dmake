@@ -1,6 +1,11 @@
 dmake_version: 0.1
 app_name: dmake-tutorial
 
+env:
+  default:
+    variables:
+      NAME: ${REPO_SANITIZED}-${BRANCH_SANITIZED}-${BUILD}
+
 docker:
   root_image:
     name: ubuntu
@@ -20,5 +25,6 @@ services:
           dockerfile: ./deploy/Dockerfile
     tests:
       commands:
+        - echo running tutorial from ${NAME}
         - curl -sSf "${WEB_URL}/api/factorial/?n=5"
       timeout: 5
