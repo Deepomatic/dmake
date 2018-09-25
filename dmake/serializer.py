@@ -342,6 +342,8 @@ class YAML2PipelineSerializer(BaseYAML2PipelineSerializer):
             if self.__optional__:
                 return None
             data = {}
+        if not isinstance(data, dict):
+            raise WrongType("Expecting dict, got {}".format(type(data).__name__))
         for name, serializer in self.__fields__.items():
             try:
                 serializer._validate_(file,
