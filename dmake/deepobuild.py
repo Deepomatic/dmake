@@ -26,7 +26,7 @@ def append_command(commands, cmd, prepend = False, **args):
     elif cmd == "stage_end":
         check_cmd(args, [])
     elif cmd == "lock":
-        check_cmd(args, ['resource'])
+        check_cmd(args, ['label'])
     elif cmd == "lock_end":
         check_cmd(args, [])
     elif cmd == "timeout":
@@ -91,7 +91,7 @@ def get_docker_run_gpu_cmd_prefix(need_gpu, service_type, service_name):
             pass
         else:
             common.need_gpu = True
-            prefix = 'DMAKE_DOCKER_RUN_WITH_GPU=all '
+            prefix = 'DMAKE_DOCKER_RUN_WITH_GPU=yes '
     return prefix
 
 # ###############################################################################

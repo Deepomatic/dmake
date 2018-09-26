@@ -50,8 +50,9 @@ fi
 
 # support some GPU modes using nvidia docker v2
 DOCKER_RUN_ARGS=( run )
-if [[ "${DMAKE_DOCKER_RUN_WITH_GPU}" == "all" ]]; then
-  DOCKER_RUN_ARGS+=( --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all )
+if [[ "${DMAKE_DOCKER_RUN_WITH_GPU}" == 'yes' ]]; then
+  DEVICES=${DMAKE_GPU#GPU_}
+  DOCKER_RUN_ARGS+=( --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${DEVICES:-all} )
 fi
 
 docker "${DOCKER_RUN_ARGS[@]}" --name ${NAME} "$@"
