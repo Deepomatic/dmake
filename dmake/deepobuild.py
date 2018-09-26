@@ -26,7 +26,7 @@ def append_command(commands, cmd, prepend = False, **args):
     elif cmd == "stage_end":
         check_cmd(args, [])
     elif cmd == "lock":
-        check_cmd(args, ['resource'])
+        check_cmd(args, ['label'])
     elif cmd == "lock_end":
         check_cmd(args, [])
     elif cmd == "timeout":
@@ -88,10 +88,11 @@ def get_docker_run_gpu_cmd_prefix(need_gpu, service_type, service_name):
     if need_gpu:
         if common.no_gpu:
             common.logger.info("GPU needed by %s '%s' but DMAKE_NO_GPU set: trying without GPU." % (service_type, service_name))
+            prefix = 'DMAKE_DOCKER_RUN_WITH_GPU=none '
             pass
         else:
             common.need_gpu = True
-            prefix = 'DMAKE_DOCKER_RUN_WITH_GPU=all '
+            prefix = 'DMAKE_DOCKER_RUN_WITH_GPU=yes '
     return prefix
 
 # ###############################################################################
@@ -1425,11 +1426,12 @@ class DMakeFile(DMakeFileSerializer):
                 return t
         raise DMakeException("Could not find service '%s'" % service)
 
-    def _get_link_opts_(self, commands, service):
+    def _get_link_opts_(self, service):
         if common.options.dependencies:
             needed_links = service.needed_links + [ns.link_name for ns in service.needed_services if ns.link_name]
             if len(needed_links) > 0:
-                append_command(commands, 'read_sh', var = 'DOCKER_LINK_OPTS', shell = 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(needed_links)), fail_if_empty = True)
+                return 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(needed_links))
+        return None
 
     def _get_check_needed_services_(self, commands, service):
         if common.options.dependencies and len(service.needed_services) > 0:
@@ -1517,9 +1519,10 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts += entrypoint_opt
 
         self._get_check_needed_services_(commands, service)
-        self._get_link_opts_(commands, service)
         docker_opts += " " + service.config.full_docker_opts(env, mount_host_volumes=False, use_host_ports=use_host_ports)
-        docker_opts += " ${DOCKER_LINK_OPTS}"
+        link_opts_command = self._get_link_opts_(service)
+        if link_opts_command is not None:
+            docker_opts += " $(%s)" % link_opts_command
 
         return docker_opts, env
 

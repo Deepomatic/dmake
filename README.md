@@ -184,6 +184,22 @@ By the way, when there are multiple application in the same repository and multi
 $ dmake run -d dmake-tutorial/web
 ```
 
+## Using GPUs
+
+DMake supports services that need GPUs:
+Add `need_gpu: true` at the `service` `config` (or `docker_link`).
+
+It will run the service container with `docker run --runtime=nvidia`, using [NVIDIA docker 2](https://github.com/NVIDIA/nvidia-docker).
+
+By default it gives access to all GPUs available on the machine. You can restrict which GPU is used:
+```
+$ export DMAKE_GPU=2
+# or
+$ nvidia-smi -L
+GPU 0: GeForce GTX 1060 6GB (UUID: GPU-dfd9ebe0-1b0a-4cf9-a9c3-9edcd6a3449c)
+$ export DMAKE_GPU=GPU-dfd9ebe0-1b0a-4cf9-a9c3-9edcd6a3449c
+```
+
 ## Using DMake with Jenkins
 
 DMake can generate a `Jenkinsfile` instead of a `bash` file, allowing to execute dmake in [Jenkins](https://jenkins.io/), for continuous integration and deployment.
@@ -206,6 +222,17 @@ node {
 }
 ```
 - For example with github you can use github webhooks to setup continuous build, test, and deployment to kubernetes (with https://wiki.jenkins.io/display/JENKINS/GitHub+Branch+Source+Plugin).
+
+### Using GPUs with Jenkins
+
+Exclusive access to GPUs on the Jenkins node is implemented with the [Lockable Resources Plugin](https://wiki.jenkins.io/display/JENKINS/Lockable+Resources+Plugin) (`>=2.2`):
+Declare one resource per GPU, with the same label `GPUS`, and with GPU ID as name suffix (prefix: `GPU_`:
+- name: `GPU_0`, label: `GPUS`
+- name: `GPU_1`, label: `GPUS`
+Or:
+- name: `GPU_GPU-dfd9ebe0-1b0a-4cf9-a9c3-9edcd6a3449c`, label: `GPUS`
+- name: `GPU_GPU-9724ed88-599f-4212-80f6-d689849ad1e9`, label: `GPUS`
+
 
 ## Documentation
 
