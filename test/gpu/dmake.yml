@@ -1,0 +1,25 @@
+dmake_version: 0.1
+app_name: dmake-test
+
+env:
+  default:
+    variables:
+      DMAKE_NO_GPU: ${DMAKE_NO_GPU}
+
+docker:
+  root_image:
+    name: tensorflow/tensorflow
+    tag: 1.11.0-gpu
+
+services:
+  - service_name: test-gpu
+    config:
+      need_gpu: true
+      docker_image:
+        build:
+          context: .
+          dockerfile: ./deploy/Dockerfile
+    tests:
+      commands:
+        - /app/test-nvidia-smi.sh
+      timeout: 5

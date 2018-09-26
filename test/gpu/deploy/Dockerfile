@@ -1,0 +1,6 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+COPY deploy/ /app
+
+WORKDIR /app
