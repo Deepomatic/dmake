@@ -183,7 +183,7 @@ class FieldSerializer(object):
                         raise WrongType("Could not find directory: '%s' ('%s')" % (data, original_data))
             return data
         elif data_type == "array":
-            if not hasattr(data, '__iter__'):
+            if not isinstance(data, list):
                 raise WrongType("Expecting array")
             valid_data = []
             for d in data:
@@ -191,7 +191,7 @@ class FieldSerializer(object):
                 valid_data.append(child._validate_(file, needed_migrations=needed_migrations, data=d, field_name=field_name))
             return valid_data
         elif data_type == "dict":
-            if not hasattr(data, '__getitem__'):
+            if not isinstance(data, dict):
                 raise WrongType("Expecting dict")
             valid_data = {}
             for k, d in data.items():
@@ -342,6 +342,8 @@ class YAML2PipelineSerializer(BaseYAML2PipelineSerializer):
             if self.__optional__:
                 return None
             data = {}
+        if not isinstance(data, dict):
+            raise WrongType("Expecting dict, got {}".format(type(data).__name__))
         for name, serializer in self.__fields__.items():
             try:
                 serializer._validate_(file,
