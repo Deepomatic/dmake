@@ -88,6 +88,7 @@ def get_docker_run_gpu_cmd_prefix(need_gpu, service_type, service_name):
     if need_gpu:
         if common.no_gpu:
             common.logger.info("GPU needed by %s '%s' but DMAKE_NO_GPU set: trying without GPU." % (service_type, service_name))
+            prefix = 'DMAKE_DOCKER_RUN_WITH_GPU=none '
             pass
         else:
             common.need_gpu = True
