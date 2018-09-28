@@ -25,7 +25,7 @@ $ ./install.sh
 After following the instructions, check that **DMake** is found by running:
 
 ```
-$ dmake help
+$ dmake --help
 ```
 
 It should display the help message with the list of commands.
