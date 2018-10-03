@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+# Usage:
+# dmake_check_tmp_dir
+#
+# Result:
+# Raises a user readable error if tmp dir is not found
+
+test "${DMAKE_DEBUG}" = "1" && set -x
+
+if [ $# -ne 0 ]; then
+    dmake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+if [ -z "${DMAKE_TMP_DIR}" ]; then
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
+    echo "exit 1"
+    exit 1
+fi
+
+set -e
+
+if [ ! -d "${DMAKE_TMP_DIR}" ]; then
+    dmake_fail "DMake temporary directory not found. Maybe you reran the Jenkins job? It is not supported. Build the job again instead."
+    echo "exit 1"
+    exit 1
+fi

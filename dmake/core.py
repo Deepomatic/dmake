@@ -787,6 +787,8 @@ def make(options):
     append_command(all_commands, 'env', var = "BUILD", value = common.build_id)
     append_command(all_commands, 'env', var = "BRANCH", value = common.branch)
     append_command(all_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
+    # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
+    append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
 
     for stage, commands in ordered_build_files:
         if len(commands) == 0:
