@@ -52,6 +52,7 @@ properties([
 
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                         env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
+    echo "scm: ${scm.userRemoteConfigs}"
     checkout([$class: 'GitSCM',
               branches: scm.branches,
               extensions: scm.extensions + [[$class: 'SubmoduleOption', recursiveSubmodules: true]],
