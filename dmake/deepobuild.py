@@ -674,8 +674,8 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
 
 
 class KubernetesConfigMapFromFileSerializer(YAML2PipelineSerializer):
-    key = FieldSerializer("string", example = "nginx.conf", help_text = "File key")
-    path = FieldSerializer("file",  example = "deploy/nginx.conf", help_text = "File path (relative to this dmake.yml file)")
+    key  = FieldSerializer("string", example="nginx.conf", help_text="File key")
+    path = FieldSerializer("file",  example="deploy/nginx.conf", help_text="File path (relative to this dmake.yml file)")
 
     def get_arg(self):
         arg = "--from-file=%s=%s" % (self.key, self.path)
@@ -683,8 +683,8 @@ class KubernetesConfigMapFromFileSerializer(YAML2PipelineSerializer):
 
 
 class KubernetesSecretFromFileSerializer(YAML2PipelineSerializer):
-    key = FieldSerializer("string", example = "ssh-privatekey", help_text = "File key")
-    path = FieldSerializer("string",  example = "${SECRETS}/ssh_id_rsa", help_text = "Absolute file path. Supports variables substitution.")
+    key  = FieldSerializer("string", example="ssh-privatekey", help_text="File key")
+    path = FieldSerializer("string",  example="${SECRETS}/ssh_id_rsa", help_text="Absolute file path. Supports variables substitution.")
 
     def get_arg(self, env):
         path = common.eval_str_in_env(self.path, env)
@@ -697,8 +697,8 @@ class KubernetesSecretFromFileSerializer(YAML2PipelineSerializer):
 
 
 class KubernetesConfigMapSerializer(YAML2PipelineSerializer):
-    name = FieldSerializer("string", example = "nginx", help_text = "Kubernetes ConfigMap name")
-    from_files = FieldSerializer("array", child = KubernetesConfigMapFromFileSerializer(), default = [], help_text = "Kubernetes create values from files")
+    name       = FieldSerializer("string", example="nginx", help_text="Kubernetes ConfigMap name")
+    from_files = FieldSerializer("array", child=KubernetesConfigMapFromFileSerializer(), default=[], help_text="Kubernetes create values from files")
 
     def generate_manifest(self, env):
         from_file_args = [file_source.get_arg() for file_source in self.from_files]
@@ -706,19 +706,19 @@ class KubernetesConfigMapSerializer(YAML2PipelineSerializer):
 
 
 class KubernetesSecretGenericSerializer(YAML2PipelineSerializer):
-    from_files = FieldSerializer("array", child = KubernetesSecretFromFileSerializer(), default = [], help_text = "Kubernetes create values from files")
+    from_files = FieldSerializer("array", child=KubernetesSecretFromFileSerializer(), default=[], help_text="Kubernetes create values from files")
 
 
 class KubernetesSecretSerializer(YAML2PipelineSerializer):
-    name    = FieldSerializer("string", example = "ssh-key", help_text = "Kubernetes Secret name")
-    generic = FieldSerializer(KubernetesSecretGenericSerializer(), help_text = "Kubernetes Generic Secret type parameters")
+    name    = FieldSerializer("string", example="ssh-key", help_text="Kubernetes Secret name")
+    generic = FieldSerializer(KubernetesSecretGenericSerializer(), help_text="Kubernetes Generic Secret type parameters")
 
     def generate_manifest(self, env):
         from_file_args = [file_source.get_arg(env) for file_source in self.generic.from_files]
         return k8s_utils.generate_from_create(args=['secret', 'generic'], name=self.name, from_file_args=from_file_args)
 
 class KubernetesManifestSerializer(YAML2PipelineSerializer):
-    template  = FieldSerializer("file", example = "path/to/kubernetes-manifest.yaml", help_text = "Kubernetes manifest file (template) defining all the resources needed to deploy the service")
+    template  = FieldSerializer("file", example="path/to/kubernetes-manifest.yaml", help_text="Kubernetes manifest file (template) defining all the resources needed to deploy the service")
     variables = FieldSerializer('dict', child="string", default={}, help_text="Defines variables used in the kubernetes manifest template", example={'TLS_SECRET_NAME': '${K8S_DEPLOY_TLS_SECRET_NAME}'})
 
     def _validate_(self, file, needed_migrations, data, field_name):
@@ -739,11 +739,11 @@ class KubernetesManifestSerializer(YAML2PipelineSerializer):
 
 
 class KubernetesDeploySerializer(YAML2PipelineSerializer):
-    context   = FieldSerializer("string", help_text = "kubectl context to use.")
-    namespace = FieldSerializer("string", optional = True, help_text = "Kubernetes namespace to target (overrides kubectl context default namespace")
-    manifest  = FieldSerializer(KubernetesManifestSerializer(), optional = True, help_text = "Kubernetes manifest (file template) defining all the resources needed to deploy the service")
-    config_maps = FieldSerializer("array", child = KubernetesConfigMapSerializer(), default = [], help_text = "Additional Kubernetes ConfigMaps")
-    secrets     = FieldSerializer("array", child = KubernetesSecretSerializer(), default = [], help_text = "Additional Kubernetes Secrets")
+    context     = FieldSerializer("string", help_text="kubectl context to use.")
+    namespace   = FieldSerializer("string", optional=True, help_text="Kubernetes namespace to target (overrides kubectl context default namespace")
+    manifest    = FieldSerializer(KubernetesManifestSerializer(), optional=True, help_text="Kubernetes manifest (file template) defining all the resources needed to deploy the service")
+    config_maps = FieldSerializer("array", child=KubernetesConfigMapSerializer(), default=[], help_text="Additional Kubernetes ConfigMaps")
+    secrets     = FieldSerializer("array", child=KubernetesSecretSerializer(), default=[], help_text="Additional Kubernetes Secrets")
 
     def _serialize_(self, commands, app_name, image_name, env):
         if not self.has_value():
