@@ -17,6 +17,9 @@ env:
   default:
     variables:
       AMQP_URL: amqp://rabbitmq/dev
+      ENV_OVERRIDE_TEST1: from_root_env
+      ENV_OVERRIDE_TEST2: from_root_env
+      ENV_OVERRIDE_TEST3: from_root_env
   branches:
     master:
       variables:
@@ -57,11 +60,21 @@ services:
             com.deepomatic.version.is-on-premises: "false"
             build-host: "${HOSTNAME}"
           target: runtime
+      env_override:
+        ENV_OVERRIDE_TEST2: from_env_override
+        ENV_OVERRIDE_TEST3: from_env_override
+        ENV_OVERRIDE_TEST4: from_env_override
       volumes:
         - source: shared_rabbitmq_var_lib
           target: /var/lib/rabbitmq
         - shared_volume_web_and_workers:/shared_volume
     tests:
       commands:
+        # test env override
+        - test "${ENV_OVERRIDE_TEST1}" = from_root_env
+        - test "${ENV_OVERRIDE_TEST2}" = from_env_override
+        - test "${ENV_OVERRIDE_TEST3}" = from_env_override
+        - test "${ENV_OVERRIDE_TEST4}" = from_env_override
+        - test -z "${ENV_OVERRIDE_TEST5+x}" # should not be set (defined in needed_service.env that should not apply to service test
         - ./deploy/test-shared-volumes.sh
         - ./bin/worker_test

@@ -101,9 +101,10 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
     source    = FieldSerializer('string', optional=True, help_text='Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.')
     variables = FieldSerializer('dict', child="string", default={}, help_text="Defines environment variables used for the services declared in this file. You might use pre-defined environment variables (or variables sourced from the file defined in the *source* field).", example={'ENV_TYPE': 'dev'})
 
-    def get_replaced_variables(self, additional_variables=None, docker_links=None, needed_links=None, needed_services=None):
-        if additional_variables is None:
-            additional_variables = {}
+    def get_replaced_variables(self, additional_variables_layers=None, docker_links=None, needed_links=None, needed_services=None):
+        # support layered additional_variables: evaluated one at a time on top of the previous resulting environment.
+        if additional_variables_layers is None:
+            additional_variables_layers = []
 
         replaced_variables = {}
 
@@ -132,9 +133,12 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
                     replaced_variables[var] = value
 
         # third pass: evaluate additional_variables in the context of second pass env
-        second_path_env = replaced_variables.copy()
-        for var, value in additional_variables.items():
-            replaced_variables[var] = common.eval_str_in_env(value, second_path_env)
+        for additional_variables in additional_variables_layers:
+            if additional_variables is None:
+                continue
+            previous_layer_env = replaced_variables.copy()
+            for var, value in additional_variables.items():
+                replaced_variables[var] = common.eval_str_in_env(value, previous_layer_env)
 
         return replaced_variables
 
@@ -1027,6 +1031,7 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
 class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_image       = FieldSerializer([ServiceDockerV1Serializer(), ServiceDockerV2Serializer()], allow_null = True, help_text = "Docker to build for running and deploying.")
     docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add.")
+    env_override       = FieldSerializer("dict", child = "string", optional = True, default = {}, help_text = "Extra environment variables for this service. Overrides dmake.yml root `env`, with variable substitution evaluated from it.", example = {'INFO': '${BRANCH}-${BUILD}'})
     need_gpu           = FieldSerializer("bool", default = False, help_text = "Whether the service needs to be run on a GPU node.")
     ports              = FieldSerializer("array", child = DeployConfigPortsSerializer(), default = [], help_text = "Ports to open.")
     volumes            = FieldSerializer("array", child = FieldSerializer([SharedVolumeMountSerializer(), VolumeMountSerializer()]), default = [], example = ["datasets:/datasets"], help_text = "Volumes to mount.")
@@ -1087,7 +1092,7 @@ class DeploySerializer(YAML2PipelineSerializer):
         self.service = service
 
     def generate_deploy(self, commands, app_name, env, config):
-        deploy_env = env.get_replaced_variables()
+        deploy_env = env.get_replaced_variables(additional_variables_layers=[self.service.config.env_override])
         if self.deploy_name is not None:
             app_name = self.deploy_name
             app_name = common.eval_str_in_env(app_name, deploy_env)
@@ -1110,7 +1115,7 @@ class DeploySerializer(YAML2PipelineSerializer):
             if common.branch not in branches and '*' not in branches:
                 continue
 
-            branch_env = env.get_replaced_variables(additional_variables = stage.env)
+            branch_env = env.get_replaced_variables(additional_variables_layers=[self.service.config.env_override, stage.env])
             stage.aws_beanstalk._serialize_(commands, app_name, config, image_name, branch_env)
             stage.ssh._serialize_(commands, app_name, config, image_name, branch_env)
             stage.k8s_continuous_deployment._serialize_(commands, app_name, image_name, branch_env)
@@ -1559,7 +1564,7 @@ class DMakeFile(DMakeFileSerializer):
         else:
             entrypoint_opt = ''
 
-        env = self.env.get_replaced_variables(additional_variables=additional_env_variables, docker_links=docker_links, needed_links=service.needed_links, needed_services=service.needed_services)
+        env = self.env.get_replaced_variables(additional_variables_layers=[service.config.env_override, additional_env_variables], docker_links=docker_links, needed_links=service.needed_links, needed_services=service.needed_services)
         env.update(additional_env)
         docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env, mount_root_dir=mount_root_dir)
         docker_opts += entrypoint_opt
