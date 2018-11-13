@@ -28,6 +28,10 @@ properties([
 
 node {
   // This displays colors using the 'xterm' ansi color map.
+
+  def self_test = (params.REPO_TO_TEST == 'deepomatic/dmake')
+
+
   stage('Setup') {
     checkout scm
     try {
@@ -56,7 +60,7 @@ node {
     // Setup environment variables as Jenkins would do
     env.REPO=params.REPO_TO_TEST
     env.BRANCH_NAME=params.BRANCH_TO_TEST
-    if (params.REPO_TO_TEST != 'deepomatic/dmake') {
+    if (!self_test) {
         env.BUILD_ID = 0
     }
     env.CHANGE_BRANCH=""
@@ -73,8 +77,10 @@ node {
     sh "virtualenv workspace/.venv2"
     sh ". workspace/.venv2/bin/activate && pip install -r requirements.txt"
     dir('workspace') {
-      sh ". .venv2/bin/activate && pytest -v --junit-xml=junit.xml --junit-prefix=python2"
-      junit keepLongStdio: true, testResults: 'junit.xml'
+      if (self_test) {
+        sh ". .venv2/bin/activate && pytest -v --junit-xml=junit.xml --junit-prefix=python2"
+        junit keepLongStdio: true, testResults: 'junit.xml'
+      }
       sh ". .venv2/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake test -d '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
@@ -87,8 +93,10 @@ node {
     sh "virtualenv -p python3 workspace/.venv3"
     sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
     dir('workspace') {
-      sh ". .venv3/bin/activate && pytest -v --junit-xml=junit.xml --junit-prefix=python3"
-      junit keepLongStdio: true, testResults: 'junit.xml'
+      if (self_test) {
+        sh ". .venv3/bin/activate && pytest -v --junit-xml=junit.xml --junit-prefix=python3"
+        junit keepLongStdio: true, testResults: 'junit.xml'
+      }
       sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake test -d '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
