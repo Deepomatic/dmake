@@ -1451,20 +1451,21 @@ class DMakeFile(DMakeFileSerializer):
         link = docker_links[link_name]
         return link
 
-    def _generate_docker_cmd_(self, docker_base, service=None, env=None, mount_root_dir=True):
+    def _generate_docker_cmd_(self, docker_base, service, env=None, mount_root_dir=True, force_workdir=True):
         if env is None:
             env = {}
         mount_point = docker_base.mount_point
-        if service is not None and \
-           getattr(service.config.docker_image, 'workdir', None) is not None:
-            workdir = common.join_without_slash(mount_point, service.config.docker_image.workdir)
-        else:
-            workdir = os.path.join(mount_point, self.__path__)
 
         docker_cmd = ""
         if mount_root_dir:
             docker_cmd += "-v %s:%s " % (common.join_without_slash(common.root_dir), mount_point)
-        docker_cmd += "-w %s " % (workdir)
+        if force_workdir:
+            # `workdir` is in fact only available for Service v1
+            if getattr(service.config.docker_image, 'workdir', None) is not None:
+                workdir = common.join_without_slash(mount_point, service.config.docker_image.workdir)
+            else:
+                workdir = os.path.join(mount_point, self.__path__)
+            docker_cmd += "-w %s " % (workdir)
 
         env_file = generate_env_file(common.tmp_dir, env)
         docker_cmd += '--env-file ' + env_file
@@ -1506,7 +1507,7 @@ class DMakeFile(DMakeFileSerializer):
         base_image._serialize_(commands, self.__path__)
 
     def _generate_run_docker_opts_(self, commands, service, docker_links, additional_env_variables=None, use_host_ports=None):
-        docker_opts, env = self._launch_options_(commands, service, docker_links, additional_env_variables=additional_env_variables, run_base_image=False, mount_root_dir=False, use_host_ports=use_host_ports)
+        docker_opts, env = self._launch_options_(commands, service, docker_links, additional_env_variables=additional_env_variables, run_base_image=False, mount_root_dir=False, force_workdir=False, use_host_ports=use_host_ports)
         image_name = service.config.docker_image.get_image_name(env=env)
 
         return docker_opts, image_name, env
@@ -1545,7 +1546,7 @@ class DMakeFile(DMakeFileSerializer):
         service = self._get_service_(service_name)
         service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build)
 
-    def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, additional_env = None, additional_env_variables = None, use_host_ports = None):
+    def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, force_workdir, additional_env = None, additional_env_variables = None, use_host_ports = None):
         if additional_env is None:
             additional_env = {}
 
@@ -1566,7 +1567,7 @@ class DMakeFile(DMakeFileSerializer):
 
         env = self.env.get_replaced_variables(additional_variables_layers=[service.config.env_override, additional_env_variables], docker_links=docker_links, needed_links=service.needed_links, needed_services=service.needed_services)
         env.update(additional_env)
-        docker_opts = self._generate_docker_cmd_(self.docker, service=service, env=env, mount_root_dir=mount_root_dir)
+        docker_opts = self._generate_docker_cmd_(self.docker, service, env=env, mount_root_dir=mount_root_dir, force_workdir=force_workdir)
         docker_opts += entrypoint_opt
 
         self._get_check_needed_services_(commands, service)
@@ -1580,7 +1581,7 @@ class DMakeFile(DMakeFileSerializer):
     def generate_shell(self, commands, service_name, docker_links, command=None):
         service = self._get_service_(service_name)
 
-        docker_opts, env = self._launch_options_(commands, service, docker_links, run_base_image=True, mount_root_dir=True, additional_env=self.build.env)
+        docker_opts, env = self._launch_options_(commands, service, docker_links, run_base_image=True, mount_root_dir=True, force_workdir=True, additional_env=self.build.env)
         docker_opts += service.tests.get_mounts_opt(service_name, env)
 
         docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
