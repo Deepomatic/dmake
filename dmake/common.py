@@ -244,6 +244,9 @@ def init(_options):
     options = _options
     command = _options.cmd
 
+    if command == 'build':
+        command = 'build_docker'
+
     generate_dot_graph = options.debug_graph or options.debug_graph_and_exit
     exit_after_generate_dot_graph = options.debug_graph_and_exit
     dot_graph_filename = options.debug_graph_output_filename

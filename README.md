@@ -150,6 +150,9 @@ There are much more features in DMake (deployment on kubernetes, multiple varian
 
 
 ### `dmake` command-line interface
+The command-line interface is based on this template: `dmake <command> <service>`
+
+For most commands, `<service>` can also be `*` to target all services.
 
 #### `dmake test`
 Now that we went through the configuration file, you can try to test the worker with:
@@ -160,7 +163,7 @@ $ dmake test -d worker
 
 The `-d` option tells **DMake** to run all the dependencies of the service as well.
 
-### `dmake shell`
+#### `dmake shell`
 To interactively work on a service, dmake provides a shell access in the service container (running the base image), with the sources mounted into it:
 
 ```
@@ -168,7 +171,7 @@ $ dmake shell -d worker
 ```
 There you can build an execute your service, and quickly iterate by editting the code from your favorite editor.
 
-### `dmake run`
+#### `dmake run`
 You can now run the full app with:
 
 ```
@@ -183,6 +186,15 @@ By the way, when there are multiple application in the same repository and multi
 ```
 $ dmake run -d dmake-tutorial/web
 ```
+
+#### `dmake build`
+To just build a service (or all services), without running them, use `dmake build`:
+
+```
+$ dmake build worker
+$ dmake build '*'
+```
+
 
 ## Using GPUs
 
