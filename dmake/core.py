@@ -115,7 +115,7 @@ def add_service_provider(service_providers, service, file, needs = None, base_va
 
 def activate_file(loaded_files, service_providers, service_dependencies, command, file):
     dmake_file = loaded_files[file]
-    if command in ['test', 'run', 'deploy']:
+    if command in ['test', 'run', 'deploy', 'build_docker']:
         nodes = []
         for service in dmake_file.get_services():
             full_service_name = "%s/%s" % (dmake_file.app_name, service.service_name)
