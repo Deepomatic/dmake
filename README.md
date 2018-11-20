@@ -168,6 +168,14 @@ $ dmake shell -d worker
 ```
 There you can build an execute your service, and quickly iterate by editting the code from your favorite editor.
 
+### `dmake build`
+If you want to build a service and its dependencies (optional).
+
+```
+$ dmake build -d worker
+```
+You can now execute your service to see if everything works as expected.
+
 ### `dmake run`
 You can now run the full app with:
 

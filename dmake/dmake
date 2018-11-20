@@ -43,7 +43,7 @@ subparsers = argparser.add_subparsers(dest='cmd')
 subparsers.required = True
 
 parser_test    = subparsers.add_parser('test', help="Launch tests for the whole repo or, if specified, an app or one of its services.")
-parser_build   = subparsers.add_parser('build_docker', help="Launch the build for the whole repo or, if specified, an app or one of its services.")
+parser_build   = subparsers.add_parser('build', help="Launch the build for the whole repo or, if specified, an app or one of its services.")
 parser_run     = subparsers.add_parser('run', help="Launch the application or only one of its services.")
 parser_stop    = subparsers.add_parser('stop', help="Stop the containers lauched with 'dmake run'.")
 parser_shell   = subparsers.add_parser('shell', help="Run a shell session withing a docker container with the environment set up for a given service.")
