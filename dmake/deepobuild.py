@@ -445,7 +445,7 @@ class DockerSerializer(YAML2PipelineSerializer):
         raise DMakeException("Could not find base_image service '%s'" % base_image_service_name)
 
 class HTMLReportSerializer(YAML2PipelineSerializer):
-    directory  = FieldSerializer("string", example = "reports", help_text = "Directory of the html pages.")
+    directory  = FieldSerializer("string", example = "test-reports/cover", help_text = "Directory of the html pages.")
     index      = FieldSerializer("string", default = "index.html", help_text = "Main page.")
     title      = FieldSerializer("string", default = "HTML Report", help_text = "Main page title.")
 
@@ -1165,8 +1165,8 @@ class TestSerializer(YAML2PipelineSerializer):
     data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     timeout            = FieldSerializer("string", optional = True, example = "600", help_text = "The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks).")
-    junit_report       = FieldSerializer("string", optional = True, example = "test-reports/*.xml", help_text = "Uses JUnit plugin to generate unit test report.")
-    cobertura_report   = FieldSerializer("string", optional = True, example = "**/coverage.xml", help_text = "Publish a Cobertura report. **WARNING** only one is allowed per repository.")
+    junit_report       = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if common.is_string(x) else x, example = "test-reports/nosetests.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a XUnit test report.")
+    cobertura_report   = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if common.is_string(x) else x, example = "test-reports/coverage.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a Cobertura report.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
 
     def get_mounts_opt(self, service_name, env):
@@ -1192,11 +1192,11 @@ class TestSerializer(YAML2PipelineSerializer):
         if has_timeout:
             append_command(commands, 'timeout_end')
 
-        if self.junit_report is not None:
-            append_command(commands, 'junit', report = os.path.join(path, self.junit_report), service_name = service_name, mount_point = mount_point)
+        for junit_report in self.junit_report:
+            append_command(commands, 'junit', report = os.path.join(path, junit_report), service_name = service_name, mount_point = mount_point)
 
-        if self.cobertura_report is not None:
-            append_command(commands, 'cobertura', report = os.path.join(path, self.cobertura_report), service_name = service_name, mount_point = mount_point)
+        for cobertura_report in self.cobertura_report:
+            append_command(commands, 'cobertura', report = os.path.join(path, cobertura_report), service_name = service_name, mount_point = mount_point)
 
         html = self.html_report._value_()
         if html is not None:
