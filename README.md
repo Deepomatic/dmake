@@ -174,7 +174,7 @@ If you want to build a service and its dependencies (optional).
 ```
 $ dmake build -d worker
 ```
-You can now execute your service to see if everything works as expected.
+You can now execute your service to see if everything works as expected:
 
 ### `dmake run`
 You can now run the full app with:
