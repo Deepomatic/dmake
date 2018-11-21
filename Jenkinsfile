@@ -15,6 +15,9 @@ properties([
         booleanParam(name: 'DMAKE_DEBUG',
                      defaultValue: true,
                      description: 'Enable dmake debug logs'),
+        booleanParam(name: 'DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP',
+                     defaultValue: true,
+                     description: 'Ask user confirmation before DMake cleanup.'),
         booleanParam(name: 'DMAKE_FORCE_BASE_IMAGE_BUILD',
                      defaultValue: false,
                      description: 'Force base image build (don\'t use base image cache)'),
@@ -66,11 +69,13 @@ node {
     env.CHANGE_BRANCH=""
     env.CHANGE_TARGET=""
     env.CHANGE_ID=""
-    env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
     // params are automatically exposed as environment variables
     // but booleans to string generates "true"
     if (params.DMAKE_DEBUG) {
         env.DMAKE_DEBUG=1
+    }
+    if (params.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP) {
+        env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
     }
   }
   stage('Python 2.x') {
