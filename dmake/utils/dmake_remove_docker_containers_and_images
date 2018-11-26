@@ -18,6 +18,11 @@ set -e
 
 TMP_DIR=$1
 
+if [ "${DMAKE_NO_DOCKER_CLEANUP}" = "1" ]; then
+    echo "Won't delete docker resources, as asked by DMAKE_NO_DOCKER_CLEANUP=1"
+    exit 0;
+fi
+
 if [ -f ${TMP_DIR}/containers_to_remove.txt ]; then
     set +e
     docker rm -f `cat ${TMP_DIR}/containers_to_remove.txt` > /dev/null 2>&1
