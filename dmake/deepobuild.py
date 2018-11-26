@@ -1536,6 +1536,7 @@ class DMakeFile(DMakeFileSerializer):
 
         # Run daemon
         append_command(commands, 'read_sh', var = "DAEMON_ID", shell = docker_cmd)
+        append_command(commands, 'sh', shell = 'echo ${DAEMON_ID}')
 
         # Wait for daemon to be ready
         cmd = service.config.readiness_probe.get_cmd()
