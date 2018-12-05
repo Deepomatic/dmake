@@ -328,8 +328,8 @@ def init(_options):
         branch = options.branch
 
     # Modify command if (is_pr && !is_local)
-    if is_pr and not is_local:
-        assert(command == "deploy")
+    # TODO remove later: has beend moved to Jenkinsfile instead
+    if is_pr and not is_local and command == "deploy":
         command = "test"
 
     # Find repo
