@@ -12,6 +12,9 @@ properties([
         booleanParam(name: 'DMAKE_WITH_DEPENDENCIES',
                      defaultValue: true,
                      description: 'Also execute with service dependencies if checked'),
+        string(name: 'DMAKE_COMMAND',
+               defaultValue: 'test',
+               description: 'dmake command to execute'),
         booleanParam(name: 'DMAKE_SKIP_TESTS',
                      defaultValue: false,
                      description: 'Skip tests if checked'),
@@ -93,7 +96,7 @@ node {
         sh ". .venv2/bin/activate && pytest -v --junit-xml=junit.xml --junit-prefix=python2"
         junit keepLongStdio: true, testResults: 'junit.xml'
       }
-      sh ". .venv2/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake test ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
+      sh ". .venv2/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
         load 'DMakefile'
@@ -109,7 +112,7 @@ node {
         sh ". .venv3/bin/activate && pytest -v --junit-xml=junit.xml --junit-prefix=python3"
         junit keepLongStdio: true, testResults: 'junit.xml'
       }
-      sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake test ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
+      sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
         load 'DMakefile'
