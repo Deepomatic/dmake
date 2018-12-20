@@ -883,10 +883,10 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer):
         # pure virtual method, implemented in children classes
         raise NotImplementedError()
 
-    def generate_build_docker(self, commands, path_dir, docker_base, build):
-        self._generate_build_docker(commands, path_dir, docker_base, build)
+    def generate_build_docker(self, commands, path_dir, docker_base, build, env):
+        self._generate_build_docker(commands, path_dir, docker_base, build, env)
 
-    def _generate_build_docker(self, commands, path_dir, docker_base, build):
+    def _generate_build_docker(self, commands, path_dir, docker_base, build, env):
         # pure virtual method, implemented in children classes
         raise NotImplementedError()
 
@@ -901,7 +901,7 @@ class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
     def _is_runnable(self):
         return self.start_script is not None
 
-    def _generate_build_docker(self, commands, path_dir, docker_base, build):
+    def _generate_build_docker(self, commands, path_dir, docker_base, build, env):
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
         common.run_shell_command('mkdir %s' % os.path.join(tmp_dir, 'app'))
 
@@ -968,10 +968,10 @@ class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
         result = super(ServiceDockerBuildSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         return result
 
-    def _serialize_(self, commands, path_dir, image_name, build_args):
+    def _serialize_(self, commands, path_dir, image_name, default_build_args, env):
         # variables substitution from dmake process environment
-        common.eval_values_in_env(self.args, strict=True)
-        common.eval_values_in_env(self.labels, strict=True)
+        common.eval_values_in_env(self.args, env=env, strict=True)
+        common.eval_values_in_env(self.labels, env=env, strict=True)
 
         program = 'dmake_build_docker'
         args = [self.context, image_name]
@@ -981,6 +981,7 @@ class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
             dockerfile_path = os.path.join(self.context, self.dockerfile)
             args += ["--file=%s" % (dockerfile_path)]
         # build arg
+        build_args = default_build_args.copy()
         build_args.update(self.args)
         args += ["--build-arg=%s=%s" % (key, value) for key, value in build_args.items()]
         # labels
@@ -999,11 +1000,11 @@ class ServiceDockerV2Serializer(ServiceDockerCommonSerializer):
         # assume the user-provided Dockerfile is a runnable service
         return True
 
-    def _generate_build_docker(self, commands, path_dir, docker_base, build):
+    def _generate_build_docker(self, commands, path_dir, docker_base, build, env):
         image_name = self.get_image_name()
         base_image_name = docker_base.get_docker_base_image(self.base_image_variant)
-        build_args = {'BASE_IMAGE': base_image_name}
-        self.build._serialize_(commands, path_dir, image_name, build_args)
+        default_build_args = {'BASE_IMAGE': base_image_name}
+        self.build._serialize_(commands, path_dir, image_name, default_build_args, env)
 
 class ReadinessProbeSerializer(YAML2PipelineSerializer):
     command               = FieldSerializer("array", child = "string", default = [], example = ['cat', '/tmp/worker_ready'], help_text = "The command to run to check if the container is ready. The command should fail with a non-zero code if not ready.")
@@ -1544,7 +1545,7 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
-        service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build)
+        service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build, self.env.get_replaced_variables())
 
     def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, force_workdir, additional_env = None, additional_env_variables = None, use_host_ports = None):
         if additional_env is None:
