@@ -195,6 +195,17 @@ $ dmake build worker
 $ dmake build '*'
 ```
 
+#### `dmake release` (experimental)
+
+Allow to create a github release from a git tag, with a generated changelog:
+
+```
+# Makes sure you are on the branch you want to release and up to date
+SEMVER_TAG=1.0.0  # put your release tag here
+$ git tag $SEMVER_TAG
+$ git push origin $SEMVER_TAG
+dmake release -t $SEMVER_TAG myapp
+```
 
 ## Using GPUs
 
