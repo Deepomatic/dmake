@@ -201,6 +201,8 @@ Allow to create a github release from a git tag, with a generated changelog:
 
 ```
 # Makes sure you are on the branch you want to release and up to date
+DMAKE_GITHUB_TOKEN=MyGithubAccessToken # https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
+DMAKE_GITHUB_OWNER=MyAccount # account or organization owning the repository
 SEMVER_TAG=1.0.0  # put your release tag here
 $ git tag $SEMVER_TAG
 $ git push origin $SEMVER_TAG
