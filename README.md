@@ -16,16 +16,16 @@ In order to run **DMake**, you will need:
 
 In order to install **DMake**, use the following:
 
-```
-$ git clone https://github.com/Deepomatic/dmake.git
-$ cd dmake
-$ ./install.sh
+```sh
+git clone https://github.com/Deepomatic/dmake.git
+cd dmake
+./install.sh
 ```
 
 After following the instructions, check that **DMake** is found by running:
 
-```
-$ dmake --help
+```sh
+dmake --help
 ```
 
 It should display the help message with the list of commands.
@@ -34,22 +34,22 @@ It should display the help message with the list of commands.
 
 To start the tutorial, enter the tutorial directory:
 
-```
-$ cd tutorial
+```sh
+cd tutorial
 ```
 
 For those who just want to see the results, just run:
 
-```
-$ dmake run -d web
+```sh
+dmake run -d web
 ```
 
 Once it has completed, the factorial demo is available at [http://localhost:8000](http://localhost:8000)
 
 Before moving to the details, do not forget to shutdown the launched containers with:
 
-```
-$ dmake stop
+```sh
+dmake stop
 ```
 
 Alright ! To simulate an application made of several micro-services, this project is made of two services:
@@ -157,8 +157,8 @@ For most commands, `<service>` can also be `*` to target all services.
 #### `dmake test`
 Now that we went through the configuration file, you can try to test the worker with:
 
-```
-$ dmake test -d worker
+```sh
+dmake test -d worker
 ```
 
 The `-d` option tells **DMake** to run all the dependencies of the service as well.
@@ -166,16 +166,16 @@ The `-d` option tells **DMake** to run all the dependencies of the service as we
 #### `dmake shell`
 To interactively work on a service, dmake provides a shell access in the service container (running the base image), with the sources mounted into it:
 
-```
-$ dmake shell -d worker
+```sh
+dmake shell -d worker
 ```
 There you can build an execute your service, and quickly iterate by editting the code from your favorite editor.
 
 #### `dmake run`
 You can now run the full app with:
 
-```
-$ dmake run -d web
+```sh
+dmake run -d web
 ```
 It will start the `web` service with all its dependencies (RabbitMQ and the worker).
 
@@ -183,18 +183,57 @@ Once it has completed, the factorial demo is available at [http://localhost:8000
 
 By the way, when there are multiple application in the same repository and multiple services with the same name, you must specify the full service name like this:
 
-```
-$ dmake run -d dmake-tutorial/web
+```sh
+dmake run -d dmake-tutorial/web
 ```
 
 #### `dmake build`
 To just build a service (or all services), without running them, use `dmake build`:
 
-```
-$ dmake build worker
-$ dmake build '*'
+```sh
+dmake build worker
+dmake build '*'
 ```
 
+#### `dmake release` (experimental)
+
+Create a github release from a manually previously created git tag. DMake will also generate a changelog.
+
+Make sure you are on the branch you want to release and you are up to date, for example:
+
+```sh
+git checkout master
+git pull origin master
+```
+
+Set some dmake env variables to access github. Feel free to add them in your `~/.bashrc` if you want them to be permanent:
+
+```sh
+export DMAKE_GITHUB_TOKEN=MyGithubAccessToken # https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
+export DMAKE_GITHUB_OWNER=MyAccount # account or organization owning the repository
+```
+
+You can now create your release:
+
+```sh
+SEMVER_TAG=1.0.0  # put your release tag here
+git tag $[SEMVER_TAG}
+git push origin ${SEMVER_TAG}
+dmake release -t ${SEMVER_TAG} myapp
+```
+
+Should output:
+
+```
+===============
+REPO : myapp
+BUILD : 0
+BRANCH : master
+COMMIT_ID : 123b123
+===============
+
+Done ! Check it at: https://github.com/MyAccount/myapp/releases/tag/1.0.0
+```
 
 ## Using GPUs
 
@@ -204,12 +243,12 @@ Add `need_gpu: true` at the `service` `config` (or `docker_link`).
 It will run the service container with `docker run --runtime=nvidia`, using [NVIDIA docker 2](https://github.com/NVIDIA/nvidia-docker).
 
 By default it gives access to all GPUs available on the machine. You can restrict which GPU is used:
-```
-$ export DMAKE_GPU=2
+```sh
+export DMAKE_GPU=2
 # or
-$ nvidia-smi -L
+nvidia-smi -L
 GPU 0: GeForce GTX 1060 6GB (UUID: GPU-dfd9ebe0-1b0a-4cf9-a9c3-9edcd6a3449c)
-$ export DMAKE_GPU=GPU-dfd9ebe0-1b0a-4cf9-a9c3-9edcd6a3449c
+export DMAKE_GPU=GPU-dfd9ebe0-1b0a-4cf9-a9c3-9edcd6a3449c
 ```
 
 ## Using DMake with Jenkins
@@ -218,7 +257,7 @@ DMake can generate a `Jenkinsfile` instead of a `bash` file, allowing to execute
 
 Quickstart:
 - Configure Jenkins node:
-```
+```sh
 export DMAKE_ON_BUILD_SERVER=1`
 export DMAKE_PATH=/dmake
 export DMAKE_JENKINS_FILE=$DMAKE_PATH/dmake/templates/jenkins/Jenkinsfile
