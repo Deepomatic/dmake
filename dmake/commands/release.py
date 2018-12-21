@@ -40,7 +40,7 @@ def entry_point(options):
         key = tag_to_key(tag.name)
         if key is not None:
             tags_list[key] = tag
-    sorted_release_keys = sorted(tags_list.keys(), key=lambda x: x, reverse=True)
+    sorted_release_keys = sorted(tags_list.keys(), reverse=True)
     latest_per_major_minor = {}
     for key in sorted_release_keys:
         if (key.major, key.minor) not in latest_per_major_minor:
@@ -51,16 +51,16 @@ def entry_point(options):
         questions = [
             inquirer.List(
                 'release_tag',
-                message="Which tag do you want to release?",
-                choices=[tags_list[key].name for key in sorted_release_keys if (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[(key.major, key.minor)] == key] + ['Other'],
+                message="Here are only the latest tags per minor version. Which tag do you want to release?",
+                choices=[tags_list[key].name for key in sorted_release_keys if (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[(key.major, key.minor)] == key] + ['All'],
             ),
         ]
         answers = inquirer.prompt(questions)
-        if answers['release_tag'] == 'Other':
+        if answers['release_tag'] == 'All':
             questions = [
                 inquirer.List(
                     'release_tag',
-                    message="Which tag do you want to release?",
+                    message="Here are all tags. Which tag do you want to release?",
                     choices=[tags_list[key].name for key in sorted_release_keys],
                     carousel=True
                 ),
