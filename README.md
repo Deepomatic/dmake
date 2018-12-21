@@ -199,7 +199,7 @@ dmake build '*'
 
 Create a github release from a manually previously created git tag. DMake will also generate a changelog.
 
-Make sure you are on the branch you want to release and up to date, for example:
+Make sure you are on the branch you want to release and you are up to date, for example:
 
 ```sh
 git checkout master
