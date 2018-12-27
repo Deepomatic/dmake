@@ -51,7 +51,7 @@ def entry_point(options):
         questions = [
             inquirer.List(
                 'release_tag',
-                message="Here are only the latest tags per major-minor version. Which tag do you want to release?",
+                message="Here are only the latest tags per major-minor version. Which tag do you want to release on?",
                 choices=[tags_list[key].name for key in sorted_release_keys if (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[(key.major, key.minor)] == key] + ['Other'],
             ),
         ]
@@ -60,7 +60,7 @@ def entry_point(options):
             questions = [
                 inquirer.List(
                     'release_tag',
-                    message="Here are all the tags. Which tag do you want to release?",
+                    message="Here are all the tags. Which tag do you want to release on?",
                     choices=[tags_list[key].name for key in sorted_release_keys],
                     carousel=True
                 ),
@@ -104,6 +104,9 @@ def entry_point(options):
         if change_log == "":
             print("No changes found. Exiting...")
             return
+
+        # Add dashes to make a markdown list
+        change_log = '\n'.join(['- ' + line for line in change_log.split('\n')])
 
     # Creates the release
     repo.create_git_release(release_tag.name, release_tag.name, change_log, prerelease=prerelease, target_commitish=target_commit)
