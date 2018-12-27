@@ -51,7 +51,7 @@ def entry_point(options):
         questions = [
             inquirer.List(
                 'release_tag',
-                message="Here are only the latest tags per major-minor version. Which is the target tag to release on?",
+                message="Here are only the latest tags per major-minor version. Which tag do you want to release on?",
                 choices=[tags_list[key].name for key in sorted_release_keys if (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[(key.major, key.minor)] == key] + ['Other'],
             ),
         ]
@@ -60,7 +60,7 @@ def entry_point(options):
             questions = [
                 inquirer.List(
                     'release_tag',
-                    message="Here are all the tags. Which is the target tag to release on?",
+                    message="Here are all the tags. Which tag do you want to release on?",
                     choices=[tags_list[key].name for key in sorted_release_keys],
                     carousel=True
                 ),
