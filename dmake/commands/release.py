@@ -79,7 +79,7 @@ def entry_point(options):
 
     # Look for previous version
     if tags_index == len(sorted_release_keys) - 1:
-        change_log = "Initial commit"
+        change_log = "Initial release"
     else:
         prev_key = sorted_release_keys[tags_index + 1]
         prev_version = tags_list[prev_key]
