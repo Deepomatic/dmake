@@ -154,6 +154,17 @@ def find_repo_root(path=os.getcwd()):
         sub_dir = ''  # IMPORTANT: Need to get rid of the leading '.' to unify behaviour
     return root_dir, sub_dir
 
+def git_get_upstream_branch_remote(branch):
+    upstream_branch = run_shell_command('git rev-parse --abbrev-ref --symbolic-full-name {}@{{upstream}}'.format(branch), ignore_error=True)
+    if not upstream_branch:
+        # assume 'origin' as remote name
+        return 'origin'
+    if '/' not in upstream_branch:
+        # upstream branch is local, get its own upstream
+        return git_get_upstream_branch_remote(upstream_branch)
+    remote = upstream_branch.split('/')[0]
+    return remote
+
 ###############################################################################
 
 pulled_config_dirs = {}
@@ -333,7 +344,6 @@ def init(_options):
         command = "test"
 
     # Find git info
-    remote = None
     repo = ''
     repo_url = None
     repo_github_owner = None
@@ -346,6 +356,7 @@ def init(_options):
     else:
         remote = upstream_branch.split('/')[0]
     # Find repo
+    remote = git_get_upstream_branch_remote('HEAD')
     repo_url = run_shell_command('git config --get remote.%s.url' % (remote), ignore_error=True)
     repo = re.search('/([^/]*?)(\.git)?$', repo_url)
     if repo is not None:
