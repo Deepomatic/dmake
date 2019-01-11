@@ -332,24 +332,29 @@ def init(_options):
     if is_pr and not is_local and command == "deploy":
         command = "test"
 
-    # Find repo
+    # Find git info
     remote = None
     repo = ''
     repo_url = None
     repo_github_owner = None
     commit_id = ''
+    # Find remote
     upstream_branch = run_shell_command('git rev-parse --abbrev-ref --symbolic-full-name @{upstream}', ignore_error=True)
     if not upstream_branch:
         # assume 'origin' as remote name
         remote = 'origin'
     else:
         remote = upstream_branch.split('/')[0]
+    # Find repo
     repo_url = run_shell_command('git config --get remote.%s.url' % (remote), ignore_error=True)
     repo = re.search('/([^/]*?)(\.git)?$', repo_url)
     if repo is not None:
         repo = repo.group(1)
     else:
-        repo = ''
+        # use local directory name for local repos with no remote
+        repo_root, _ = find_repo_root()
+        repo = os.path.basename(repo_root)
+    assert repo, "repo cannot be empty"
     repo_github_owner = re.search('github.com[:/](.*?)/', repo_url)
     if repo_github_owner is not None:
         repo_github_owner = repo_github_owner.groups()[0]
