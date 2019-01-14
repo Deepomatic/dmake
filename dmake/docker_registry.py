@@ -88,7 +88,7 @@ def get_image_digest(image):
 
     # https://docs.docker.com/registry/spec/api/#content-digests
     if response.status_code != 200 or 'Docker-Content-Digest' not in response.headers:
-        raise DMakeException('Docker registry: Error getting image digest: %s %s' % (response.status_code, response.text))
+        raise DMakeException('Docker registry: Error getting image digest: %s%s %s %s' % (REGISTRY_URL, manifest_path, response.status_code, response.text))
 
     return response.headers['Docker-Content-Digest']
 
