@@ -111,6 +111,6 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
         dmake_with_dependencies = '--dependencies'
     }
 
-    sh "${params.CUSTOM_ENVIRONMENT} dmake ${dmake_command} ${dmake_with_dependencies} '${params.DMAKE_APP}'"
+    sh "${params.CUSTOM_ENVIRONMENT} python3 \$(which dmake) ${dmake_command} ${dmake_with_dependencies} '${params.DMAKE_APP}'"
     load 'DMakefile'
 }
