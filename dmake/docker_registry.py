@@ -12,6 +12,7 @@ import dmake.docker_config as docker_config
 REGISTRY_URL = 'https://registry-1.docker.io'
 
 
+@lru_cache()
 def create_authenticated_requests_session(registry_url, token_url, scope, service):
     """Performs docker registry authentication.
 
