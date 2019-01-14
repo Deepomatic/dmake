@@ -36,7 +36,6 @@ def get_docker_config_auth(registry_url, dockercfg = '~/.docker/config.json'):
     except FileNotFoundError:
         raise common.DockerConfigFileNotFoundException(dockercfg)
 
-    credentials_store = None
     if 'credHelpers' in cfg_data:
         credentials_helpers = cfg_data['credHelpers']
         hostname = convert_to_hostname(registry_url)
@@ -49,6 +48,7 @@ def get_docker_config_auth(registry_url, dockercfg = '~/.docker/config.json'):
                 if registry.startswith(registry_url):
                     return credentials_store, registry, {}
 
+    credentials_store = None
     if 'credsStore' in cfg_data:
         credentials_store = cfg_data['credsStore']
 
