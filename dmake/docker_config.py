@@ -56,6 +56,9 @@ def get_docker_config_auth(registry_url, dockercfg = '~/.docker/config.json'):
         if registry.startswith(registry_url):
             return credentials_store, registry, registry_data
     else:
+        if registry_url == 'https://registry-1.docker.io':
+            # fallback to default v1 creds
+            return get_docker_config_auth('https://index.docker.io', dockercfg)
         raise DMakeException('Auth not found for registry %s in docker config file %s' % (registry_url, dockercfg))
 
 

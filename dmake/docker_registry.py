@@ -9,7 +9,7 @@ from dmake.common import DMakeException, to_string, lru_cache, logger
 import dmake.docker_config as docker_config
 
 
-REGISTRY_URL = 'https://index.docker.io'
+REGISTRY_URL = 'https://registry-1.docker.io'
 
 
 def create_authenticated_requests_session(registry_url, token_url, scope, service):
