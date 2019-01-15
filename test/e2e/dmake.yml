@@ -6,6 +6,7 @@ env:
     variables:
       REPO: ${REPO}
       REPO_SANITIZED: ${REPO_SANITIZED}
+      COMMIT_ID: ${COMMIT_ID}
 
 docker:
   root_image:
@@ -25,8 +26,15 @@ services:
           context: .
           dockerfile: ./deploy/Dockerfile
     tests:
+      data_volumes:
+        - container_volume: /dmake.yml
+          source: ./dmake.yml
+        - container_volume: /artifacts/
+          source: ./artifacts/
       commands:
         - test "${REPO}" = 'dmake'
         - test "${REPO_SANITIZED}" = 'dmake'
         - curl -sSf "${WEB_URL}/api/factorial/?n=5"
+        - test -f /dmake.yml
+        - rm -rf /artifacts/digest && echo "${COMMIT_ID}" > /artifacts/digest
       timeout: 5
