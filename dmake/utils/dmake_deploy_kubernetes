@@ -80,8 +80,8 @@ ANNOTATE_ARGS=( "${BASE_ARGS[@]}" annotate deployment/${SERVICE} --overwrite=tru
                 ${prefix}/git-branch="${BRANCH}"
                 ${prefix}/git-revision=${COMMIT}
               )
-# echo kubectl "${ANNOTATE_ARGS[@]}"
-# kubectl "${ANNOTATE_ARGS[@]}"
+echo kubectl "${ANNOTATE_ARGS[@]}"
+kubectl "${ANNOTATE_ARGS[@]}"
 
 echo_title Rollout status for ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
 
