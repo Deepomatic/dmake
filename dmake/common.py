@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 import logging
 import subprocess
 import re
@@ -40,6 +41,21 @@ class SharedVolumeNotFoundException(DMakeException):
 class DockerConfigFileNotFoundException(DMakeException):
     def __init__(self, filename):
         super(DockerConfigFileNotFoundException, self).__init__('Docker config file not found (needed for registry credentials: maybe run `docker login`): %s' % (filename))
+
+###############################################################################
+
+class DependenciesBooleanAction(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        super(DependenciesBooleanAction, self).__init__(option_strings, dest, nargs=0, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string in ["--no-dependencies", "-s", "--standalone"]:
+            value = False
+        elif option_string in ["-d", "--dependencies"]:
+            value = True
+        else:
+            assert False, "Invalid DependenciesBooleanAction option: {}".format(option_string)
+        setattr(namespace, self.dest, value)
 
 ###############################################################################
 

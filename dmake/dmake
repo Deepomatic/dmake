@@ -57,7 +57,9 @@ add_argument([parser_run],                 "service", help="Run an application o
 add_argument([parser_build],               "service", help="Build an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
 
 parser_shell.add_argument("-c", '--command', help="Pass to `docker run` specified command instead of `docker.command` defined in `dmake.yml` (default: `bash`).")
-add_argument([parser_shell, parser_run, parser_test], "-d", "--dependencies", required=False, default=False, action="store_true", help="By default, the service is launched as a standalone. If this flag is specified, the dependancies of the service and links specified in the test config as run as well.")
+add_argument([parser_shell, parser_run, parser_test],
+             "-d", "--dependencies", "--no-dependencies", "-s", "--standalone", required=False, default=False, dest='with_dependencies', action=common.DependenciesBooleanAction,
+             help="By default, the service is run/tested as a standalone. If this flag is set to true, the service is run/tested alongside its dependencies (service and link dependencies), recursively.")
 add_argument([parser_shell, parser_run], "-b", "--branch", required=False, default=None, help="Allow to launch the dockers with the environment variables of the given branch.")
 
 parser_release.add_argument("app", help="Create the release for the given app.")
