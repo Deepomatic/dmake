@@ -231,6 +231,8 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         elif command == 'deploy':
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
+            if common.options.with_dependencies and needs is not None:
+                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, 'deploy')
         else:
             raise Exception("Unknown command '%s'" % command)
 
