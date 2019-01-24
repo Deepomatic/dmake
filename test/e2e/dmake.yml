@@ -36,5 +36,7 @@ services:
         - test "${REPO_SANITIZED}" = 'dmake'
         - curl -sSf "${WEB_URL}/api/factorial/?n=5"
         - test -f /dmake.yml
-        - rm -rf /artifacts/digest && echo "${COMMIT_ID}" > /artifacts/digest
+        - rm -rf /artifacts/digest
+        - echo "${COMMIT_ID}" > /artifacts/digest
+        - chmod -R a+w /artifacts/
       timeout: 5
