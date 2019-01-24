@@ -217,7 +217,7 @@ You can now create your release:
 
 ```sh
 SEMVER_TAG=1.0.0  # put your release tag here
-git tag $[SEMVER_TAG}
+git tag ${SEMVER_TAG}
 git push origin ${SEMVER_TAG}
 dmake release -t ${SEMVER_TAG} myapp
 ```
