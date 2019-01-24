@@ -5,6 +5,7 @@ import uuid
 import importlib
 import re
 import requests.exceptions
+from string import Template
 from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import dmake.common as common
 from dmake.common import DMakeException, SharedVolumeNotFoundException
@@ -722,7 +723,7 @@ class KubernetesSecretSerializer(YAML2PipelineSerializer):
         return k8s_utils.generate_from_create(args=['secret', 'generic'], name=self.name, from_file_args=from_file_args)
 
 class KubernetesManifestSerializer(YAML2PipelineSerializer):
-    template  = FieldSerializer("file", example="path/to/kubernetes-manifest.yaml", help_text="Kubernetes manifest file (template) defining all the resources needed to deploy the service")
+    template  = FieldSerializer("file", example="path/to/kubernetes-manifest.yaml", help_text="Kubernetes manifest file (Python PEP 292 template format) defining all the resources needed to deploy the service")
     variables = FieldSerializer('dict', child="string", default={}, help_text="Defines variables used in the kubernetes manifest template", example={'TLS_SECRET_NAME': '${K8S_DEPLOY_TLS_SECRET_NAME}'})
 
     def _validate_(self, file, needed_migrations, data, field_name):
@@ -745,7 +746,7 @@ class KubernetesManifestSerializer(YAML2PipelineSerializer):
 class KubernetesDeploySerializer(YAML2PipelineSerializer):
     context     = FieldSerializer("string", help_text="kubectl context to use.")
     namespace   = FieldSerializer("string", optional=True, help_text="Kubernetes namespace to target (overrides kubectl context default namespace")
-    manifest    = FieldSerializer(KubernetesManifestSerializer(), optional=True, help_text="Kubernetes manifest (file template) defining all the resources needed to deploy the service")
+    manifest    = FieldSerializer(KubernetesManifestSerializer(), optional=True, help_text="Kubernetes manifest defining all the resources needed to deploy the service")
     config_maps = FieldSerializer("array", child=KubernetesConfigMapSerializer(), default=[], help_text="Additional Kubernetes ConfigMaps")
     secrets     = FieldSerializer("array", child=KubernetesSecretSerializer(), default=[], help_text="Additional Kubernetes Secrets")
 
@@ -802,7 +803,9 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             }
             template_context = self.manifest.get_template_variables(env)
             template_context.update(template_default_context)
-            user_manifest_data_str = common.run_shell_command('dmake_replace_vars %s' % (self.manifest.template), additional_env = template_context, raise_on_return_code=True)
+            with open(self.manifest.template, 'r') as f:
+                user_manifest_template = Template(f.read())
+            user_manifest_data_str = user_manifest_template.substitute(**template_context)
             with open(user_manifest_path, 'w') as f:
                 k8s_utils.dump_all_str_and_add_labels(user_manifest_data_str, f, dmake_generated_labels)
             # verify the manifest file
