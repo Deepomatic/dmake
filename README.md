@@ -41,7 +41,7 @@ cd tutorial
 For those who just want to see the results, just run:
 
 ```sh
-dmake run -d web
+dmake run web
 ```
 
 Once it has completed, the factorial demo is available at [http://localhost:8000](http://localhost:8000)
@@ -158,16 +158,17 @@ For most commands, `<service>` can also be `*` to target all services.
 Now that we went through the configuration file, you can try to test the worker with:
 
 ```sh
-dmake test -d worker
+dmake test worker
 ```
 
-The `-d` option tells **DMake** to run all the dependencies of the service as well.
+**DMake** will execute the `worker` tests in an enviroment where all its (runtime) dependencies are also launched. It will also recursively tests its dependencies before running them.
+You can use `--standalone` (or `-s`) to ignore the dependencies.
 
 #### `dmake shell`
 To interactively work on a service, dmake provides a shell access in the service container (running the base image), with the sources mounted into it:
 
 ```sh
-dmake shell -d worker
+dmake shell worker
 ```
 There you can build an execute your service, and quickly iterate by editting the code from your favorite editor.
 
@@ -175,7 +176,7 @@ There you can build an execute your service, and quickly iterate by editting the
 You can now run the full app with:
 
 ```sh
-dmake run -d web
+dmake run web
 ```
 It will start the `web` service with all its dependencies (RabbitMQ and the worker).
 
@@ -184,7 +185,7 @@ Once it has completed, the factorial demo is available at [http://localhost:8000
 By the way, when there are multiple application in the same repository and multiple services with the same name, you must specify the full service name like this:
 
 ```sh
-dmake run -d dmake-tutorial/web
+dmake run dmake-tutorial/web
 ```
 
 #### `dmake build`
