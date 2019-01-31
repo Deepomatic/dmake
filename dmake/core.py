@@ -879,7 +879,7 @@ def make(options):
     if common.is_local:
         result = subprocess.call('bash %s' % file_to_generate, shell=True)
         # Do not clean for the 'run' command
-        do_clean = common.command != 'run'
+        do_clean = common.command not in ['build_docker', 'run']
         if result != 0 and common.command in ['shell', 'test']:
             r = common.read_input("An error was detected. DMake will stop. The script directory is : %s.\nDo you want to stop all the running containers? [Y/n] " % common.tmp_dir)
             if r.lower() != 'y' and r != "":
