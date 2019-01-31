@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import uuid
 
@@ -876,7 +877,7 @@ def make(options):
 
     # If on local, run the commands
     if common.is_local:
-        result = os.system('bash %s' % file_to_generate)
+        result = subprocess.call('bash %s' % file_to_generate, shell=True)
         # Do not clean for the 'run' command
         do_clean = common.command != 'run'
         if result != 0 and common.command in ['shell', 'test']:
@@ -885,3 +886,4 @@ def make(options):
                 do_clean = False
         if do_clean:
             os.system('dmake_clean')
+        sys.exit(result)
