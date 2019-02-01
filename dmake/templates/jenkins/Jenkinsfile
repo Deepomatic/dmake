@@ -104,12 +104,7 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
         dmake_command = is_pr ? 'test' : 'deploy'
     }
 
-    dmake_with_dependencies = ''
-    if (params.DMAKE_WITH_DEPENDENCIES
-        && dmake_command != 'deploy')  // For now `dmake deploy` is always with dependencies, and does not support the `-d` option
-    {
-        dmake_with_dependencies = '--dependencies'
-    }
+    dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '--dependencies' : '--standalone'
 
     sh "${params.CUSTOM_ENVIRONMENT} python3 \$(which dmake) ${dmake_command} ${dmake_with_dependencies} '${params.DMAKE_APP}'"
     load 'DMakefile'
