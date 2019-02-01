@@ -611,7 +611,18 @@ def get_tag_name():
 
 ###############################################################################
 
-def make(options):
+def service_completer(prefix, parsed_args, **kwargs):
+    common.init(parsed_args)
+    files = make(parsed_args, parse_files_only=True)
+    services = []
+    for file, dmake_file in files.items():
+        for service in dmake_file.get_services():
+            services.append(service.service_name)
+    return services
+
+###############################################################################
+
+def make(options, parse_files_only=False):
     app = getattr(options, 'service', None)
 
     # Format args
@@ -643,6 +654,9 @@ def make(options):
     service_dependencies = {}
     for file in build_files:
         load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, file)
+
+    if parse_files_only:
+        return loaded_files
 
     # Register all apps and services in the repo
     docker_links = {}
