@@ -25,6 +25,11 @@ def add_argument(parsers, *args, **kwargs):
         parser.add_argument(*args, **kwargs)
 
 
+def completion_action(args):
+    print(argcomplete.shellcode('dmake', shell=args.shell))
+
+
+
 # Find root
 try:
     root_dir, sub_dir = common.find_repo_root()
@@ -41,7 +46,7 @@ argparser.add_argument('--debug-graph-and-exit', default=False, action='store_tr
 argparser.add_argument('--debug-graph-output-filename', default='dmake-services.gv', help="The generated DOT graph filename.")
 argparser.add_argument('--debug-graph-output-format', default='png', help="The generated DOT graph format (`png`, `svg`, `pdf`, ...).")
 
-subparsers = argparser.add_subparsers(dest='cmd')
+subparsers = argparser.add_subparsers(dest='cmd', title='Commands')
 subparsers.required = True
 
 parser_test    = subparsers.add_parser('test', help="Launch tests for the whole repo or, if specified, an app or one of its services.")
@@ -79,6 +84,29 @@ parser_stop.set_defaults(func=commands.stop.entry_point)
 parser_shell.set_defaults(func=core.make)
 parser_deploy.set_defaults(func=core.make)
 parser_release.set_defaults(func=commands.release.entry_point)
+
+
+# Shell completion
+parser_completion = subparsers.add_parser('completion',
+                                          help="Output shell completion code for bash (may work for zsh)",
+                                          formatter_class=argparse.RawDescriptionHelpFormatter,
+                                          description="""
+This command can generate shell autocompletions. e.g.
+
+    $ dmake completion
+
+Can be sourced as such
+
+    $ source <(dmake completion)
+
+./install.sh should have already installed everything in:
+- ${HOME}/.dmake/completion.bash.inc
+- ${HOME}/.dmake/config.sh
+- ${HOME}/.bashrc
+""",
+                                          )
+parser_completion.add_argument("shell", nargs='?', default='bash', choices=['bash'], help="Shell to emit completion for")
+parser_completion.set_defaults(func=completion_action)
 
 try:
     # Parse command args
