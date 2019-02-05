@@ -40,10 +40,7 @@ node {
 
   def self_test = (params.REPO_TO_TEST == 'deepomatic/dmake')
 
-  def dmake_with_dependencies = ''
-  if (params.DMAKE_WITH_DEPENDENCIES) {
-    dmake_with_dependencies = '--dependencies'
-  }
+  def dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '--dependencies' : '--standalone'
 
   stage('Setup') {
     checkout scm

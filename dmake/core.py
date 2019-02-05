@@ -198,8 +198,6 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
     if command == 'test' and common.skip_tests:
         return []
 
-    with_dependencies = getattr(common.options, 'dependencies', None)
-
     if node not in service_dependencies:
         if service not in service_providers:
             raise DMakeException("Cannot find service: %s" % service)
@@ -207,16 +205,16 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         children = []
         if command == 'shell':
             children += activate_service_shared_volumes(loaded_files, service_providers, service)
-            if with_dependencies and needs is not None:
+            if common.options.with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
             children += activate_base(base_variant)
         elif command == 'test':
             children += activate_service_shared_volumes(loaded_files, service_providers, service)
-            if with_dependencies and needs is not None:
+            if common.options.with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
-            if with_dependencies:
+            if common.options.with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'build_docker':
             children += activate_base(base_variant)
@@ -225,7 +223,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             if common.command in ['test', 'deploy']:
                 children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
-            if with_dependencies and needs is not None:
+            if common.options.with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs)
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'run_link':
@@ -714,8 +712,6 @@ def make(options):
             del deps[i]
 
     is_app_only = auto_completed_app is None or auto_completed_app.find('/') < 0
-    if common.command == "run" and is_app_only:
-        common.options.dependencies = True
 
     if auto_completed_app is None:
         # Find file where changes have happened
