@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 
 import sys
 import os
+import argcomplete
 import argparse
 import dmake.commands as commands
 import dmake.core as core
@@ -23,6 +25,11 @@ def add_argument(parsers, *args, **kwargs):
         parser.add_argument(*args, **kwargs)
 
 
+def completion_action(args):
+    print(argcomplete.shellcode('dmake', shell=args.shell))
+
+
+
 # Find root
 try:
     root_dir, sub_dir = common.find_repo_root()
@@ -39,7 +46,7 @@ argparser.add_argument('--debug-graph-and-exit', default=False, action='store_tr
 argparser.add_argument('--debug-graph-output-filename', default='dmake-services.gv', help="The generated DOT graph filename.")
 argparser.add_argument('--debug-graph-output-format', default='png', help="The generated DOT graph format (`png`, `svg`, `pdf`, ...).")
 
-subparsers = argparser.add_subparsers(dest='cmd')
+subparsers = argparser.add_subparsers(dest='cmd', title='Commands')
 subparsers.required = True
 
 parser_test    = subparsers.add_parser('test', help="Launch tests for the whole repo or, if specified, an app or one of its services.")
@@ -51,10 +58,15 @@ parser_deploy  = subparsers.add_parser('deploy', help="Deploy specified apps and
 parser_release = subparsers.add_parser('release', help="Create a release of the app on Github.")
 
 
-add_argument([parser_test, parser_deploy], "service", nargs='?', default='*', help="Apply command to the full repository or, if specified, to the app/service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
-add_argument([parser_shell],               "service", nargs='?', default='.', help="Run a shell session withing the docker base image for the given service. You may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
-add_argument([parser_run],                 "service", help="Run an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
-add_argument([parser_build],               "service", help="Build an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.")
+# "service" argument
+for parser in [parser_test, parser_deploy]:
+    parser.add_argument("service", nargs='?', default='*', help="Apply command to the full repository or, if specified, to the app/service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
+for parser in [parser_shell]:
+    parser.add_argument("service", nargs='?', default='.', help="Run a shell session withing the docker base image for the given service. You may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
+for parser in [parser_run]:
+    parser.add_argument("service", help="Run an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
+for parser in [parser_build]:
+    parser.add_argument("service", help="Build an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
 
 parser_shell.add_argument("-c", '--command', help="Pass to `docker run` specified command instead of `docker.command` defined in `dmake.yml` (default: `bash`).")
 add_argument([parser_shell, parser_run, parser_test, parser_deploy],
@@ -73,8 +85,32 @@ parser_shell.set_defaults(func=core.make)
 parser_deploy.set_defaults(func=core.make)
 parser_release.set_defaults(func=commands.release.entry_point)
 
+
+# Shell completion
+parser_completion = subparsers.add_parser('completion',
+                                          help="Output shell completion code for bash (may work for zsh)",
+                                          formatter_class=argparse.RawDescriptionHelpFormatter,
+                                          description="""
+This command can generate shell autocompletions. e.g.
+
+    $ dmake completion
+
+Can be sourced as such
+
+    $ source <(dmake completion)
+
+./install.sh should have already installed everything in:
+- ${HOME}/.dmake/completion.bash.inc
+- ${HOME}/.dmake/config.sh
+- ${HOME}/.bashrc
+""",
+                                          )
+parser_completion.add_argument("shell", nargs='?', default='bash', choices=['bash'], help="Shell to emit completion for")
+parser_completion.set_defaults(func=completion_action)
+
 try:
     # Parse command args
+    argcomplete.autocomplete(argparser, default_completer=None)
     args = argparser.parse_args()
     common.init(args)
     args.func(args)

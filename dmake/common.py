@@ -256,7 +256,7 @@ def dump_dot_graph(dependencies, attributes):
 
 ###############################################################################
 
-def init(_options):
+def init(_options, early_exit=False):
     global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_filename, dot_graph_format
     global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
@@ -273,6 +273,9 @@ def init(_options):
 
     if command == 'build':
         command = 'build_docker'
+
+    if command == 'completion':
+        early_exit = True
 
     generate_dot_graph = options.debug_graph or options.debug_graph_and_exit
     exit_after_generate_dot_graph = options.debug_graph_and_exit
@@ -411,6 +414,9 @@ def init(_options):
     os.environ["BUILD"]       = str(build_id)
     os.environ["REPO_SANITIZED"]   = sanitize_name(repo)
     os.environ["BRANCH_SANITIZED"] = sanitize_name(str(branch))
+
+    if early_exit:
+        return
 
     logger.info("===============")
     logger.info("REPO : %s" % repo)

@@ -163,17 +163,20 @@ export DMAKE_GITHUB_OWNER=\${DMAKE_GITHUB_OWNER:-${DMAKE_GITHUB_OWNER}}
 export DMAKE_GITHUB_TOKEN=\${DMAKE_GITHUB_TOKEN:-${DMAKE_GITHUB_TOKEN}}
 export PYTHONPATH=\$PYTHONPATH:\${DMAKE_PATH}
 export PATH=\$PATH:\${DMAKE_PATH}/dmake/:\${DMAKE_PATH}/dmake/utils
+
+# Shell completion
+if [ -f "${DMAKE_CONFIG_DIR}/completion.bash.inc" ]; then
+  source "${DMAKE_CONFIG_DIR}/completion.bash.inc"
+fi
 EOF
 
 LINE="source ${CONFIG_FILE}"
 if [ -z "`which dmake`" ]; then
     # Try to automatically adds the source
-    INSTALLED=0
     for SHRC in `ls ~/\.*shrc`; do
         if [ -z "`grep \"${LINE}\" ${SHRC}`" ]; then
             echo "We detected a shell config file here: ${SHRC}, patching to source ${CONFIG_FILE}"
             echo "${LINE}" >> ${SHRC}
-            INSTALLED=1
         else
             echo "Patched ${SHRC} to source ${CONFIG_FILE}."
         fi
@@ -185,5 +188,13 @@ fi
 echo "Installing python dependencies with: pip install --user -r requirements.txt"
 pip install --user -r $(dirname $0)/requirements.txt
 echo ""
+
+if [ ! -f "${DMAKE_CONFIG_DIR}/completion.bash.inc" ]; then
+  echo "Installing shell completion"
+  # eval and generate shell completion
+  eval "${LINE}"
+  dmake completion > "${DMAKE_CONFIG_DIR}/completion.bash.inc"
+fi
+
 echo "You should be good to go !"
 echo "IMPORTANT: restart your shell session before testing the 'dmake' command !"
