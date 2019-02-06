@@ -612,7 +612,7 @@ def get_tag_name():
 ###############################################################################
 
 def service_completer(prefix, parsed_args, **kwargs):
-    common.init(parsed_args)
+    common.init(parsed_args, early_exit=True)
     files = make(parsed_args, parse_files_only=True)
     services = []
     for file, dmake_file in files.items():
