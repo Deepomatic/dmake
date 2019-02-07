@@ -171,7 +171,10 @@ def find_repo_root(path=os.getcwd()):
     return root_dir, sub_dir
 
 def git_get_upstream_branch_remote(branch):
-    upstream_branch = run_shell_command('git rev-parse --abbrev-ref --symbolic-full-name {}@{{upstream}}'.format(branch), ignore_error=True)
+    try:
+        upstream_branch = run_shell_command('git rev-parse --abbrev-ref --symbolic-full-name {}@{{upstream}} --'.format(branch), raise_on_return_code=True)
+    except ShellError:
+        upstream_branch = None
     if not upstream_branch:
         # assume 'origin' as remote name
         return 'origin'
