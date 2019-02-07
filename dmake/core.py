@@ -774,7 +774,7 @@ def make(options, parse_files_only=False):
 
         ordered_build_files = [('Building Base', base),
                                ('Building App', build),
-                               ('Testing App', test)]
+                               ('Running App', test)]
 
         if not common.is_pr:
             ordered_build_files.append(('Deploying', list(deploy)))
