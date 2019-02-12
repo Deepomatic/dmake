@@ -1,7 +1,8 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as builder
 
-WORKDIR /app/test/worker
+ARG WORKDIR
+WORKDIR ${WORKDIR}
 
 COPY . .
 
