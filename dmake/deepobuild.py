@@ -1004,7 +1004,10 @@ class ServiceDockerV2Serializer(ServiceDockerCommonSerializer):
     def _generate_build_docker(self, commands, path_dir, docker_base, build):
         image_name = self.get_image_name()
         base_image_name = docker_base.get_docker_base_image(self.base_image_variant)
-        build_args = {'BASE_IMAGE': base_image_name}
+        build_args = {
+            'BASE_IMAGE': base_image_name,
+            'WORKDIR': os.path.join(docker_base.mount_point, path_dir),
+        }
         self.build._serialize_(commands, path_dir, image_name, build_args)
 
 class ReadinessProbeSerializer(YAML2PipelineSerializer):
