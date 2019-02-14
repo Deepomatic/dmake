@@ -52,18 +52,23 @@ APPLY_BASE_ARGS=( "${BASE_ARGS[@]}" apply --record=false --output=yaml )
 if [[ "${DMAKE_K8S_DRY_RUN}" == "1" ]]; then
   APPLY_BASE_ARGS+=( --dry-run )
 fi
-# first, non-pruned resources
-APPLY_NO_PRUNING_ARGS=( "${APPLY_BASE_ARGS[@]}" "${FILES_NO_PRUNING_ARGS[@]}" )
 
-echo kubectl "${APPLY_NO_PRUNING_ARGS[@]}"
-kubectl "${APPLY_NO_PRUNING_ARGS[@]}"
+# first, non-pruned resources
+if [ ${#FILES_NO_PRUNING_ARGS[@]} -ne 0 ]; then
+  APPLY_NO_PRUNING_ARGS=( "${APPLY_BASE_ARGS[@]}" "${FILES_NO_PRUNING_ARGS[@]}" )
+
+  echo kubectl "${APPLY_NO_PRUNING_ARGS[@]}"
+  kubectl "${APPLY_NO_PRUNING_ARGS[@]}"
+fi
 
 # second, normal resources (we prune them)
-SELECTOR="dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/prune!=no-pruning"
-APPLY_ARGS=( "${APPLY_BASE_ARGS[@]}" --prune=true --cascade=true --selector="${SELECTOR}" "${FILES_ARGS[@]}" )
+if [ ${#FILES_ARGS[@]} -ne 0 ]; then
+  SELECTOR="dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/prune!=no-pruning"
+  APPLY_ARGS=( "${APPLY_BASE_ARGS[@]}" --prune=true --cascade=true --selector="${SELECTOR}" "${FILES_ARGS[@]}" )
 
-echo kubectl "${APPLY_ARGS[@]}"
-kubectl "${APPLY_ARGS[@]}"
+  echo kubectl "${APPLY_ARGS[@]}"
+  kubectl "${APPLY_ARGS[@]}"
+fi
 
 if [[ "${DMAKE_K8S_DRY_RUN}" == "1" ]]; then
   echo "dry-run, exiting"
