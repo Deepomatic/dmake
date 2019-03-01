@@ -7,7 +7,8 @@
 # Finds the k8s deployments running the image (those having label dmake_${SERVICE_NAME})
 # and update the image.
 
-import os, sys
+import os
+import sys
 import kubernetes
 from kubernetes.client.rest import ApiException
 import time
@@ -15,7 +16,7 @@ import yaml
 from multiprocessing.pool import ThreadPool
 
 import logging
-FORMAT='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ for s in sys.argv[7].split(","):
 WAIT_POLL_INTERVAL = 1  # seconds
 PARALLEL_UPDATE_THREAD_POOL_SIZE = 10  # number of Deployments being updated in parallel
 
-os.system('kubectl get nodes') # refresh auth token for kubectl, otherwise next line might fail
+os.system('kubectl get nodes')  # refresh auth token for kubectl, otherwise next line might fail
 kubernetes.config.load_kube_config(context=context)
 
 if os.getenv('DMAKE_DEBUG') == '1':
@@ -121,16 +122,16 @@ for i in ret.items:
 
 
 def print_deployment(deployment, msg):
-    logger.debug("Deployment %s: %s" %(msg, deployment))
+    logger.debug("Deployment %s: %s" % (msg, deployment))
 
 def patch_deployment(name):
-    #TODO use container name from label value (using `selector)
-    assert(len(i.spec.template.spec.containers) == 1, \
-        "Multiple containers found in Pod definition; not yet supported.")
+    # TODO use container name from label value (using `selector)
+    assert len(i.spec.template.spec.containers) == 1, \
+        "Multiple containers found in Pod definition; not yet supported."
 
     # patch container image
     json_patch = [
-        { "op": "replace", "path": "/spec/template/spec/containers/0/image", "value": image }
+        {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": image}
     ]
 
     # patch envFrom ConfigMap
@@ -142,9 +143,9 @@ def patch_deployment(name):
     except:
         pass
     if existing_configmap_env_name is None:
-        json_patch.append({ "op": "add", "path": "/spec/template/spec/containers/0/envFrom", "value": [{"configMapRef": {"name": configmap_env_name}}] })
+        json_patch.append({"op": "add", "path": "/spec/template/spec/containers/0/envFrom", "value": [{"configMapRef": {"name": configmap_env_name}}]})
     else:
-        json_patch.append({ "op": "replace", "path": "/spec/template/spec/containers/0/envFrom/0/configMapRef/name", "value": configmap_env_name })
+        json_patch.append({"op": "replace", "path": "/spec/template/spec/containers/0/envFrom/0/configMapRef/name", "value": configmap_env_name})
 
     # do patch
     return beta_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
