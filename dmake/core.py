@@ -847,7 +847,7 @@ def make(options, parse_files_only=False):
 
         # GPU resource lock
         # `common.need_gpu` is set during Testing commands generations: need to delay adding commands to all_commands to create the gpu lock if needed around the Testing stage
-        lock_gpu = stage == "Testing App" and common.need_gpu
+        lock_gpu = (stage == "Running App") and common.need_gpu
         if lock_gpu:
             append_command(all_commands, 'lock', label='GPUS')
 
