@@ -42,9 +42,10 @@ os.system('kubectl get nodes')  # refresh auth token for kubectl, otherwise next
 kubernetes.config.load_kube_config(context=context)
 
 if os.getenv('DMAKE_DEBUG') == '1':
-    kubernetes.client.configuration.debug = True
+    configuration = kubernetes.client.Configuration()
+    configuration.debug = True
+    kubernetes.client.Configuration.set_default(configuration)
     logger.setLevel(logging.DEBUG)
-
 
 # check existing env ConfigMap
 v1_client = kubernetes.client.CoreV1Api()
