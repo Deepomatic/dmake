@@ -9,7 +9,6 @@
 
 import os
 import sys
-from functools import partial
 import kubernetes
 from kubernetes.client.rest import ApiException
 import time
@@ -49,6 +48,8 @@ if os.getenv('DMAKE_DEBUG') == '1':
 
 # check existing env ConfigMap
 v1_client = kubernetes.client.CoreV1Api()
+apps_v1_client = kubernetes.client.AppsV1Api()
+
 with open(configmap_env_file) as f:
     configmap = yaml.load(f)
 configmap_env_name = configmap['metadata']['name']
@@ -99,15 +100,15 @@ selector = "dmake_%s" % service
 label_selector = selector
 if selectors:
     label_selector += ',' + selectors
-def get_deployments(client):
-    ret = client.list_namespaced_deployment(namespace, label_selector=label_selector)
+def get_deployments():
+    ret = apps_v1_client.list_namespaced_deployment(namespace, label_selector=label_selector)
     deployments = ret.items
     return deployments
 
 def print_deployment(deployment, msg):
     logger.debug("Deployment %s: %s" % (msg, deployment))
 
-def patch_deployment(client, deployment):
+def patch_deployment(deployment):
     name = deployment.metadata.name
     # TODO use container name from label value (using `selector`)
     # container = deployment.metadata.labels[selector]
@@ -133,14 +134,14 @@ def patch_deployment(client, deployment):
         json_patch.append({"op": "replace", "path": "/spec/template/spec/containers/0/envFrom/0/configMapRef/name", "value": configmap_env_name})
 
     # do patch
-    return client.patch_namespaced_deployment(name, namespace, json_patch)
+    return apps_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
 
-def wait_deployment(client, deployment):
+def wait_deployment(deployment):
     name = deployment.metadata.name
     generation = deployment.metadata.generation
     old_observed_generation = deployment.status.observed_generation
     while True:
-        api_response = client.read_namespaced_deployment(name, namespace)
+        api_response = apps_v1_client.read_namespaced_deployment(name, namespace)
         print_deployment(api_response, "wait")
         if api_response.spec.replicas == 0:
             break
@@ -152,24 +153,20 @@ def wait_deployment(client, deployment):
     logger.info("  Deployment ready: %s" % name)
 
 
-def update_deployment(client, deployment):
+def update_deployment(deployment):
     print_deployment(deployment, "pre-patch")
     logger.info("- Updating Deployment %s" % deployment.metadata.name)
-    patched_deployment = patch_deployment(client, deployment)
+    patched_deployment = patch_deployment(deployment)
     print_deployment(patched_deployment, "patched")
-    wait_deployment(client, patched_deployment)
+    wait_deployment(patched_deployment)
 
 
 # Really update Deployments
 logger.info("Deploying new image %s with ConfigMap env %s" % (image, configmap_env_name))
 
-# Handle both old and new Deployments apiVersions
-beta_v1_client = kubernetes.client.ExtensionsV1beta1Api()
-apps_v1_client = kubernetes.client.AppsV1Api()
 
 pool = ThreadPool(PARALLEL_UPDATE_THREAD_POOL_SIZE)
-for client in (beta_v1_client, apps_v1_client):
-    deployments = get_deployments(client)
-    pool.map(partial(update_deployment, client), deployments)
+deployments = get_deployments()
+pool.map(update_deployment, deployments)
 
 logger.info("Finished updating Deployments with new image %s with ConfigMap env %s" % (image, configmap_env_name))
