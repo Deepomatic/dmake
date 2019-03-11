@@ -32,12 +32,7 @@ namespace = sys.argv[3]
 service   = sys.argv[4]
 image     = sys.argv[5]
 configmap_env_file = sys.argv[6]
-selectors = {}
-for s in sys.argv[7].split(","):
-    if len(s.strip()) == 0:
-        continue
-    s = s.split("=")
-    selectors[s[0]] = "=".join(s[1:])
+selectors = sys.argv[7]
 
 # config
 WAIT_POLL_INTERVAL = 1  # seconds
@@ -100,20 +95,12 @@ if op_dmake_cm is not None:
 
 # Update Deployments
 selector = "dmake_%s" % service
+label_selector = selector
+if selectors:
+    label_selector += ',' + selectors
 def get_deployments(client):
-    ret = client.list_namespaced_deployment(namespace, label_selector=selector)
-    deployments = []
-    # filter Deployments against `selectors`
-    # TODO could instead merge with `selector` and use in previous `label_selector`
-    for i in ret.items:
-        match = True
-        for key, value in selectors.items():
-            if key in i.metadata.labels or i.metadata.labels[key] != value:
-                match = False
-                break
-        if not match:
-            continue
-        deployments.append(i)
+    ret = client.list_namespaced_deployment(namespace, label_selector=label_selector)
+    deployments = ret.items
     return deployments
 
 def print_deployment(deployment, msg):
@@ -122,6 +109,7 @@ def print_deployment(deployment, msg):
 def patch_deployment(client, deployment):
     name = deployment.metadata.name
     # TODO use container name from label value (using `selector`)
+    # container = deployment.metadata.labels[selector]
     assert len(deployment.spec.template.spec.containers) == 1, \
         "Multiple containers found in Pod definition; not yet supported."
 
@@ -166,8 +154,6 @@ def wait_deployment(client, deployment):
 def update_deployment(client, deployment):
     print_deployment(deployment, "pre-patch")
     logger.info("- Updating Deployment %s" % deployment.metadata.name)
-    # container = deployment.metadata.labels[selector]
-    # TODO use container name instead of first container
     patched_deployment = patch_deployment(client, deployment)
     print_deployment(patched_deployment, "patched")
     wait_deployment(client, patched_deployment)
