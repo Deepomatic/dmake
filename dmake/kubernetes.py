@@ -45,11 +45,11 @@ def add_labels(resource, labels):
     resource['metadata']['labels'].update(labels)
 
 
-def dump_all_str_and_add_labels(data_str, file, labels):
+def dump_all_str_and_add_labels(data_str, labels, file=None):
     data = common.yaml_ordered_load(data_str, all=True)
     for resource in data:
         add_labels(resource, labels)
-    common.yaml_ordered_dump(data, file, all=True)
+    return common.yaml_ordered_dump(data, file, all=True)
 
 
 def generate_from_create(args, name, from_file_args):

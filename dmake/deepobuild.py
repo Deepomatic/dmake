@@ -663,12 +663,17 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
 
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
         configmap_env_file = os.path.join(tmp_dir, 'kubernetes-configmap-env.yaml')
-        k8s_utils.generate_config_map_file(env, deploy_name, configmap_env_file)
+        configmap_env_labels = {
+            'app': deploy_name,
+            'product': app_name
+        }
+        k8s_utils.generate_config_map_file(env, deploy_name, configmap_env_file, labels=configmap_env_labels)
 
         program = 'dmake_deploy_k8s_cd'
         args = [common.tmp_dir,
                 common.eval_str_in_env(self.context, env),
                 common.eval_str_in_env(self.namespace, env),
+                app_name,
                 deploy_name,
                 image_name,
                 configmap_env_file,
@@ -704,9 +709,11 @@ class KubernetesConfigMapSerializer(YAML2PipelineSerializer):
     name       = FieldSerializer("string", example="nginx", help_text="Kubernetes ConfigMap name")
     from_files = FieldSerializer("array", child=KubernetesConfigMapFromFileSerializer(), default=[], help_text="Kubernetes create values from files")
 
-    def generate_manifest(self, env):
+    def generate_manifest(self, env, labels):
         from_file_args = [file_source.get_arg() for file_source in self.from_files]
-        return k8s_utils.generate_from_create(args=['configmap'], name=self.name, from_file_args=from_file_args)
+        data_str = k8s_utils.generate_from_create(args=['configmap'], name=self.name, from_file_args=from_file_args)
+        return k8s_utils.dump_all_str_and_add_labels(data_str, labels=labels)
+
 
 
 class KubernetesSecretGenericSerializer(YAML2PipelineSerializer):
@@ -717,9 +724,11 @@ class KubernetesSecretSerializer(YAML2PipelineSerializer):
     name    = FieldSerializer("string", example="ssh-key", help_text="Kubernetes Secret name")
     generic = FieldSerializer(KubernetesSecretGenericSerializer(), help_text="Kubernetes Generic Secret type parameters")
 
-    def generate_manifest(self, env):
+    def generate_manifest(self, env, labels):
         from_file_args = [file_source.get_arg(env) for file_source in self.generic.from_files]
-        return k8s_utils.generate_from_create(args=['secret', 'generic'], name=self.name, from_file_args=from_file_args)
+        data_str = k8s_utils.generate_from_create(args=['secret', 'generic'], name=self.name, from_file_args=from_file_args)
+        return k8s_utils.dump_all_str_and_add_labels(data_str, labels=labels)
+
 
 class KubernetesManifestSerializer(YAML2PipelineSerializer):
     template  = FieldSerializer("file", example="path/to/kubernetes-manifest.yaml", help_text="Kubernetes manifest file (Python PEP 292 template format) defining all the resources needed to deploy the service")
@@ -759,7 +768,10 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         dmake_generated_labels = {
             'dmake.deepomatic.com/service': deploy_name
         }
-
+        extra_labels = {
+            'app': deploy_name,
+            'product': app_name
+        }
         manifest_files = []
 
         # generate ConfigMap containing runtime environment variables
@@ -768,7 +780,8 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         configmap_env_labels = dmake_generated_labels.copy()
         configmap_env_labels.update({
             'dmake.deepomatic.com/prune': 'no-pruning'
-        });
+        })
+        configmap_env_labels.update(extra_labels)
         configmap_name = k8s_utils.generate_config_map_file(env, deploy_name, os.path.join(tmp_dir, configmap_env_filename), labels = configmap_env_labels)
 
         # additional resources
@@ -776,12 +789,12 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             if not sources:
                 return
             manifest_files.append(filename)
-            data = [source.generate_manifest(env=env) for source in sources]
+            data = [source.generate_manifest(env=env, labels=extra_labels) for source in sources]
             # concat manifests
             data_str = '%s\n' % ('\n\n---\n\n'.join(data))
             # write manifests to file
             with open(os.path.join(tmp_dir, filename), 'w') as f:
-                k8s_utils.dump_all_str_and_add_labels(data_str, f, dmake_generated_labels)
+                k8s_utils.dump_all_str_and_add_labels(data_str, dmake_generated_labels, f)
 
         user_configmaps_filename = 'kubernetes-user-configmaps.yaml'
         generate_and_write_additional_resources(self.config_maps, user_configmaps_filename)
@@ -806,7 +819,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 user_manifest_template = Template(f.read())
             user_manifest_data_str = user_manifest_template.substitute(**template_context)
             with open(user_manifest_path, 'w') as f:
-                k8s_utils.dump_all_str_and_add_labels(user_manifest_data_str, f, dmake_generated_labels)
+                k8s_utils.dump_all_str_and_add_labels(user_manifest_data_str, dmake_generated_labels, f)
             # verify the manifest file
             program = 'kubectl'
             args = ['apply', '--dry-run=true', '--validate=true', '--filename=%s' % user_manifest_path]

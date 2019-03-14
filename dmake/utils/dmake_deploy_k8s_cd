@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Usage:
-# dmake_deploy_k8s_cd DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME IMAGE_NAME CONFIGMAP_ENV_FILE SELECTORS
+# dmake_deploy_k8s_cd DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE APP_NAME SERVICE_NAME IMAGE_NAME CONFIGMAP_ENV_FILE SELECTORS
 #
 # Result:
 # Finds the k8s deployments running the image (those having label dmake_${SERVICE_NAME})
@@ -28,10 +28,11 @@ if len(sys.argv) < 8:
 tmp_dir   = sys.argv[1]
 context   = sys.argv[2]
 namespace = sys.argv[3]
-service   = sys.argv[4]
-image     = sys.argv[5]
-configmap_env_file = sys.argv[6]
-selectors = sys.argv[7]
+app_name  = sys.argv[4]
+service   = sys.argv[5]
+image     = sys.argv[6]
+configmap_env_file = sys.argv[7]
+selectors = sys.argv[8]
 
 # config
 WAIT_POLL_INTERVAL = 1  # seconds
@@ -84,7 +85,11 @@ except ApiException as e:
     else:
         raise
 if op_dmake_cm is not None:
-    dmake_cm_metadata = {'name': dmake_cm_name}
+    dmake_cm_metadata = {'name': dmake_cm_name,
+                         'labels': {
+                             'app': service,
+                             'product': app_name
+                         }}
     dmake_cm = kubernetes.client.V1ConfigMap(data=dmake_cm_data, metadata=dmake_cm_metadata)
     logger.info("%s DMake metadata ConfigMap %s: %s" % (op_dmake_cm.capitalize(), dmake_cm_name, dmake_cm_data))
     if op_dmake_cm == 'create':
