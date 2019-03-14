@@ -532,7 +532,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
     credentials  = FieldSerializer("string", optional = True, help_text = "S3 path to the credential file to authenticate a private docker repository.")
     ebextensions = FieldSerializer("dir", optional = True, help_text = "Path to the ebextension directory. See http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/ebextensions.html")
 
-    def _serialize_(self, commands, app_name, config, image_name, env):
+    def _serialize_(self, commands, app_name, deploy_name, config, image_name, env):
         if not self.has_value():
             return
 
@@ -607,10 +607,10 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
         if self.ebextensions is not None:
             common.run_shell_command('cp -LR %s %s' % (self.ebextensions, os.path.join(tmp_dir, ".ebextensions")))
 
-        app_name = common.eval_str_in_env(self.name_prefix, env) + app_name
+        deploy_name = common.eval_str_in_env(self.name_prefix, env) + deploy_name
         append_command(commands, 'sh', shell = 'dmake_deploy_aws_eb "%s" "%s" "%s" "%s"' % (
             tmp_dir,
-            app_name,
+            deploy_name,
             self.region,
             self.stack))
 
@@ -619,12 +619,12 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
     host = FieldSerializer("string", example = "192.168.0.1", help_text = "Host address")
     port = FieldSerializer("int", default = 22, help_text = "SSH port")
 
-    def _serialize_(self, commands, app_name, config, image_name, env):
+    def _serialize_(self, commands, app_name, deploy_name, config, image_name, env):
         if not self.has_value():
             return
 
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
-        app_name = app_name + "-%s" % common.branch.lower()
+        deploy_name = deploy_name + "-%s" % common.branch.lower()
         env_file = generate_env_file(tmp_dir, env)
 
         opts = config.full_docker_opts(env, mount_host_volumes=True) + " --env-file " + os.path.basename(env_file)
@@ -635,14 +635,14 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         start_file = os.path.join(tmp_dir, "start_app.sh")
         # Deprecated: ('export LAUNCH_LINK="%s" && ' % launch_links) + \
         cmd = ('export IMAGE_NAME="%s" && ' % image_name) + \
-              ('export APP_NAME="%s" && ' % app_name) + \
+              ('export APP_NAME="%s" && ' % deploy_name) + \
               ('export DOCKER_OPTS="%s" && ' % opts) + \
               ('export READYNESS_PROBE="%s" && ' % common.escape_cmd(config.readiness_probe.get_cmd())) + \
               ('export DOCKER_CMD="%s" && ' % ('nvidia-docker' if config.need_gpu else 'docker')) + \
                'dmake_copy_template deploy/deploy_ssh/start_app.sh %s' % start_file
         common.run_shell_command(cmd)
 
-        cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%d"' % (tmp_dir, app_name, self.user, self.host, self.port)
+        cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%d"' % (tmp_dir, deploy_name, self.user, self.host, self.port)
         append_command(commands, 'sh', shell = cmd)
 
 class K8SCDDeploySerializer(YAML2PipelineSerializer):
@@ -650,7 +650,7 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
     namespace = FieldSerializer("string", default = "default", help_text = "Kubernetes namespace to target")
     selectors = FieldSerializer("dict", default = {}, child = "string", help_text = "Selectors to restrict the deployment.")
 
-    def _serialize_(self, commands, app_name, image_name, env):
+    def _serialize_(self, commands, app_name, deploy_name, image_name, env):
         if not self.has_value():
             return
 
@@ -663,13 +663,13 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
 
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
         configmap_env_file = os.path.join(tmp_dir, 'kubernetes-configmap-env.yaml')
-        k8s_utils.generate_config_map_file(env, app_name, configmap_env_file)
+        k8s_utils.generate_config_map_file(env, deploy_name, configmap_env_file)
 
         program = 'dmake_deploy_k8s_cd'
         args = [common.tmp_dir,
                 common.eval_str_in_env(self.context, env),
                 common.eval_str_in_env(self.namespace, env),
-                app_name,
+                deploy_name,
                 image_name,
                 configmap_env_file,
                 selectors]
@@ -749,7 +749,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
     config_maps = FieldSerializer("array", child=KubernetesConfigMapSerializer(), default=[], help_text="Additional Kubernetes ConfigMaps")
     secrets     = FieldSerializer("array", child=KubernetesSecretSerializer(), default=[], help_text="Additional Kubernetes Secrets")
 
-    def _serialize_(self, commands, app_name, image_name, env):
+    def _serialize_(self, commands, app_name, deploy_name, image_name, env):
         if not self.has_value():
             return
 
@@ -757,7 +757,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
 
         # dmake service label used for pruning resources on kubectl apply: dmake automatically adds this label to all (top level) resources, then kubectl apply is limited to these resources by label selection
         dmake_generated_labels = {
-            'dmake.deepomatic.com/service': app_name
+            'dmake.deepomatic.com/service': deploy_name
         }
 
         manifest_files = []
@@ -769,7 +769,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         configmap_env_labels.update({
             'dmake.deepomatic.com/prune': 'no-pruning'
         });
-        configmap_name = k8s_utils.generate_config_map_file(env, app_name, os.path.join(tmp_dir, configmap_env_filename), labels = configmap_env_labels)
+        configmap_name = k8s_utils.generate_config_map_file(env, deploy_name, os.path.join(tmp_dir, configmap_env_filename), labels = configmap_env_labels)
 
         # additional resources
         def generate_and_write_additional_resources(sources, filename):
@@ -793,9 +793,9 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             user_manifest_filename = 'kubernetes-user-manifest.yaml'
             manifest_files.append(user_manifest_filename)
             user_manifest_path = os.path.join(tmp_dir, user_manifest_filename)
-            change_cause = "DMake deploy %s from repo %s#%s (%s)" % (app_name, common.repo, common.branch, common.commit_id)
+            change_cause = "DMake deploy %s from repo %s#%s (%s)" % (deploy_name, common.repo, common.branch, common.commit_id)
             template_default_context = {
-                'SERVICE_NAME': app_name,
+                'SERVICE_NAME': deploy_name,
                 'CHANGE_CAUSE': change_cause,
                 'DOCKER_IMAGE_NAME': image_name,
                 'CONFIGMAP_ENV_NAME': configmap_name
@@ -814,7 +814,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             try:
                 common.run_shell_command(cmd, raise_on_return_code=True)
             except common.ShellError as e:
-                raise DMakeException("%s: Invalid Kubernetes manifest file %s (rendered template: %s): %s" % (app_name, self.manifest.template, user_manifest_path, e))
+                raise DMakeException("%s: Invalid Kubernetes manifest file %s (rendered template: %s): %s" % (deploy_name, self.manifest.template, user_manifest_path, e))
 
         # generate call to kubernetes
         context = common.eval_str_in_env(self.context, env)
@@ -823,7 +823,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         args = [tmp_dir,
                 context,
                 namespace,
-                app_name,
+                deploy_name,
                 common.repo,
                 common.branch,
                 common.commit_id]
@@ -1099,12 +1099,11 @@ class DeploySerializer(YAML2PipelineSerializer):
     def generate_deploy(self, commands, app_name, env, config):
         deploy_env = env.get_replaced_variables(additional_variables_layers=[self.service.config.env_override])
         if self.deploy_name is not None:
-            app_name = self.deploy_name
-            app_name = common.eval_str_in_env(app_name, deploy_env)
+            deploy_name = common.eval_str_in_env(self.deploy_name, deploy_env)
         else:
-            app_name = "%s-%s" % (app_name, self.service.original_service_name)
+            deploy_name = "%s-%s" % (app_name, self.service.original_service_name)
         if self.service.is_variant:
-            app_name += "-%s" % self.service.variant
+            deploy_name += "-%s" % self.service.variant
 
         image_name = config.docker_image.get_image_name(env = deploy_env)
         # When deploying, we need to push the image. We make sure that the image has a user
@@ -1121,10 +1120,10 @@ class DeploySerializer(YAML2PipelineSerializer):
                 continue
 
             branch_env = env.get_replaced_variables(additional_variables_layers=[self.service.config.env_override, stage.env])
-            stage.aws_beanstalk._serialize_(commands, app_name, config, image_name, branch_env)
-            stage.ssh._serialize_(commands, app_name, config, image_name, branch_env)
-            stage.k8s_continuous_deployment._serialize_(commands, app_name, image_name, branch_env)
-            stage.kubernetes._serialize_(commands, app_name, image_name, branch_env)
+            stage.aws_beanstalk._serialize_(commands, app_name, deploy_name, config, image_name, branch_env)
+            stage.ssh._serialize_(commands, app_name, deploy_name, config, image_name, branch_env)
+            stage.k8s_continuous_deployment._serialize_(commands, app_name, deploy_name, image_name, branch_env)
+            stage.kubernetes._serialize_(commands, app_name, deploy_name, image_name, branch_env)
 
 class DataVolumeSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
