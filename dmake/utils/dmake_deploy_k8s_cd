@@ -7,7 +7,8 @@
 # Finds the k8s deployments running the image (those having label dmake_${SERVICE_NAME})
 # and update the image.
 
-import os, sys
+import os
+import sys
 import kubernetes
 from kubernetes.client.rest import ApiException
 import time
@@ -15,7 +16,7 @@ import yaml
 from multiprocessing.pool import ThreadPool
 
 import logging
-FORMAT='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger(__name__)
 
@@ -30,27 +31,25 @@ namespace = sys.argv[3]
 service   = sys.argv[4]
 image     = sys.argv[5]
 configmap_env_file = sys.argv[6]
-selectors = {}
-for s in sys.argv[7].split(","):
-    if len(s.strip()) == 0:
-        continue
-    s = s.split("=")
-    selectors[s[0]] = "=".join(s[1:])
+selectors = sys.argv[7]
 
 # config
 WAIT_POLL_INTERVAL = 1  # seconds
 PARALLEL_UPDATE_THREAD_POOL_SIZE = 10  # number of Deployments being updated in parallel
 
-os.system('kubectl get nodes') # refresh auth token for kubectl, otherwise next line might fail
+os.system('kubectl get nodes')  # refresh auth token for kubectl, otherwise next line might fail
 kubernetes.config.load_kube_config(context=context)
 
 if os.getenv('DMAKE_DEBUG') == '1':
-    kubernetes.client.configuration.debug = True
+    configuration = kubernetes.client.Configuration()
+    configuration.debug = True
+    kubernetes.client.Configuration.set_default(configuration)
     logger.setLevel(logging.DEBUG)
-
 
 # check existing env ConfigMap
 v1_client = kubernetes.client.CoreV1Api()
+apps_v1_client = kubernetes.client.AppsV1Api()
+
 with open(configmap_env_file) as f:
     configmap = yaml.load(f)
 configmap_env_name = configmap['metadata']['name']
@@ -96,41 +95,29 @@ if op_dmake_cm is not None:
         assert False
 
 
-# get deployments
-beta_v1_client = kubernetes.client.ExtensionsV1beta1Api()
+# Update Deployments
 selector = "dmake_%s" % service
-ret = beta_v1_client.list_namespaced_deployment(namespace, label_selector=selector)
-if len(ret.items) == 0:
-    logger.info("No deployments found for namespace '%s' and selector '%s'" % (namespace, selector))
-    sys.exit(0)
-
-logger.info("Deploying new image %s with ConfigMap env %s" % (image, configmap_env_name))
-
-deployments = []
-# filter Deployments against `selectors`
-for i in ret.items:
-    match = True
-    for key, value in selectors.items():
-        if key in i.metadata.labels or i.metadata.labels[key] != value:
-            match = False
-            break
-    if not match:
-        continue
-    deployments.append(i)
-
-
+label_selector = selector
+if selectors:
+    label_selector += ',' + selectors
+def get_deployments():
+    ret = apps_v1_client.list_namespaced_deployment(namespace, label_selector=label_selector)
+    deployments = ret.items
+    return deployments
 
 def print_deployment(deployment, msg):
-    logger.debug("Deployment %s: %s" %(msg, deployment))
+    logger.debug("Deployment %s: %s" % (msg, deployment))
 
-def patch_deployment(name):
-    #TODO use container name from label value (using `selector)
-    assert(len(i.spec.template.spec.containers) == 1, \
-        "Multiple containers found in Pod definition; not yet supported.")
+def patch_deployment(deployment):
+    name = deployment.metadata.name
+    # TODO use container name from label value (using `selector`)
+    # container = deployment.metadata.labels[selector]
+    assert len(deployment.spec.template.spec.containers) == 1, \
+        "Multiple containers found in Pod definition; not yet supported."
 
     # patch container image
     json_patch = [
-        { "op": "replace", "path": "/spec/template/spec/containers/0/image", "value": image }
+        {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": image}
     ]
 
     # patch envFrom ConfigMap
@@ -138,23 +125,23 @@ def patch_deployment(name):
     # does it already use a configMap?
     existing_configmap_env_name = None
     try:
-        existing_configmap_env_name = i.spec.template.spec.containers[0].env_from[0].config_map_ref.name
+        existing_configmap_env_name = deployment.spec.template.spec.containers[0].env_from[0].config_map_ref.name
     except:
         pass
     if existing_configmap_env_name is None:
-        json_patch.append({ "op": "add", "path": "/spec/template/spec/containers/0/envFrom", "value": [{"configMapRef": {"name": configmap_env_name}}] })
+        json_patch.append({"op": "add", "path": "/spec/template/spec/containers/0/envFrom", "value": [{"configMapRef": {"name": configmap_env_name}}]})
     else:
-        json_patch.append({ "op": "replace", "path": "/spec/template/spec/containers/0/envFrom/0/configMapRef/name", "value": configmap_env_name })
+        json_patch.append({"op": "replace", "path": "/spec/template/spec/containers/0/envFrom/0/configMapRef/name", "value": configmap_env_name})
 
     # do patch
-    return beta_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
+    return apps_v1_client.patch_namespaced_deployment(name, namespace, json_patch)
 
 def wait_deployment(deployment):
     name = deployment.metadata.name
     generation = deployment.metadata.generation
     old_observed_generation = deployment.status.observed_generation
     while True:
-        api_response = beta_v1_client.read_namespaced_deployment(name, namespace)
+        api_response = apps_v1_client.read_namespaced_deployment(name, namespace)
         print_deployment(api_response, "wait")
         if api_response.spec.replicas == 0:
             break
@@ -168,13 +155,18 @@ def wait_deployment(deployment):
 
 def update_deployment(deployment):
     print_deployment(deployment, "pre-patch")
-    name = deployment.metadata.name
-    logger.info("- Updating Deployment %s" % name)
-    # container = i.metadata.labels[selector]
-    # TODO use container name instead of first container
-    patched_deployment = patch_deployment(name)
+    logger.info("- Updating Deployment %s" % deployment.metadata.name)
+    patched_deployment = patch_deployment(deployment)
     print_deployment(patched_deployment, "patched")
     wait_deployment(patched_deployment)
 
+
+# Really update Deployments
+logger.info("Deploying new image %s with ConfigMap env %s" % (image, configmap_env_name))
+
+
 pool = ThreadPool(PARALLEL_UPDATE_THREAD_POOL_SIZE)
+deployments = get_deployments()
 pool.map(update_deployment, deployments)
+
+logger.info("Finished updating Deployments with new image %s with ConfigMap env %s" % (image, configmap_env_name))
