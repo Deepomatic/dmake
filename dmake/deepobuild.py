@@ -802,6 +802,8 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         generate_and_write_additional_resources(self.secrets, user_secrets_filename)
 
         # copy/render template manifest file
+        context = common.eval_str_in_env(self.context, env)
+        namespace = common.eval_str_in_env(self.namespace, env) if self.namespace else ""
         if self.manifest is not None:
             user_manifest_filename = 'kubernetes-user-manifest.yaml'
             manifest_files.append(user_manifest_filename)
@@ -822,7 +824,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 k8s_utils.dump_all_str_and_add_labels(user_manifest_data_str, dmake_generated_labels, f)
             # verify the manifest file
             program = 'kubectl'
-            args = ['apply', '--dry-run=true', '--validate=true', '--filename=%s' % user_manifest_path]
+            args = ['--context=%s' % context, 'apply', '--dry-run=true', '--validate=true', '--filename=%s' % user_manifest_path]
             cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
             try:
                 common.run_shell_command(cmd, raise_on_return_code=True)
@@ -830,8 +832,6 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 raise DMakeException("%s: Invalid Kubernetes manifest file %s (rendered template: %s): %s" % (deploy_name, self.manifest.template, user_manifest_path, e))
 
         # generate call to kubernetes
-        context = common.eval_str_in_env(self.context, env)
-        namespace = common.eval_str_in_env(self.namespace, env) if self.namespace else ""
         program = 'dmake_deploy_kubernetes'
         args = [tmp_dir,
                 context,
