@@ -161,9 +161,16 @@ def wait_deployment(deployment):
 def update_deployment(deployment):
     print_deployment(deployment, "pre-patch")
     logger.info("- Updating Deployment %s" % deployment.metadata.name)
-    patched_deployment = patch_deployment(deployment)
-    print_deployment(patched_deployment, "patched")
-    wait_deployment(patched_deployment)
+    try:
+        patched_deployment = patch_deployment(deployment)
+        print_deployment(patched_deployment, "patched")
+        wait_deployment(patched_deployment)
+    except ApiException as e:
+        # ignore deployments that disappeared during loop patching
+        if e.status == 404:
+            logger.info("- Deployment %s disappeared during update, skipping" % deployment.metadata.name)
+        else:
+            raise
 
 
 # Really update Deployments
