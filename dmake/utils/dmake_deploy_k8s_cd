@@ -52,7 +52,7 @@ v1_client = kubernetes.client.CoreV1Api()
 apps_v1_client = kubernetes.client.AppsV1Api()
 
 with open(configmap_env_file) as f:
-    configmap = yaml.load(f)
+    configmap = yaml.safe_load(f)
 configmap_env_name = configmap['metadata']['name']
 
 create_configmap_env = True

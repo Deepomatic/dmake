@@ -61,7 +61,7 @@ class DependenciesBooleanAction(argparse.Action):
 
 def yaml_ordered_load(stream, all=False):
     try:
-        yaml = YAML(pure=True)
+        yaml = YAML(typ='safe', pure=True)
         data = list(yaml.load_all(stream)) if all else yaml.load(stream)
         return data
     except Exception as e:

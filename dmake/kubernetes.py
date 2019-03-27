@@ -14,7 +14,7 @@ def get_env_hash(env):
 
 def generate_config_map(env, name, labels = None):
     """Return a kubernetes manifest defining a ConfigMap storing `env`."""
-    data = yaml.load("""
+    data = yaml.safe_load("""
 apiVersion: v1
 kind: ConfigMap
 metadata:
