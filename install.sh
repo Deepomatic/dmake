@@ -150,6 +150,10 @@ export PATH=\${PATH+\${PATH}:}\${DMAKE_PATH}/dmake/:\${DMAKE_PATH}/dmake/utils
 
 # Shell completion
 if [ -f "${DMAKE_CONFIG_DIR}/completion.bash.inc" ]; then
+  # zsh support for bash completion
+  if [ -n "\${ZSH_VERSION}" ]; then
+    autoload -U bashcompinit && bashcompinit
+  fi
   source "${DMAKE_CONFIG_DIR}/completion.bash.inc"
 fi
 EOF
