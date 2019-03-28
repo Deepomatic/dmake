@@ -99,22 +99,6 @@ fi
 DMAKE_PULL_CONFIG_DIR=${DMAKE_PULL_CONFIG_DIR:-1}
 CONFIG_FILE=${DMAKE_CONFIG_DIR}/config.sh
 
-# Deprecated: move old config file to new location
-OLD_CONFIG_FILE=${DMAKE_PATH}/config.sh
-if [ -f "${OLD_CONFIG_FILE}" ]; then
-    mv ${OLD_CONFIG_FILE} ${CONFIG_FILE}
-    echo "Configuration file has moved !"
-    for SHRC in `ls ~/\.*shrc`; do
-        echo "Patching ${SHRC} (saving backup to ${SHRC}.bak)"
-        cp ${SHRC} ${SHRC}.bak
-        TMP_CONFIG=/tmp/$(basename ${SHRC})
-        sed "s:${OLD_CONFIG_FILE}:${CONFIG_FILE}:" ${SHRC} > ${TMP_CONFIG}
-        mv ${TMP_CONFIG} ${SHRC}
-        echo "Patching done (removing ${SHRC}.bak)"
-        rm ${SHRC}.bak
-    done
-fi
-
 # Source config file
 if [ -f "${DMAKE_CONFIG_DIR}/config.sh" ]; then
     source "${DMAKE_CONFIG_DIR}/config.sh"
@@ -166,24 +150,24 @@ export PATH=\${PATH+\${PATH}:}\${DMAKE_PATH}/dmake/:\${DMAKE_PATH}/dmake/utils
 
 # Shell completion
 if [ -f "${DMAKE_CONFIG_DIR}/completion.bash.inc" ]; then
+  # zsh support for bash completion
+  if [ -n "\${ZSH_VERSION}" ]; then
+    autoload -U bashcompinit && bashcompinit
+  fi
   source "${DMAKE_CONFIG_DIR}/completion.bash.inc"
 fi
 EOF
 
 LINE="source ${CONFIG_FILE}"
-if [ -z "`which dmake`" ]; then
-    # Try to automatically adds the source
-    for SHRC in `ls ~/\.*shrc`; do
-        if [ -z "`grep \"${LINE}\" ${SHRC}`" ]; then
-            echo "We detected a shell config file here: ${SHRC}, patching to source ${CONFIG_FILE}"
-            echo "${LINE}" >> ${SHRC}
-        else
-            echo "Patched ${SHRC} to source ${CONFIG_FILE}."
-        fi
-    done
-else
-    echo "Patched config to version ${DMAKE_VERSION}"
-fi
+# Try to automatically adds the source
+for SHRC in `ls ~/\.*shrc`; do
+    if [ -z "`grep \"${LINE}\" ${SHRC}`" ]; then
+        echo "We detected a shell config file here: ${SHRC}, patching to source ${CONFIG_FILE}"
+        echo "${LINE}" >> ${SHRC}
+    else
+        echo "Patched ${SHRC} to source ${CONFIG_FILE}"
+    fi
+done
 
 echo "Installing python dependencies with: pip install --user -r requirements.txt"
 pip install --user -r $(dirname $0)/requirements.txt
