@@ -155,19 +155,15 @@ fi
 EOF
 
 LINE="source ${CONFIG_FILE}"
-if [ -z "`which dmake`" ]; then
-    # Try to automatically adds the source
-    for SHRC in `ls ~/\.*shrc`; do
-        if [ -z "`grep \"${LINE}\" ${SHRC}`" ]; then
-            echo "We detected a shell config file here: ${SHRC}, patching to source ${CONFIG_FILE}"
-            echo "${LINE}" >> ${SHRC}
-        else
-            echo "Patched ${SHRC} to source ${CONFIG_FILE}."
-        fi
-    done
-else
-    echo "Patched config to version ${DMAKE_VERSION}"
-fi
+# Try to automatically adds the source
+for SHRC in `ls ~/\.*shrc`; do
+    if [ -z "`grep \"${LINE}\" ${SHRC}`" ]; then
+        echo "We detected a shell config file here: ${SHRC}, patching to source ${CONFIG_FILE}"
+        echo "${LINE}" >> ${SHRC}
+    else
+        echo "Patched ${SHRC} to source ${CONFIG_FILE}"
+    fi
+done
 
 echo "Installing python dependencies with: pip install --user -r requirements.txt"
 pip install --user -r $(dirname $0)/requirements.txt
