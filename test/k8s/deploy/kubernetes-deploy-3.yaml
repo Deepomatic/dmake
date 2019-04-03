@@ -1,0 +1,7 @@
+# 3
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dmake-test-k8s-cm-3
+data:
+  special.how: verymuch

@@ -755,8 +755,15 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
     context     = FieldSerializer("string", help_text="kubectl context to use.")
     namespace   = FieldSerializer("string", optional=True, help_text="Kubernetes namespace to target (overrides kubectl context default namespace")
     manifest    = FieldSerializer(KubernetesManifestSerializer(), optional=True, help_text="Kubernetes manifest defining all the resources needed to deploy the service")
+    manifests   = FieldSerializer("array", child=KubernetesManifestSerializer(), default=[], help_text="Kubernetes manifests defining resources needed to deploy the service")
     config_maps = FieldSerializer("array", child=KubernetesConfigMapSerializer(), default=[], help_text="Additional Kubernetes ConfigMaps")
     secrets     = FieldSerializer("array", child=KubernetesSecretSerializer(), default=[], help_text="Additional Kubernetes Secrets")
+
+    def _validate_(self, file, needed_migrations, data, field_name):
+        result = super(KubernetesDeploySerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        if result and self.manifest and self.manifests:
+            raise ValidationError("Invalid `kubernetes` deployment step: `manifest` and `manifests` cannot be specified at the same time: just use `manifests` in such case.")
+        return result
 
     def _serialize_(self, commands, app_name, deploy_name, image_name, env):
         if not self.has_value():
@@ -804,8 +811,12 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         # copy/render template manifest file
         context = common.eval_str_in_env(self.context, env)
         namespace = common.eval_str_in_env(self.namespace, env) if self.namespace else ""
-        if self.manifest is not None:
-            user_manifest_filename = 'kubernetes-user-manifest.yaml'
+        manifests = []
+        if self.manifest:
+            manifests.append(self.manifest)
+        manifests.extend(self.manifests)
+        for n, manifest in enumerate(manifests):
+            user_manifest_filename = 'kubernetes-user-manifest-{n}.yaml'.format(n=n)
             manifest_files.append(user_manifest_filename)
             user_manifest_path = os.path.join(tmp_dir, user_manifest_filename)
             change_cause = "DMake deploy %s from repo %s#%s (%s)" % (deploy_name, common.repo, common.branch, common.commit_id)
@@ -815,9 +826,9 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 'DOCKER_IMAGE_NAME': image_name,
                 'CONFIGMAP_ENV_NAME': configmap_name
             }
-            template_context = self.manifest.get_template_variables(env)
+            template_context = manifest.get_template_variables(env)
             template_context.update(template_default_context)
-            with open(self.manifest.template, 'r') as f:
+            with open(manifest.template, 'r') as f:
                 user_manifest_template = Template(f.read())
             user_manifest_data_str = user_manifest_template.substitute(**template_context)
             with open(user_manifest_path, 'w') as f:
@@ -829,7 +840,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             try:
                 common.run_shell_command(cmd, raise_on_return_code=True)
             except common.ShellError as e:
-                raise DMakeException("%s: Invalid Kubernetes manifest file %s (rendered template: %s): %s" % (deploy_name, self.manifest.template, user_manifest_path, e))
+                raise DMakeException("%s: Invalid Kubernetes manifest file %s (rendered template: %s): %s" % (deploy_name, manifest.template, user_manifest_path, e))
 
         # generate call to kubernetes
         program = 'dmake_deploy_kubernetes'
