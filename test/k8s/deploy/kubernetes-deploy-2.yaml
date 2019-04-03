@@ -1,0 +1,7 @@
+# 2
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dmake-test-k8s-cm-2
+data:
+  special.how: "${FOO}"
