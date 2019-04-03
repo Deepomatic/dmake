@@ -1,0 +1,56 @@
+dmake_version: 0.1
+app_name: dmake-test
+
+env:
+  default:
+    variables:
+      K8S_NAMESPACE: foobar
+      K8S_FOO: bar
+
+docker:
+  root_image:
+    name: ubuntu
+    tag: 18.04
+
+services:
+  - service_name: test-k8s
+    config:
+      docker_image:
+        name: deepomatic/dmake-test-k8s
+        build:
+          context: .
+          dockerfile: ./deploy/Dockerfile
+    deploy:
+      stages:
+        - description: "Deploying on Kubernetes: mono manifest"
+          branches: [master]
+          kubernetes:
+            context: main
+            namespace: ${K8S_NAMESPACE}
+            manifest:
+              template: deploy/kubernetes-deploy-1.yaml
+        - description: "Deploying on Kubernetes: multi manifest"
+          branches: [master]
+          kubernetes:
+            context: main
+            manifests:
+              - template: deploy/kubernetes-deploy-2.yaml
+                variables:
+                  FOO: ${K8S_FOO}
+              - template: deploy/kubernetes-deploy-3.yaml
+        - description: "Deploying on Kubernetes: other"
+          branches: [master]
+          kubernetes:
+            context: main
+            namespace: ${K8S_NAMESPACE}
+            config_maps:
+              - name: dmake-test-k8s-configmap
+                from_files:
+                  - key: data.json
+                    path: deploy/kubernetes-configmap-data.json
+            secrets:
+              - name: dmake-test-k8s-secret
+                generic:
+                  from_files:
+                    - key: secret
+                      path: /proc/cpuinfo

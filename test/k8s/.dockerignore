@@ -1,0 +1,4 @@
+dmake.yml
+.dmake/
+.dockerignore
+deploy
