@@ -49,6 +49,12 @@ try {
     default_custom_environment=''
 }
 
+try {
+    default_clear_workspace=DEFAULT_CLEAR_WORKSPACE
+} catch (e) {
+    default_clear_workspace=false
+}
+
 properties([
     parameters([
         string(name: 'DMAKE_APP',
@@ -74,13 +80,19 @@ properties([
                      description: 'Force base image build (don\'t use base image cache)'),
         string(name: 'CUSTOM_ENVIRONMENT',
                defaultValue: default_custom_environment,
-               description: '(optional) Custom environment variables, for custom build. Example: \'FOO=1 BAR=2\'')
+               description: '(optional) Custom environment variables, for custom build. Example: \'FOO=1 BAR=2\''),
+        booleanParam(name: 'CLEAR_WORKSPACE',
+                     defaultValue: default_clear_workspace,
+                     description: 'Wipe out the workspace when starting the build if checked'),
     ]),
     pipelineTriggers([])
 ])
 
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                         env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
+    if (params.CLEAR_WORKSPACE) {
+        deleteDir()
+    }
     checkout([$class: 'GitSCM',
               branches: scm.branches,
               extensions: scm.extensions + [[$class: 'SubmoduleOption', recursiveSubmodules: true]],
@@ -100,7 +112,6 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
     if (params.DMAKE_COMMAND) {
         dmake_command = params.DMAKE_COMMAND
     } else {
-
         dmake_command = is_pr ? 'test' : 'deploy'
     }
 
