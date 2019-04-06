@@ -1,10 +1,11 @@
 from io import StringIO
+from abc import ABC, ABCMeta
 
 from collections import OrderedDict
 
 from functools import lru_cache
 
-class MetaYAML2PipelineSerialize(type):
+class MetaYAML2PipelineSerialize(ABCMeta):
     @classmethod
     def __prepare__(metacls, name, bases, **kwargs):
         return OrderedDict()
@@ -17,7 +18,7 @@ class MetaYAML2PipelineSerialize(type):
         result.__fields_order__ = tuple(ns) + tuple(namespace)
         return result
 
-class BaseYAML2PipelineSerializer(object, metaclass = MetaYAML2PipelineSerialize):
+class BaseYAML2PipelineSerializer(ABC, metaclass = MetaYAML2PipelineSerialize):
     pass
 
 def is_string(x):

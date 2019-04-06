@@ -1,6 +1,7 @@
 from StringIO import StringIO
+from abc import ABC
 
-class BaseYAML2PipelineSerializer(object):
+class BaseYAML2PipelineSerializer(ABC):
     pass
 
 def is_string(x):

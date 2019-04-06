@@ -6,6 +6,7 @@ import importlib
 import re
 import requests.exceptions
 from string import Template
+from abc import abstractmethod
 from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import dmake.common as common
 from dmake.common import DMakeException, SharedVolumeNotFoundException
@@ -873,7 +874,7 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer):
     name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.")
     base_image_variant = FieldSerializer(["string", "array"], optional = True, child = "string", help_text = "Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'.")
     check_private    = FieldSerializer("bool",   default = True,  help_text = "Check that the docker repository is private before pushing the image.")
-    tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}'")
+    tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be '{:branch_name}-{:build_id}[-{:variant}]'")
 
     def set_service(self, service):
         self.service = service
@@ -881,6 +882,8 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer):
     def get_image_name(self, env=None, latest=False):
         if env is None:
             env = {}
+        env['BRANCH_NAME'] = common.branch
+        env['BUILD_ID'] = common.build_id
         # name
         if self.name is None:
             name = self.service.original_service_name.replace('/', '-')
@@ -895,26 +898,20 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer):
                 if common.build_id is not None:
                     tag += "-%s" % common.build_id
         else:
-            tag = self.tag
+            tag = common.eval_str_in_env(self.tag, env)
         if self.service.is_variant:
             tag = "%s-%s" % (tag, self.service.variant)
         # image name
         image_name = name + ":" + tag
         return image_name
 
+    @abstractmethod
     def is_runnable(self):
-        return self._is_runnable()
+        pass
 
-    def _is_runnable(self):
-        # pure virtual method, implemented in children classes
-        raise NotImplementedError()
-
-    def generate_build_docker(self, commands, path_dir, docker_base, build):
-        self._generate_build_docker(commands, path_dir, docker_base, build)
-
-    def _generate_build_docker(self, commands, path_dir, docker_base, build):
-        # pure virtual method, implemented in children classes
-        raise NotImplementedError()
+    @abstractmethod
+    def generate_build_docker(self, commands, path_dir, docker_base, build, env):
+        pass
 
 class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
     # v1: dmake generated Dockerfile
@@ -924,10 +921,10 @@ class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
     entrypoint       = FieldSerializer("file", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint of the docker image generated to run the app.")
     start_script     = FieldSerializer("file", child_path_only = True, executable = True, optional = True, example = "start.sh", help_text = "The start script (will be run in the docker). It has to be executable.")
 
-    def _is_runnable(self):
+    def is_runnable(self):
         return self.start_script is not None
 
-    def _generate_build_docker(self, commands, path_dir, docker_base, build):
+    def generate_build_docker(self, commands, path_dir, docker_base, build, env):
         tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
         common.run_shell_command('mkdir %s' % os.path.join(tmp_dir, 'app'))
 
@@ -977,7 +974,7 @@ class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
             if self.entrypoint is not None:
                 f.write('ENTRYPOINT ["%s"]\n' % os.path.join(mount_point, path_dir, self.entrypoint))
 
-        image_name = self.get_image_name()
+        image_name = self.get_image_name(env=env)
         append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
 
 class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
@@ -1021,12 +1018,12 @@ class ServiceDockerV2Serializer(ServiceDockerCommonSerializer):
     # v2: user provided Dockerfile
     build            = ServiceDockerBuildSerializer(help_text = "Docker build options for service built using user-provided Dockerfile (ignore `.build.commands`), like in Docker Compose files.`")
 
-    def _is_runnable(self):
+    def is_runnable(self):
         # assume the user-provided Dockerfile is a runnable service
         return True
 
-    def _generate_build_docker(self, commands, path_dir, docker_base, build):
-        image_name = self.get_image_name()
+    def generate_build_docker(self, commands, path_dir, docker_base, build, env):
+        image_name = self.get_image_name(env=env)
         base_image_name = docker_base.get_docker_base_image(self.base_image_variant)
         build_args = {
             'BASE_IMAGE': base_image_name,
@@ -1573,7 +1570,8 @@ class DMakeFile(DMakeFileSerializer):
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
-        service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build)
+        env = self.env.get_replaced_variables(additional_variables_layers=[service.config.env_override])
+        service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build, env)
 
     def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, force_workdir, additional_env = None, additional_env_variables = None, use_host_ports = None):
         if additional_env is None:
