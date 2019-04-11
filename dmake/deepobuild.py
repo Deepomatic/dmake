@@ -906,15 +906,10 @@ class DeploySerializer(YAML2PipelineSerializer):
         if self.service.is_variant:
             deploy_name += "-%s" % self.service.variant
 
-        image_name = config.docker_image.get_image_name(env=deploy_env)
-        # When deploying, we need to push the image. We make sure that the image has a user
-        if len(image_name.split('/')) == 1:
-            image_name_without_tag = image_name.split(':')[0]
-            raise DMakeException("Service '{}' declares a docker image without a user name in config::docker_image::name so I cannot deploy it. I suggest to change it to 'your_company/{}'".format(self.service.service_name, image_name_without_tag))
-        common.append_command(commands, 'sh', shell = 'dmake_push_docker_image "%s" "%s"' % (image_name, "1" if config.docker_image.check_private else "0"))
-        image_latest = config.docker_image.get_image_name(env = deploy_env, latest = True)
-        common.append_command(commands, 'sh', shell = 'docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, "1" if config.docker_image.check_private else "0"))
+        # Push the Docker image to Docker Hub
+        config.docker_image.generate_push_docker(commands, self.service.service_name, deploy_env)
 
+        image_name = config.docker_image.get_image_name(env=deploy_env)
         for stage in self.stages:
             branches = stage.branches
             if common.branch not in branches and '*' not in branches:

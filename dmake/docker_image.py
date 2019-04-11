@@ -2,6 +2,7 @@ import os
 from abc import abstractmethod
 
 import dmake.common as common
+from dmake.common import DMakeException
 from dmake.serializer import FieldSerializer, SerializerMixin, YAML2PipelineSerializer
 
 ###############################################################################
@@ -30,10 +31,9 @@ class AbstractDockerImage(SerializerMixin):
         self.service = service
 
     @abstractmethod
-    def get_image_name(self, env=None, latest=False):
+    def get_image_name(self, env=None):
         """
         Return the full image name to use, tag included.
-        TODO: investigate why latest is needed here, this looks like bad design
         """
         pass
 
@@ -52,6 +52,13 @@ class AbstractDockerImage(SerializerMixin):
     def generate_build_docker(self, commands, path_dir, docker_base, build):
         pass
 
+    @abstractmethod
+    def generate_push_docker(self, commands, service_name, env):
+        """
+        Generate the commands to push the built image to docker Hub
+        """
+        pass
+
 ###############################################################################
 
 class ExternalDockerImage(AbstractDockerImage):
@@ -60,8 +67,7 @@ class ExternalDockerImage(AbstractDockerImage):
         AbstractDockerImage.__init__(self)
         self.image_name = image_name
 
-    def get_image_name(self, env=None, latest=False):
-        assert not latest
+    def get_image_name(self, env=None):
         return common.eval_str_in_env(self.image_name, env)
 
     def get_base_image_variant(self):
@@ -75,6 +81,11 @@ class ExternalDockerImage(AbstractDockerImage):
         """We do not need to do anything"""
         pass
 
+    def generate_push_docker(self, commands, service_name, env):
+        """
+        This image does not belong to this build process, we do not do anything
+        """
+        pass
 
 ###############################################################################
 
@@ -110,6 +121,18 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
 
     def get_base_image_variant(self):
         return self.base_image_variant
+
+    def generate_push_docker(self, commands, service_name, env):
+        image_name = self.get_image_name(env=env)
+        # When deploying, we need to push the image. We make sure that the image has a user
+        if len(image_name.split('/')) == 1:
+            image_name_without_tag = image_name.split(':')[0]
+            raise DMakeException("Service '{}' declares a docker image without a user name in config::docker_image::name so I cannot deploy it. I suggest to change it to 'your_company/{}'".format(service_name, image_name_without_tag))
+
+        check_private_flag = "1" if self.check_private else "0"
+        common.append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
+        image_latest = self.get_image_name(env=env, latest=True)
+        common.append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
 
 ###############################################################################
 
