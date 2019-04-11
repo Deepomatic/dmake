@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# Usage:
+# ID=$(dmake_run_service APP_NAME SERVICE_NAME LINK_NAME PROBE_PORTS ARGS...)
+#
+# Result:
+# Run a docker container associated with a service, save container ID to list of containers to stop and return the container ID
+# It also saves the container ID as the daemon for SERVICE_NAME (in the list of daemons ID)
+# if LINK_NAME is non-empty, save container ID as the link for LINK_NAME (in <app>/links/<LINK_NAME>.id)
+
+test "${DMAKE_DEBUG}" = "1" && set -x
+
+if [ $# -lt 4 ]; then
+    dmake_fail "$0: Missing arguments"
+    echo "exit 1"
+    exit 1
+fi
+
+if [ -z "${DMAKE_TMP_DIR}" ]; then
+    dmake_fail "Missing environment variable DMAKE_TMP_DIR"
+    exit 1
+fi
+
+set -e
+
+APP_NAME=$1; shift
+SERVICE_NAME=$1; shift
+LINK_NAME=$1; shift
+PROBE_PORTS=$1; shift
+
+CONTAINER_ID=$(dmake_run_docker_daemon "${APP_NAME}" "${LINK_NAME}" "" "$@")
+dmake_wait_for_probe_ports "${CONTAINER_ID}" "${PROBE_PORTS}"
+
+if [ ! -z "${SERVICE_NAME}" ]; then
+    echo "${CONTAINER_ID} ${SERVICE_NAME}" >> ${DMAKE_TMP_DIR}/daemon_ids.txt
+fi
+
+echo ${CONTAINER_ID}

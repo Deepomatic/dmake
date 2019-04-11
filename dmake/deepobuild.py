@@ -6,7 +6,7 @@ import importlib
 import re
 import requests.exceptions
 from string import Template
-from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
+from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer, SerializerMixin
 import dmake.common as common
 from dmake.common import DMakeException, SharedVolumeNotFoundException, append_command
 import dmake.kubernetes as k8s_utils
@@ -392,14 +392,43 @@ class HTMLReportSerializer(YAML2PipelineSerializer):
     index      = FieldSerializer("string", default = "index.html", help_text = "Main page.")
     title      = FieldSerializer("string", default = "HTML Report", help_text = "Main page title.")
 
-class DockerLinkSerializer(YAML2PipelineSerializer):
+class ProbePortMixin(SerializerMixin):
+    probe_ports = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
+
+    def probe_ports_list(self):
+        if isinstance(self.probe_ports, list):
+            good = True
+            for p in self.probe_ports:
+                i = p.find('/')
+                port = p[:i]
+                proto = p[(i + 1):]
+                if proto not in ['udp', 'tcp']:
+                    good = False
+                    break
+                if proto == 'udp':
+                    raise DMakeException("TODO: udp support in dmake_wait_for_it")
+                try:
+                    if int(port) < 0:
+                        good = False
+                        break
+                except:
+                    good = False
+                    break
+
+            if good:
+                return ','.join(self.probe_ports)
+        elif self.probe_ports in ['auto', 'none']:
+            return self.probe_ports
+
+        raise DMakeException("Badly formatted probe ports.")
+
+class DockerLinkSerializer(YAML2PipelineSerializer, ProbePortMixin):
     image_name       = FieldSerializer("string", example = "mongo:3.2", help_text = "Name and tag of the image to launch.")
     link_name        = FieldSerializer("string", example = "mongo", help_text = "Link name.")
     volumes          = FieldSerializer("array", child = FieldSerializer([SharedVolumeMountSerializer(), VolumeMountSerializer()]), default = [], example = ["datasets:/datasets", "/mnt:/mnt"], help_text = "Either shared volumes to mount. Or: for the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.")
     need_gpu         = FieldSerializer("bool", default = False, help_text = "Whether the docker link needs to be run on a GPU node.")
     # TODO: This field is badly named. Link are used by the run command also, nothing to do with testing or not. It should rather be: 'docker_options'
     testing_options  = FieldSerializer("string", default = "", example = "-v /mnt:/data", help_text = "Additional Docker options when testing on Jenkins.")
-    probe_ports      = FieldSerializer(["string", "array"], default = "auto", child = "string", help_text = "Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp")
     env              = FieldSerializer("dict", child = "string", default = {}, example = {'REDIS_URL': '${REDIS_URL}'}, help_text = "Additional environment variables defined when running this image.")
     env_exports      = FieldSerializer("dict", child = "string", default = {}, help_text = "A set of environment variables that will be exported in services that use this link when testing.")
 
@@ -436,33 +465,6 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
 
     def get_shared_volumes(self):
         return [volume.get_shared_volume() for volume in self.volumes if isinstance(volume, SharedVolumeMountSerializer)]
-
-    def probe_ports_list(self):
-        if isinstance(self.probe_ports, list):
-            good = True
-            for p in self.probe_ports:
-                i = p.find('/')
-                port = p[:i]
-                proto = p[(i + 1):]
-                if proto not in ['udp', 'tcp']:
-                    good = False
-                    break
-                if proto == 'udp':
-                    raise DMakeException("TODO: udp support in dmake_wait_for_it")
-                try:
-                    if int(port) < 0:
-                        good = False
-                        break
-                except:
-                    good = False
-                    break
-
-            if good:
-                return ','.join(self.probe_ports)
-        elif self.probe_ports in ['auto', 'none']:
-            return self.probe_ports
-
-        raise DMakeException("Badly formatted probe ports.")
 
     def get_docker_run_gpu_cmd_prefix(self):
         return get_docker_run_gpu_cmd_prefix(self.need_gpu, 'docker link', self.link_name)
@@ -834,7 +836,7 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
         cmd = common.escape_cmd(cmd)
         return 'bash -c "%s"' % cmd
 
-class DeployConfigSerializer(YAML2PipelineSerializer):
+class DeployConfigSerializer(YAML2PipelineSerializer, ProbePortMixin):
     docker_image       = DockerImageFieldSerializer()
     docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add.")
     env_override       = FieldSerializer("dict", child = "string", optional = True, default = {}, help_text = "Extra environment variables for this service. Overrides dmake.yml root `env`, with variable substitution evaluated from it.", example = {'INFO': '${BRANCH}-${BUILD}'})
@@ -1054,6 +1056,14 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         if common.is_string(data):
             data = {'service_name': data}
         result = super(NeededServiceSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+
+        # We link the service by default
+        if self.link_name is None:
+            # We link the service using its name, unless the service name has ':' in which case it is a variant
+            # and it is better to let the user chose the link name if needed
+            if self.service_name.find(':') < 0:
+                self.__fields__['link_name'] = self.service_name
+
         if self.link_name and \
            not allowed_link_name_pattern.match(self.link_name):
             raise ValidationError("Invalid link name '%s': only '[a-z0-9-]{1,63}' is allowed. " % (self.link_name))
@@ -1136,7 +1146,7 @@ class DMakeFileSerializer(YAML2PipelineSerializer):
     env                = FieldSerializer(["file", EnvSerializer()], optional = True, help_text = "Environment variables to embed in built docker images.")
     volumes            = FieldSerializer("array", child = SharedVolumeSerializer(), default = [], help_text = "List of shared volumes usabled on services and docker_links", example = ['datasets'])
     docker             = FieldSerializer([FieldSerializer("file", help_text = "to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field."), DockerSerializer()], help_text = "The environment in which to build and deploy.")
-    docker_links       = FieldSerializer("array", child = DockerLinkSerializer(), default = [], help_text = "List of link to create, they are shared across the whole application, so potentially across multiple dmake files.")
+    docker_links       = FieldSerializer("array", deprecated="Use 'services' instead and indicate the external image as a string in services:config:docker_image", child=DockerLinkSerializer(), default=[], help_text="List of link to create, they are shared across the whole application, so potentially across multiple dmake files.")
     build              = BuildSerializer(help_text = "Commands to run for building the application.")
     pre_test_commands  = FieldSerializer("array", default = [], child = "string", help_text = "Deprecated, not used anymore, will be removed later. Use `tests.commands` instead.")
     post_test_commands = FieldSerializer("array", default = [], child = "string", help_text = "Deprecated, not used anymore, will be removed later. Use `tests.commands` instead.")
@@ -1332,7 +1342,7 @@ class DMakeFile(DMakeFileSerializer):
 
         docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, additional_env_variables = additional_customization_env_variables)
         docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
-        docker_cmd = 'dmake_run_docker_daemon "%s" "%s" "%s" "" %s -i %s' % (self.app_name, unique_service_name, link_name or "", docker_opts, image_name)
+        docker_cmd = 'dmake_run_service "%s" "%s" "%s" "%s" %s -i %s' % (self.app_name, unique_service_name, link_name or "", service.config.probe_ports_list(), docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
         # Run daemon
