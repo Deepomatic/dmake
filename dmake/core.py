@@ -779,19 +779,6 @@ def make(options, parse_files_only=False):
         if not common.is_pr:
             ordered_build_files.append(('Deploying', list(deploy)))
 
-        # Display commands
-        common.logger.info("Here is the plan:")
-        for stage, commands in ordered_build_files:
-            if len(commands) > 0:
-                common.logger.info("## %s ##" % (stage))
-            for node, order in commands:
-                # Sanity check
-                sub_task_orders = [build_files_order[a] for a in service_dependencies[node]]
-                if any(map(lambda o: order <= o, sub_task_orders)):
-                    raise DMakeException('Bad ordering')
-
-                common.logger.info("- %s" % (display_command_node(node)))
-
     # Generate the list of command to run
     common.logger.info("Generating commands...")
     all_commands = []
@@ -803,14 +790,21 @@ def make(options, parse_files_only=False):
     # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
     append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
 
+    common.logger.info("Here is the plan:")
     for stage, commands in ordered_build_files:
         if len(commands) == 0:
             continue
+        common.logger.info("## %s ##" % (stage))
 
         append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
 
         stage_commands = []
         for node, order in commands:
+            # Sanity check
+            sub_task_orders = [build_files_order[a] for a in service_dependencies[node]]
+            if any(map(lambda o: order <= o, sub_task_orders)):
+                raise DMakeException('Bad ordering')
+
             command, service, service_customization = node
             file, _, _ = service_providers[service]
             dmake_file = loaded_files[file]
@@ -842,7 +836,9 @@ def make(options, parse_files_only=False):
                 sys.exit(1)
 
             if len(step_commands) > 0:
-                append_command(stage_commands, 'echo', message = '- Running %s' % (display_command_node(node)))
+                node_display_str = display_command_node(node)
+                common.logger.info("- {}".format(node_display_str))
+                append_command(stage_commands, 'echo', message = '- Running {}'.format(node_display_str))
                 stage_commands += step_commands
 
         # GPU resource lock
