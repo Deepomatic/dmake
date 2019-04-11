@@ -8,9 +8,9 @@ import dmake.common as common
 # If using Python3, we can keep track of the order of the field
 # in order to generate a proper doc.
 if sys.version_info >= (3,0):
-    from dmake.python_3x import BaseYAML2PipelineSerializer
+    from dmake.python_3x import SerializerMixin
 else:
-    from dmake.python_2x import BaseYAML2PipelineSerializer
+    from dmake.python_2x import SerializerMixin
 
 # Custom Exceptions
 class ValidationError(Exception):
@@ -317,7 +317,7 @@ class FieldSerializer(object):
                     raise DMakeException("Unknown type: %s" % str(t))
         return value
 
-class YAML2PipelineSerializer(BaseYAML2PipelineSerializer):
+class YAML2PipelineSerializer(SerializerMixin):
     def __init__(self, optional = False, help_text = ""):
         self.__optional__  = optional
         self.__help_text__ = help_text

@@ -15,14 +15,14 @@ volumes:
   - datasets
 docker: some/file/example
 docker_links:
-  - image_name: mongo:3.2
+  - probe_ports: auto
+    image_name: mongo:3.2
     link_name: mongo
     volumes:
       - datasets:/datasets
       - /mnt:/mnt
     need_gpu: true
     testing_options: -v /mnt:/data
-    probe_ports: auto
     env:
       REDIS_URL: ${REDIS_URL}
     env_exports:
@@ -44,10 +44,15 @@ services:
         link_name: worker-nn
         env:
           CNN_ID: '2'
+        env_exports:
+          any_key: Some string
     needed_links:
       - mongo
     sources: path/to/app
+    dev:
+      entrypoint: some/relative/file/example
     config:
+      probe_ports: auto
       docker_image:
         name: Some string
         base_image_variant:
@@ -61,6 +66,8 @@ services:
         entrypoint: some/relative/file/example
         start_script: start.sh
       docker_opts: --privileged
+      env_override:
+        INFO: ${BRANCH}-${BUILD}
       need_gpu: true
       ports:
         - container_port: 8000
@@ -83,10 +90,11 @@ services:
           read_only: true
       commands:
         - python manage.py test
-      junit_report: test-reports/*.xml
-      cobertura_report: '**/coverage.xml'
+      timeout: '600'
+      junit_report: test-reports/nosetests.xml
+      cobertura_report: test-reports/coverage.xml
       html_report:
-        directory: reports
+        directory: test-reports/cover
         index: index.html
         title: HTML Report
     deploy:
@@ -116,11 +124,24 @@ services:
           kubernetes:
             context: Some string
             namespace: Some string
-            manifest: path/to/kubernetes-manifest.yaml
+            manifest:
+              template: path/to/kubernetes-manifest.yaml
+              variables:
+                TLS_SECRET_NAME: ${K8S_DEPLOY_TLS_SECRET_NAME}
+            manifests:
+              - template: path/to/kubernetes-manifest.yaml
+                variables:
+                  TLS_SECRET_NAME: ${K8S_DEPLOY_TLS_SECRET_NAME}
             config_maps:
               - name: nginx
                 from_files:
                   - key: nginx.conf
                     path: deploy/nginx.conf
+            secrets:
+              - name: ssh-key
+                generic:
+                  from_files:
+                    - key: ssh-privatekey
+                      path: ${SECRETS}/ssh_id_rsa
 
 ```

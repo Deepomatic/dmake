@@ -1,6 +1,8 @@
+from abc import ABCMeta
 from StringIO import StringIO
 
-class BaseYAML2PipelineSerializer(object):
+class SerializerMixin(object):
+    __metaclass__ = ABCMeta
     pass
 
 def is_string(x):
