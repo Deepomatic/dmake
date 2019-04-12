@@ -6,7 +6,7 @@ import importlib
 import re
 import requests.exceptions
 from string import Template
-from dmake.serializer import ValidationError, FieldSerializer, SerializerMixin, YAML2PipelineSerializer
+from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
 import dmake.common as common
 from dmake.common import DMakeException, SharedVolumeNotFoundException, append_command
 import dmake.kubernetes as k8s_utils
