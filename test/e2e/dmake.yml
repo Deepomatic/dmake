@@ -14,12 +14,19 @@ docker:
     tag: 16.04
 
 services:
+  - service_name: test-external-dependency-nginx
+    config:
+      docker_image: nginx:1.15-alpine
   - service_name: test-e2e
     needed_services:
      - service_name: test-web
        link_name: web
        env_exports:
          WEB_URL: http://web:8000
+     - service_name: test-external-dependency-nginx
+       link_name: nginx
+       env_exports:
+         NGINX_URL: http://nginx/
     config:
       docker_image:
         build:
@@ -34,6 +41,7 @@ services:
       commands:
         - test "${REPO}" = 'dmake'
         - test "${REPO_SANITIZED}" = 'dmake'
+        - curl -sSf "${NGINX_URL}"
         - curl -sSf "${WEB_URL}/api/factorial/?n=5"
         - test -f /dmake.yml
         - rm -rf /artifacts/digest
