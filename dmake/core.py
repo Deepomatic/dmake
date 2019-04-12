@@ -4,7 +4,7 @@ import sys
 import uuid
 
 import dmake.common as common
-from dmake.common import DMakeException, SharedVolumeNotFoundException
+from dmake.common import DMakeException, SharedVolumeNotFoundException, append_command
 from dmake.deepobuild import DMakeFile
 
 tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that the credentials declared in the DMAKE_JENKINS_SSH_AGENT_CREDENTIALS and DMAKE_JENKINS_HTTP_CREDENTIALS allow you to write to the repository."
@@ -782,13 +782,13 @@ def make(options, parse_files_only=False):
     # Generate the list of command to run
     common.logger.info("Generating commands...")
     all_commands = []
-    common.append_command(all_commands, 'env', var = "REPO", value = common.repo)
-    common.append_command(all_commands, 'env', var = "COMMIT", value = common.commit_id)
-    common.append_command(all_commands, 'env', var = "BUILD", value = common.build_id)
-    common.append_command(all_commands, 'env', var = "BRANCH", value = common.branch)
-    common.append_command(all_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
+    append_command(all_commands, 'env', var = "REPO", value = common.repo)
+    append_command(all_commands, 'env', var = "COMMIT", value = common.commit_id)
+    append_command(all_commands, 'env', var = "BUILD", value = common.build_id)
+    append_command(all_commands, 'env', var = "BRANCH", value = common.branch)
+    append_command(all_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
     # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
-    common.append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
+    append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
 
     common.logger.info("Here is the plan:")
     for stage, commands in ordered_build_files:
@@ -796,7 +796,7 @@ def make(options, parse_files_only=False):
             continue
         common.logger.info("## %s ##" % (stage))
 
-        common.append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
+        append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
 
         stage_commands = []
         for node, order in commands:
@@ -838,21 +838,21 @@ def make(options, parse_files_only=False):
             if len(step_commands) > 0:
                 node_display_str = display_command_node(node)
                 common.logger.info("- {}".format(node_display_str))
-                common.append_command(stage_commands, 'echo', message = '- Running {}'.format(node_display_str))
+                append_command(stage_commands, 'echo', message = '- Running {}'.format(node_display_str))
                 stage_commands += step_commands
 
         # GPU resource lock
         # `common.need_gpu` is set during Testing commands generations: need to delay adding commands to all_commands to create the gpu lock if needed around the Testing stage
         lock_gpu = (stage == "Running App") and common.need_gpu
         if lock_gpu:
-            common.append_command(all_commands, 'lock', label='GPUS')
+            append_command(all_commands, 'lock', label='GPUS')
 
         all_commands += stage_commands
 
         if lock_gpu:
-            common.append_command(all_commands, 'lock_end')
+            append_command(all_commands, 'lock_end')
 
-        common.append_command(all_commands, 'stage_end')
+        append_command(all_commands, 'stage_end')
 
     # Check stages do not appear twice (otherwise it may block Jenkins)
     stage_names = set()
@@ -866,7 +866,7 @@ def make(options, parse_files_only=False):
 
     # If not on Pull Request, tag the commit as deployed
     if common.command == "deploy" and not common.is_pr:
-        common.append_command(all_commands, 'git_tag', tag = get_tag_name())
+        append_command(all_commands, 'git_tag', tag = get_tag_name())
 
     # Generate output
     if common.is_local:

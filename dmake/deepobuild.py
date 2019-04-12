@@ -8,7 +8,7 @@ import requests.exceptions
 from string import Template
 from dmake.serializer import ValidationError, FieldSerializer, SerializerMixin, YAML2PipelineSerializer
 import dmake.common as common
-from dmake.common import DMakeException, SharedVolumeNotFoundException
+from dmake.common import DMakeException, SharedVolumeNotFoundException, append_command
 import dmake.kubernetes as k8s_utils
 import dmake.docker_registry as docker_registry
 from dmake.docker_image import DockerImageFieldSerializer
@@ -131,7 +131,7 @@ class SharedVolumeSerializer(YAML2PipelineSerializer):
         cmd = "dmake_create_docker_shared_volume %s" % (self.id)
         if common.command == "shell":
             cmd += " 777"
-        common.append_command(commands, 'sh', shell = cmd)
+        append_command(commands, 'sh', shell = cmd)
 
     def get_service_name(self):
         service = self.name + '::shared_volume'  # disambiguate with other services (app services, docker_link services, base services)
@@ -308,7 +308,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 dmake_digest,
                 push_image]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
-        common.append_command(commands, 'sh', shell = cmd)
+        append_command(commands, 'sh', shell = cmd)
 
     @staticmethod
     def _get_base_image_tag(root_image_digest, dmake_digest, version=2):
@@ -551,7 +551,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
             common.run_shell_command('cp -LR %s %s' % (self.ebextensions, os.path.join(tmp_dir, ".ebextensions")))
 
         deploy_name = common.eval_str_in_env(self.name_prefix, env) + deploy_name
-        common.append_command(commands, 'sh', shell = 'dmake_deploy_aws_eb "%s" "%s" "%s" "%s"' % (
+        append_command(commands, 'sh', shell = 'dmake_deploy_aws_eb "%s" "%s" "%s" "%s"' % (
             tmp_dir,
             deploy_name,
             self.region,
@@ -586,7 +586,7 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         common.run_shell_command(cmd)
 
         cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%d"' % (tmp_dir, deploy_name, self.user, self.host, self.port)
-        common.append_command(commands, 'sh', shell = cmd)
+        append_command(commands, 'sh', shell = cmd)
 
 class K8SCDDeploySerializer(YAML2PipelineSerializer):
     context   = FieldSerializer("string", help_text = "kubectl context to use.")
@@ -622,7 +622,7 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
                 configmap_env_file,
                 selectors]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
-        common.append_command(commands, 'sh', shell = cmd)
+        append_command(commands, 'sh', shell = cmd)
 
 
 class KubernetesConfigMapFromFileSerializer(YAML2PipelineSerializer):
@@ -795,7 +795,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 common.commit_id]
         args += manifest_files
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
-        common.append_command(commands, 'sh', shell = cmd)
+        append_command(commands, 'sh', shell = cmd)
 
 
 class DeployConfigPortsSerializer(YAML2PipelineSerializer):
@@ -986,22 +986,22 @@ class TestSerializer(YAML2PipelineSerializer):
 
         has_timeout = self.timeout is not None
         if has_timeout:
-            common.append_command(commands, 'timeout', time = self.timeout)
+            append_command(commands, 'timeout', time = self.timeout)
 
-        common.append_command(commands, 'sh', shell = docker_cmd + tests_cmd)
+        append_command(commands, 'sh', shell = docker_cmd + tests_cmd)
 
         if has_timeout:
-            common.append_command(commands, 'timeout_end')
+            append_command(commands, 'timeout_end')
 
         for junit_report in self.junit_report:
-            common.append_command(commands, 'junit', report = os.path.join(path, junit_report), service_name = service_name, mount_point = mount_point)
+            append_command(commands, 'junit', report = os.path.join(path, junit_report), service_name = service_name, mount_point = mount_point)
 
         for cobertura_report in self.cobertura_report:
-            common.append_command(commands, 'cobertura', report = os.path.join(path, cobertura_report), service_name = service_name, mount_point = mount_point)
+            append_command(commands, 'cobertura', report = os.path.join(path, cobertura_report), service_name = service_name, mount_point = mount_point)
 
         html = self.html_report._value_()
         if html is not None:
-            common.append_command(commands, 'publishHTML', service_name = service_name, mount_point = mount_point,
+            append_command(commands, 'publishHTML', service_name = service_name, mount_point = mount_point,
                            directory = os.path.join(path, html['directory']),
                            index     = html['index'],
                            title     = html['title'],)
@@ -1291,7 +1291,7 @@ class DMakeFile(DMakeFileSerializer):
             app_name = self.app_name
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; needed_service.service_name doesn't contain app_name
             needed_services = map(lambda needed_service: "%s/%s%s" % (app_name, needed_service.service_name, needed_service.get_service_name_unique_suffix()), service.needed_services)
-            common.append_command(commands, 'sh', shell = "dmake_check_services %s" % (' '.join(needed_services)))
+            append_command(commands, 'sh', shell = "dmake_check_services %s" % (' '.join(needed_services)))
 
     def _get_shared_volume_from_service_name_(self, shared_volume_service_name):
         for volume in self.volumes:
@@ -1336,12 +1336,12 @@ class DMakeFile(DMakeFileSerializer):
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
 
         # Run daemon
-        common.append_command(commands, 'read_sh', var = "DAEMON_ID", shell = docker_cmd)
+        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = docker_cmd)
 
         # Wait for daemon to be ready
         cmd = service.config.readiness_probe.get_cmd()
         if cmd:
-            common.append_command(commands, 'sh', shell = 'dmake_exec_docker ${DAEMON_ID} %s' % cmd)
+            append_command(commands, 'sh', shell = 'dmake_exec_docker ${DAEMON_ID} %s' % cmd)
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
@@ -1394,7 +1394,7 @@ class DMakeFile(DMakeFileSerializer):
 
         if command is None:
             command = self.docker.command
-        common.append_command(commands, 'sh', shell=docker_cmd + command)
+        append_command(commands, 'sh', shell=docker_cmd + command)
 
     def generate_test(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
@@ -1419,7 +1419,7 @@ class DMakeFile(DMakeFileSerializer):
         env_file = generate_env_file(common.tmp_dir, env)
         docker_cmd = 'dmake_run_docker_link "%s" "%s" "%s" "%s" --env-file %s %s' % (self.app_name, image_name, link.link_name, link.probe_ports_list(), env_file, options)
         docker_cmd = link.get_docker_run_gpu_cmd_prefix() + docker_cmd
-        common.append_command(commands, 'sh', shell=docker_cmd)
+        append_command(commands, 'sh', shell=docker_cmd)
 
     def generate_deploy(self, commands, service_name):
         service = self._get_service_(service_name)

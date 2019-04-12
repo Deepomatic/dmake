@@ -2,7 +2,7 @@ import os
 from abc import abstractmethod
 
 import dmake.common as common
-from dmake.common import DMakeException
+from dmake.common import DMakeException, append_command
 from dmake.serializer import FieldSerializer, SerializerMixin, YAML2PipelineSerializer
 
 ###############################################################################
@@ -13,7 +13,7 @@ def generate_copy_command(commands, tmp_dir, src):
         src = '.'
     dst = os.path.join(tmp_dir, 'app', src)
     sub_dir = os.path.dirname(common.join_without_slash(dst))
-    common.append_command(commands, 'sh', shell = 'mkdir -p %s && cp -LRf %s %s' % (sub_dir, src, sub_dir))
+    append_command(commands, 'sh', shell = 'mkdir -p %s && cp -LRf %s %s' % (sub_dir, src, sub_dir))
 
 ###############################################################################
 
@@ -130,9 +130,9 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
             raise DMakeException("Service '{}' declares a docker image without a user name in config::docker_image::name so I cannot deploy it. I suggest to change it to 'your_company/{}'".format(service_name, image_name_without_tag))
 
         check_private_flag = "1" if self.check_private else "0"
-        common.append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
+        append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
         image_latest = self.get_image_name(env=env, latest=True)
-        common.append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
+        append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
 
 ###############################################################################
 
@@ -198,7 +198,7 @@ class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
                 f.write('ENTRYPOINT ["%s"]\n' % os.path.join(mount_point, path_dir, self.entrypoint))
 
         image_name = self.get_image_name()
-        common.append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
+        append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
 
 ###############################################################################
 
@@ -237,7 +237,7 @@ class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
         if self.target:
             args.append("--target=%s" % (self.target))
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
-        common.append_command(commands, 'sh', shell = cmd)
+        append_command(commands, 'sh', shell = cmd)
 
 ###############################################################################
 
