@@ -779,6 +779,7 @@ def make(options, parse_files_only=False):
         if not common.is_pr:
             ordered_build_files.append(('Deploying', list(deploy)))
 
+    common.logger.info("Here is the plan:")
     # Generate the list of command to run
     common.logger.info("Generating commands...")
     all_commands = []
@@ -790,7 +791,6 @@ def make(options, parse_files_only=False):
     # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
     append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
 
-    common.logger.info("Here is the plan:")
     for stage, commands in ordered_build_files:
         if len(commands) == 0:
             continue
@@ -875,7 +875,7 @@ def make(options, parse_files_only=False):
     else:
         file_to_generate = "DMakefile"
     generate_command(file_to_generate, all_commands)
-    common.logger.info("Output has been written to %s" % file_to_generate)
+    common.logger.info("Commands have been written to %s" % file_to_generate)
 
     if common.command == "deploy" and common.is_local:
         r = common.read_input("Careful ! Are you sure you want to deploy ? [Y/n] ")
@@ -885,6 +885,8 @@ def make(options, parse_files_only=False):
 
     # If on local, run the commands
     if common.is_local:
+        common.logger.info("===============")
+        common.logger.info("Executing plan...")
         result = subprocess.call('bash %s' % file_to_generate, shell=True)
         # Do not clean for the 'run' command
         do_clean = common.command not in ['build_docker', 'run']
