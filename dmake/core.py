@@ -4,8 +4,8 @@ import sys
 import uuid
 
 import dmake.common as common
-from dmake.common import DMakeException, SharedVolumeNotFoundException
-from dmake.deepobuild import DMakeFile, append_command
+from dmake.common import DMakeException, SharedVolumeNotFoundException, append_command
+from dmake.deepobuild import DMakeFile
 
 tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that the credentials declared in the DMAKE_JENKINS_SSH_AGENT_CREDENTIALS and DMAKE_JENKINS_HTTP_CREDENTIALS allow you to write to the repository."
 
@@ -853,7 +853,6 @@ def make(options, parse_files_only=False):
             append_command(all_commands, 'lock_end')
 
         append_command(all_commands, 'stage_end')
-
 
     # Check stages do not appear twice (otherwise it may block Jenkins)
     stage_names = set()

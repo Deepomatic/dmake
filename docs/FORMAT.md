@@ -42,6 +42,9 @@
         - **mount_point** *(string, default = `/app`)*: Mount point of the app in the built docker image. Needs to be an absolute path.
         - **command** *(string, default = `bash`)*: Only used when running 'dmake shell': command passed to `docker run`.
 - **docker_links** *(array\<object\>, default = `[]`)*: List of link to create, they are shared across the whole application, so potentially across multiple dmake files.
+    - **probe_ports** *(mixed, default = `auto`)*: Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp. It can be one of the followings:
+        - a string
+        - an array of strings
     - **image_name** *(string)*: Name and tag of the image to launch.
     - **link_name** *(string)*: Link name.
     - **volumes** *(array\<object\>, default = `[]`)*: Either shared volumes to mount. Or: for the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.
@@ -53,9 +56,6 @@
             - **host_volume** *(string)*: Path of the volume from the host.
     - **need_gpu** *(boolean, default = `False`)*: Whether the docker link needs to be run on a GPU node.
     - **testing_options** *(string, default = ``)*: Additional Docker options when testing on Jenkins.
-    - **probe_ports** *(mixed, default = `auto`)*: Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp. It can be one of the followings:
-        - a string
-        - an array of strings
     - **env** *(free style object, default = `{}`)*: Additional environment variables defined when running this image.
     - **env_exports** *(free style object, default = `{}`)*: A set of environment variables that will be exported in services that use this link when testing.
 - **build** *(object)*: Commands to run for building the application. It must be an object with the following fields:
@@ -71,12 +71,19 @@
         - **service_name** *(string)*: The name of the needed application part.
         - **link_name** *(string)*: Link name.
         - **env** *(free style object, default = `{}`)*: List of environment variables that will be set when executing the needed service.
+        - **env_exports** *(free style object, default = `{}`)*: A set of environment variables that will be exported in services that use this service when testing.
     - **needed_links** *(array\<string\>, default = `[]`)*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
     - **sources** *(array\<object\>)*: If specified, this service will be considered as updated only when the content of those directories or files have changed.
         - a file path
         - a directory
+    - **dev** *(object)*: Development runtime configuration. It must be an object with the following fields:
+        - **entrypoint** *(file path)*: Set the entrypoint used with `dmake shell`.
     - **config** *(object)*: Deployment configuration. It must be an object with the following fields:
-        - **docker_image** *(mixed)*: Docker to build for running and deploying. It can be one of the followings:
+        - **probe_ports** *(mixed, default = `auto`)*: Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp. It can be one of the followings:
+            - a string
+            - an array of strings
+        - **docker_image** *(mixed)*: Docker image to use for running and deploying. It can be one of the followings:
+            - a string
             - an object with the following fields:
                 - **name** *(string)*: Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.
                 - **base_image_variant** *(mixed)*: Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'. It can be one of the followings:
@@ -103,10 +110,11 @@
                     - **labels** *(free style object, default = `{}`)*: Add metadata to the resulting image using Docker labels. It's recommended that you use reverse-DNS notation to prevent your labels from conflicting with those used by other software.
                     - **target** *(string)*: Build the specified stage as defined inside the Dockerfile. See the [multi-stage build docs](https://docs.docker.com/engine/userguide/eng-image/multistage-build/) for details.
         - **docker_opts** *(string, default = ``)*: Docker options to add.
+        - **env_override** *(free style object, default = `{}`)*: Extra environment variables for this service. Overrides dmake.yml root `env`, with variable substitution evaluated from it.
         - **need_gpu** *(boolean, default = `False`)*: Whether the service needs to be run on a GPU node.
         - **ports** *(array\<object\>, default = `[]`)*: Ports to open.
             - **container_port** *(int)*: Port on the container.
-            - **host_port** *(int)*: Port on the host.
+            - **host_port** *(int)*: Port on the host. If not set, a random port will be used.
         - **volumes** *(array\<object\>, default = `[]`)*: Volumes to mount.
             - an object with the following fields:
                 - **source** *(string)*: The shared volume name (declared in .
@@ -126,8 +134,13 @@
             - **source** *(string)*: Only host path and s3 URLs are supported for now.
             - **read_only** *(boolean, default = `False`)*: Flag to set the volume as read-only.
         - **commands** *(array\<string\>)*: The commands to run for integration tests.
-        - **junit_report** *(string)*: Uses JUnit plugin to generate unit test report.
-        - **cobertura_report** *(string)*: Publish a Cobertura report. **WARNING** only one is allowed per repository.
+        - **timeout** *(string)*: The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks).
+        - **junit_report** *(mixed, default = `[]`)*: Filepath or array of file paths of xml xunit test reports. Publish a XUnit test report. It can be one of the followings:
+            - a string
+            - an array of strings
+        - **cobertura_report** *(mixed, default = `[]`)*: Filepath or array of file paths of xml xunit test reports. Publish a Cobertura report. It can be one of the followings:
+            - a string
+            - an array of strings
         - **html_report** *(object, optional)*: Publish an HTML report. It must be an object with the following fields:
             - **directory** *(string)*: Directory of the html pages.
             - **index** *(string, default = `index.html`)*: Main page.
@@ -158,11 +171,20 @@
             - **kubernetes** *(object, optional)*: Deploy to Kubernetes cluster. It must be an object with the following fields:
                 - **context** *(string)*: kubectl context to use.
                 - **namespace** *(string)*: Kubernetes namespace to target (overrides kubectl context default namespace.
-                - **manifest** *(object)*: Kubernetes manifest file (template) defining all the resources needed to deploy the service.
-                    - **template** *(file path)*: Kubernetes manifest file (template) defining all the resources needed to deploy the service.
+                - **manifest** *(object)*: Kubernetes manifest defining all the resources needed to deploy the service.
+                    - **template** *(file path)*: Kubernetes manifest file (Python PEP 292 template format) defining all the resources needed to deploy the service.
+                    - **variables** *(free style object, default = `{}`)*: Defines variables used in the kubernetes manifest template.
+                - **manifests** *(array\<object\>, default = `[]`)*: Kubernetes manifests defining resources needed to deploy the service.
+                    - **template** *(file path)*: Kubernetes manifest file (Python PEP 292 template format) defining all the resources needed to deploy the service.
                     - **variables** *(free style object, default = `{}`)*: Defines variables used in the kubernetes manifest template.
                 - **config_maps** *(array\<object\>, default = `[]`)*: Additional Kubernetes ConfigMaps.
                     - **name** *(string)*: Kubernetes ConfigMap name.
-                    - **from_files** *(array\<object\>, default = `[]`)*: Kubernetes ConfigMap from files.
+                    - **from_files** *(array\<object\>, default = `[]`)*: Kubernetes create values from files.
                         - **key** *(string)*: File key.
-                        - **path** *(file path)*: File path.
+                        - **path** *(file path)*: File path (relative to this dmake.yml file).
+                - **secrets** *(array\<object\>, default = `[]`)*: Additional Kubernetes Secrets.
+                    - **name** *(string)*: Kubernetes Secret name.
+                    - **generic** *(object)*: Kubernetes Generic Secret type parameters.
+                        - **from_files** *(array\<object\>, default = `[]`)*: Kubernetes create values from files.
+                            - **key** *(string)*: File key.
+                            - **path** *(string)*: Absolute file path. Supports variables substitution.

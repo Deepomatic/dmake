@@ -83,6 +83,54 @@ def yaml_ordered_dump(data, stream=None, default_flow_style=False, all=False, no
 
 ###############################################################################
 
+def append_command(commands, cmd, prepend = False, **args):
+    def check_cmd(args, required, optional = []):
+        for a in required:
+            if a not in args:
+                raise DMakeException("%s is required for command %s" % (a, cmd))
+        for a in args:
+            if a not in required and a not in optional:
+                raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
+    if cmd == "stage":
+        check_cmd(args, ['name', 'concurrency'])
+    elif cmd == "stage_end":
+        check_cmd(args, [])
+    elif cmd == "lock":
+        check_cmd(args, ['label'])
+    elif cmd == "lock_end":
+        check_cmd(args, [])
+    elif cmd == "timeout":
+        check_cmd(args, ['time'])
+    elif cmd == "timeout_end":
+        check_cmd(args, [])
+    elif cmd == "echo":
+        check_cmd(args, ['message'])
+    elif cmd == "sh":
+        check_cmd(args, ['shell'])
+    elif cmd == "read_sh":
+        check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
+        if 'fail_if_empty' not in args:
+            args['fail_if_empty'] = False
+    elif cmd == "env":
+        check_cmd(args, ['var', 'value'])
+    elif cmd == "git_tag":
+        check_cmd(args, ['tag'])
+    elif cmd == "junit":
+        check_cmd(args, ['report', 'service_name', 'mount_point'])
+    elif cmd == "cobertura":
+        check_cmd(args, ['report', 'service_name', 'mount_point'])
+    elif cmd == "publishHTML":
+        check_cmd(args, ['directory', 'index', 'title', 'service_name', 'mount_point'])
+    else:
+        raise DMakeException("Unknown command %s" % cmd)
+    cmd = (cmd, args)
+    if prepend:
+        commands.insert(0, cmd)
+    else:
+        commands.append(cmd)
+
+###############################################################################
+
 def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=None, raise_on_return_code=False):
     """Deprecated, use run_shell_command2 instead."""
     if not isinstance(commands, list):
