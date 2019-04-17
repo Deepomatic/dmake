@@ -232,7 +232,12 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
             if common.options.with_dependencies and needs is not None:
-                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, 'deploy')
+                # enforce deployment order by re-using needed_services dependency graph
+                # but we don't want to create extra deployments because of customization
+                # => deploy recursively using needs dependency, but ignore service customization
+                uncustomized_needs = [(child_service, None) for child_service, child_service_customization in needs]
+                children += activate_needed_services(loaded_files, service_providers, service_dependencies, uncustomized_needs, 'deploy')
+
         else:
             raise Exception("Unknown command '%s'" % command)
 
