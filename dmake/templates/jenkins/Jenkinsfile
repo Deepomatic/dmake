@@ -55,6 +55,14 @@ try {
     default_clear_workspace=false
 }
 
+
+try {
+    default_pipeline_triggers=DEFAULT_PIPELINE_TRIGGERS
+} catch (e) {
+    default_pipeline_triggers=[]
+}
+
+
 properties([
     parameters([
         string(name: 'DMAKE_APP',
@@ -85,7 +93,7 @@ properties([
                      defaultValue: default_clear_workspace,
                      description: 'Wipe out the workspace when starting the build if checked'),
     ]),
-    pipelineTriggers([])
+    pipelineTriggers(default_pipeline_triggers)
 ])
 
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
