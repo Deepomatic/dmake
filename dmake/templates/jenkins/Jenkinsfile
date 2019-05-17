@@ -55,6 +55,14 @@ try {
     default_clear_workspace=false
 }
 
+
+try {
+    default_pipeline_triggers=DEFAULT_PIPELINE_TRIGGERS
+} catch (e) {
+    default_pipeline_triggers=[]
+}
+
+
 properties([
     parameters([
         string(name: 'DMAKE_APP',
@@ -85,7 +93,7 @@ properties([
                      defaultValue: default_clear_workspace,
                      description: 'Wipe out the workspace when starting the build if checked'),
     ]),
-    pipelineTriggers([])
+    pipelineTriggers(default_pipeline_triggers)
 ])
 
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
@@ -109,13 +117,16 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
     // For PRs Jenkins will give the source branch name
     def is_pr = !!env.CHANGE_BRANCH
 
-    if (params.DMAKE_COMMAND) {
-        dmake_command = params.DMAKE_COMMAND
-    } else {
+    def dmake_command = params.DMAKE_COMMAND
+    try {
+        dmake_command = OVERRIDE_DMAKE_COMMAND
+    } catch (e) {}
+
+    if (! dmake_command) {
         dmake_command = is_pr ? 'test' : 'deploy'
     }
 
-    dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '--dependencies' : '--standalone'
+    dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '' : '--standalone'
 
     sh "${params.CUSTOM_ENVIRONMENT} python3 \$(which dmake) ${dmake_command} ${dmake_with_dependencies} '${params.DMAKE_APP}'"
     load 'DMakefile'
