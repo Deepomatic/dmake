@@ -485,6 +485,8 @@ def generate_command_pipeline(file, cmds):
             write_line("env.%s = readFile '%s'" % (kwargs['var'], file_output))
             if kwargs['fail_if_empty']:
                 write_line("sh('if [ -z \"${%s}\" ]; then exit 1; fi')" % kwargs['var'])
+        elif cmd == "global_env":
+            write_line('env.%s = "%s"' % (kwargs['var'], kwargs['value']))
         elif cmd == "with_env":
             write_line('withEnv([')
             indent_level += 1
@@ -561,8 +563,11 @@ def generate_command_pipeline(file, cmds):
     write_line('finally {')
     write_line('  sh("dmake_clean")')
     write_line('}')
+
+    # FIXME: Find a better way to close the withEnv
     indent_level -= 1
-    write_line('} // WithEnv end')
+    write_line('} // withEnv end')
+
 ###############################################################################
 
 def generate_command_bash(file, cmds):
@@ -601,6 +606,9 @@ def generate_command_bash(file, cmds):
             file.write("%s=`%s`\n" % (kwargs['var'], kwargs['shell']))
             if kwargs['fail_if_empty']:
                 file.write("if [ -z \"${%s}\" ]; then exit 1; fi\n" % kwargs['var'])
+        elif cmd == "global_env":
+            file.write('%s="%s"\n' % (kwargs['var'], kwargs['value'].replace('"', '\\"')))
+            file.write('export %s\n' % kwargs['var'])
         elif cmd == "with_env":
             environment = kwargs['value']
             for element in environment:
@@ -811,14 +819,11 @@ def make(options, parse_files_only=False):
     common.logger.info("Generating commands...")
     all_commands = []
 
-    environment = [
-        ("REPO", common.repo),
-        ("COMMIT", common.commit_id),
-        ("BUILD", common.build_id),
-        ("BRANCH", common.branch),
-        ("DMAKE_TMP_DIR", common.tmp_dir)
-    ]
-    append_command(all_commands, 'with_env', value = environment)
+    append_command(all_commands, 'global_env', var = "REPO", value = common.repo)
+    append_command(all_commands, 'global_env', var = "COMMIT", value = common.commit_id)
+    append_command(all_commands, 'global_env', var = "BUILD", value = common.build_id)
+    append_command(all_commands, 'global_env', var = "BRANCH", value = common.branch)
+    append_command(all_commands, 'with_env', value = [("DMAKE_TMP_DIR", common.tmp_dir)])
     append_command(all_commands, 'try')
     # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
     append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
@@ -906,6 +911,7 @@ def make(options, parse_files_only=False):
     else:
         file_to_generate = "DMakefile"
     generate_command(file_to_generate, all_commands)
+
     common.logger.info("Commands have been written to %s" % file_to_generate)
 
     if common.command == "deploy" and common.is_local:

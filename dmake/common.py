@@ -115,6 +115,8 @@ def append_command(commands, cmd, prepend = False, **args):
         check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
         if 'fail_if_empty' not in args:
             args['fail_if_empty'] = False
+    elif cmd == "global_env":
+        check_cmd(args, ['var', 'value'])
     elif cmd == "with_env":
         check_cmd(args, ['value'])
     elif cmd == "with_env_end":
@@ -388,7 +390,7 @@ def init(_options, early_exit=False):
     if branch is None:
         branch = os.getenv('BRANCH_NAME', None)
     if branch is None:
-        use_pipeline = False
+        #use_pipeline = False
         target = os.getenv('ghprbTargetBranch', None)
         pr_id  = os.getenv('ghprbPullId', None)
         build_id = os.getenv('BUILD_NUMBER', '0')
