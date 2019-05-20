@@ -425,14 +425,18 @@ def generate_command_pipeline(file, cmds):
 
     if common.build_description is not None:
         write_line("currentBuild.description = '%s'" % common.build_description.replace("'", "\\'"))
-    write_line('try {')
-    indent_level += 1
 
     cobertura_tests_results_dir = os.path.join(common.relative_cache_dir, 'cobertura_tests_results')
     emit_cobertura = False
 
     for cmd, kwargs in cmds:
-        if cmd == "stage":
+        if cmd == "try":
+            write_line('try {')
+            indent_level += 1
+        elif cmd == "try_end":
+            indent_level -= 1
+            write_line('}')
+        elif cmd == "stage":
             name = kwargs['name'].replace("'", "\\'")
             write_line('')
             if kwargs['concurrency'] is not None and kwargs['concurrency'] > 1:
@@ -481,8 +485,17 @@ def generate_command_pipeline(file, cmds):
             write_line("env.%s = readFile '%s'" % (kwargs['var'], file_output))
             if kwargs['fail_if_empty']:
                 write_line("sh('if [ -z \"${%s}\" ]; then exit 1; fi')" % kwargs['var'])
-        elif cmd == "env":
-            write_line('env.%s = "%s"' % (kwargs['var'], kwargs['value']))
+        elif cmd == "with_env":
+            write_line('withEnv([')
+            indent_level += 1
+            environment = kwargs['value']
+            for element in environment[:-1]:
+                write_line('"%s=%s",' % (element[0], element[1]))
+            last_element = environment[-1]
+            write_line('"%s=%s"]) {' % (last_element[0], last_element[1]))
+        elif cmd == "with_env_end":
+            indent_level -= 1
+            write_line('} // WithEnv end')
         elif cmd == "git_tag":
             if common.repo_url is not None:
                 write_line("sh('git tag --force %s')" % kwargs['tag'])
@@ -548,14 +561,19 @@ def generate_command_pipeline(file, cmds):
     write_line('finally {')
     write_line('  sh("dmake_clean")')
     write_line('}')
-
+    indent_level -= 1
+    write_line('} // WithEnv end')
 ###############################################################################
 
 def generate_command_bash(file, cmds):
     file.write('test "${DMAKE_DEBUG}" = "1" && set -x\n')
     file.write('set -e\n')
     for cmd, kwargs in cmds:
-        if cmd == "stage":
+        if cmd == "try":
+            pass
+        elif cmd == "try_end":
+            pass
+        elif cmd == "stage":
             file.write("\n")
             file.write("echo -e '\n## %s ##'\n" % kwargs['name'])
         elif cmd == "stage_end":
@@ -583,9 +601,13 @@ def generate_command_bash(file, cmds):
             file.write("%s=`%s`\n" % (kwargs['var'], kwargs['shell']))
             if kwargs['fail_if_empty']:
                 file.write("if [ -z \"${%s}\" ]; then exit 1; fi\n" % kwargs['var'])
-        elif cmd == "env":
-            file.write('%s="%s"\n' % (kwargs['var'], kwargs['value'].replace('"', '\\"')))
-            file.write('export %s\n' % kwargs['var'])
+        elif cmd == "with_env":
+            environment = kwargs['value']
+            for element in environment:
+                file.write('%s="%s"\n' % (element[0], element[1].replace('"', '\\"')))
+                file.write('export %s\n' % element[0])
+        elif cmd == "with_env_end":
+            pass
         elif cmd == "git_tag":
             file.write('git tag --force %s\n' % kwargs['tag'])
             file.write('git push --force %s refs/tags/%s || echo %s\n' % (common.remote, kwargs['tag'], tag_push_error_msg))
@@ -788,11 +810,16 @@ def make(options, parse_files_only=False):
     # Generate the list of command to run
     common.logger.info("Generating commands...")
     all_commands = []
-    append_command(all_commands, 'env', var = "REPO", value = common.repo)
-    append_command(all_commands, 'env', var = "COMMIT", value = common.commit_id)
-    append_command(all_commands, 'env', var = "BUILD", value = common.build_id)
-    append_command(all_commands, 'env', var = "BRANCH", value = common.branch)
-    append_command(all_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
+
+    environment = [
+        ("REPO", common.repo),
+        ("COMMIT", common.commit_id),
+        ("BUILD", common.build_id),
+        ("BRANCH", common.branch),
+        ("DMAKE_TMP_DIR", common.tmp_dir)
+    ]
+    append_command(all_commands, 'with_env', value = environment)
+    append_command(all_commands, 'try')
     # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
     append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
 
