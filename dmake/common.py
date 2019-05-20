@@ -91,11 +91,7 @@ def append_command(commands, cmd, prepend = False, **args):
         for a in args:
             if a not in required and a not in optional:
                 raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
-    if cmd == "try":
-        pass
-    elif cmd == "try_end":
-        pass
-    elif cmd == "stage":
+    if cmd == "stage":
         check_cmd(args, ['name', 'concurrency'])
     elif cmd == "stage_end":
         check_cmd(args, [])
@@ -115,6 +111,8 @@ def append_command(commands, cmd, prepend = False, **args):
         check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
         if 'fail_if_empty' not in args:
             args['fail_if_empty'] = False
+    elif cmd == "global_env":
+        check_cmd(args, ['var', 'value'])
     elif cmd == "with_env":
         check_cmd(args, ['value'])
     elif cmd == "with_env_end":
