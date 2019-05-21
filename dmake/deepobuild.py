@@ -1334,14 +1334,15 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
         docker_cmd = 'dmake_run_docker_daemon "%s" "%s" "%s" "" %s -i %s' % (self.app_name, unique_service_name, link_name or "", docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
-
         # Run daemon
-        append_command(commands, 'read_sh', var = "DAEMON_ID", shell = docker_cmd)
+        append_command(commands, 'assign_var', var = "DAEMON_ID", shell = docker_cmd)
 
         # Wait for daemon to be ready
         cmd = service.config.readiness_probe.get_cmd()
         if cmd:
+            append_command(commands, 'with_env', value = [("DAEMON_ID", "${DAEMON_ID}")])
             append_command(commands, 'sh', shell = 'dmake_exec_docker ${DAEMON_ID} %s' % cmd)
+            append_command(commands, 'with_env_end')
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)

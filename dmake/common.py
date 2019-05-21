@@ -107,6 +107,8 @@ def append_command(commands, cmd, prepend = False, **args):
         check_cmd(args, ['message'])
     elif cmd == "sh":
         check_cmd(args, ['shell'])
+    elif cmd == "assign_var":
+        check_cmd(args, ['var', 'shell'])
     elif cmd == "read_sh":
         check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
         if 'fail_if_empty' not in args:
