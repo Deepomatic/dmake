@@ -1,18 +1,23 @@
-//Slack integration
-def notifyBuild(String channel, String buildStatus, String buildMessage) {
-    if (buildStatus == 'SUCCESS') {
-        color = '#36A64F' // green
-    } else if (buildStatus == 'ABORTED') {
-        color = '#ABABAB' // grey
-    } else {
-        color = '#D00000' // red
+package com.deepo;
+
+/*
+* File containing all the build related utilities
+*/
+
+def isPR() {
+    // For PRs Jenkins will give the source branch name
+    return !!env.CHANGE_BRANCH
+}
+
+// Returns true if the gpu should be spared in this build otherwise false
+def spareGPU() {
+    if (env.BRANCH_NAME == "release") {
+       return false
     }
-    def message = "${buildStatus}"
-    if (buildMessage) {
-        message += " (${buildMessage})"
+    if (env.BRANCH_NAME == "master") {
+       return false
     }
-    message += ": Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})"
-    slackSend (color: color, message: message, botUser: true, channel: channel)
+    return true
 }
 
 // Utility function that returns the jenkins interruption cause
@@ -30,7 +35,7 @@ def getCauseDescriptionIfAborted() {
 
 def setup_pipeline_parameters() {
 
-    // default parameters from dmake repo user
+    // default parameters from dmake user repository
     try {
         default_dmake_app=DEFAULT_DMAKE_APP
     } catch (e) {
@@ -61,13 +66,11 @@ def setup_pipeline_parameters() {
         default_dmake_debug=false
     }
 
-
     try {
         default_dmake_pause_on_error_before_cleanup=DEFAULT_PAUSE_ON_ERROR_BEFORE_CLEANUP
     } catch (e) {
         default_dmake_pause_on_error_before_cleanup=false
     }
-
 
     try {
         default_dmake_force_base_image_build=DEFAULT_DMAKE_FORCE_BASE_IMAGE_BUILD
@@ -87,13 +90,11 @@ def setup_pipeline_parameters() {
         default_clear_workspace=false
     }
 
-
     try {
         default_pipeline_triggers=DEFAULT_PIPELINE_TRIGGERS
     } catch (e) {
         default_pipeline_triggers=[]
     }
-
 
     properties([
         parameters([
@@ -137,75 +138,3 @@ def setup_pipeline_parameters() {
         env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
     }
 }
-
-//
-def dmake_call(environment, String dmake_command, String dmake_with_dependencies, String dmake_app){
-    sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
-                            env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
-        if (params.CLEAR_WORKSPACE) {
-            deleteDir()
-        }
-        checkout([$class: 'GitSCM',
-                  branches: scm.branches,
-                  extensions: scm.extensions + [[$class: 'SubmoduleOption', recursiveSubmodules: true]],
-                  userRemoteConfigs: scm.userRemoteConfigs])
-
-        withEnv(environment){
-              sh "${params.CUSTOM_ENVIRONMENT} python3 \$(which dmake) ${dmake_command} ${dmake_with_dependencies} ${dmake_app}"
-              load 'DMakefile'
-        }
-    }
-}
-
-// Function that takes the parameters and creates a build dmake call
-def build(dmake_app_list) {
-
-    // Setup variables
-    setup_pipeline_parameters()
-    def is_deploy_branch = (env.BRANCH_NAME == "release" || env.BRANCH_NAME == "master")
-    def NO_GPU = (! is_deploy_branch) ? 1 : 0
-
-
-    // For PRs Jenkins will give the source branch name
-    def is_pr = !!env.CHANGE_BRANCH
-    def dmake_command = params.DMAKE_COMMAND
-    try {
-        dmake_command = OVERRIDE_DMAKE_COMMAND
-    } catch (e) {}
-
-    def environment = ["TOTO=1", "TOTO2=1", "ALLOW_NO_GPU=${NO_GPU}", "DMAKE_NO_GPU=${NO_GPU}", "VULCAN_MINIKUBE_CONTEXT=${env.MINIKUBE_CONTEXT}"]
-
-    if (! dmake_command) {
-        dmake_command = is_pr ? 'test' : 'deploy'
-    }
-
-    def dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '' : '--standalone'
-
-    if (! dmake_app_list){
-	dmake_app_list = [params.DMAKE_APP]
-    }
-
-    def buildMessage = null
-    try {
-        for (dmake_app in dmake_app_list){
-            dmake_call(environment, dmake_command, dmake_with_dependencies, dmake_app)
-        }
-        currentBuild.result = 'SUCCESS'
-    } catch (e) {
-        def abortedCauseDescription = getCauseDescriptionIfAborted()
-        if (abortedCauseDescription) {
-            currentBuild.result = 'ABORTED'
-            buildMessage = abortedCauseDescription
-        } else {
-            currentBuild.result = 'FAILURE'
-        }
-        throw e
-    } finally {
-        if (is_deploy_branch) {
-            notifyBuild("vulcan", currentBuild.result, buildMessage)
-        }
-    }
-}
-
-// Hack to access the functions after a LOAD of this file
-return this
