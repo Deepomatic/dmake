@@ -48,8 +48,9 @@ if [ ! -z "${TMP_DIR}" ]; then
     echo ${NAME} >> ${TMP_DIR}/containers_to_remove.txt
 fi
 
+DOCKER_RUN_ARGS=( )
+
 # support some GPU modes using nvidia docker v2
-DOCKER_RUN_ARGS=( run )
 if [[ "${DMAKE_DOCKER_RUN_WITH_GPU}" == 'yes' ]]; then
   DEVICES=${DMAKE_GPU#GPU_}
   DOCKER_RUN_ARGS+=( --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${DEVICES:-all} )
@@ -57,4 +58,11 @@ elif [[ "${DMAKE_DOCKER_RUN_WITH_GPU}" == 'none' ]]; then
   DOCKER_RUN_ARGS+=( -e NVIDIA_VISIBLE_DEVICES=none )
 fi
 
-docker "${DOCKER_RUN_ARGS[@]}" --name ${NAME} "$@"
+DOCKER_RUN_ARGS+=( --name ${NAME} "$@" )
+
+# support telepresence
+if [[ "${DMAKE_TELEPRESENCE}" == '1' ]]; then
+  telepresence "${DMAKE_TELEPRESENCE_ARGS[@]}" --docker-run "${DOCKER_RUN_ARGS[@]}"
+else
+  docker run "${DOCKER_RUN_ARGS[@]}"
+fi
