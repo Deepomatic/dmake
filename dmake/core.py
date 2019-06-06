@@ -9,8 +9,6 @@ from dmake.deepobuild import DMakeFile
 
 tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that the credentials declared in the DMAKE_JENKINS_SSH_AGENT_CREDENTIALS and DMAKE_JENKINS_HTTP_CREDENTIALS allow you to write to the repository."
 
-# List that stores all the generated variables
-VARIABLES = []
 ###############################################################################
 
 def find_symlinked_directories():
@@ -483,11 +481,8 @@ def generate_command_pipeline(file, cmds):
                 write_line(')')
         elif cmd == "assign_var":
             name = kwargs['var']
-            if name not in VARIABLES:
-               write_line("def %s = sh(script:'%s', returnStdout: true).trim()" % (name, kwargs['shell']))
-               VARIABLES.append(name)
-            else:
-               write_line("%s = sh(script:'%s', returnStdout: true).trim()" % (name, kwargs['shell']))
+            # NOTE: Be aware, this assignment generates a global variable and not a scoped one.
+            write_line("%s = sh(script:'%s', returnStdout: true).trim()" % (name, kwargs['shell']))
         elif cmd == "read_sh":
             file_output = os.path.join(common.cache_dir, "output_%s" % uuid.uuid4())
             write_line("sh('%s > %s')" % (kwargs['shell'], file_output))
