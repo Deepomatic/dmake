@@ -429,7 +429,7 @@ def generate_command_pipeline(file, cmds):
     cobertura_tests_results_dir = os.path.join(common.relative_cache_dir, 'cobertura_tests_results')
     emit_cobertura = False
     # TODO: Refactor in future PR to call this "wrapping function" at a different level
-    write_line("withEnv([\"DMAKE_TMP_DIR\"='%s']) {" % common.tmp_dir)
+    write_line("withEnv([\"DMAKE_TMP_DIR=%s\"]) {" % common.tmp_dir)
     indent_level += 1
 
     write_line('try {')
@@ -567,7 +567,6 @@ def generate_command_pipeline(file, cmds):
     # FIXME: Find a better way to close the withEnv
     indent_level -= 1
     write_line('} // withEnv end')
-
 ###############################################################################
 
 def generate_command_bash(file, cmds):
@@ -819,13 +818,10 @@ def make(options, parse_files_only=False):
     # Generate the list of command to run
     common.logger.info("Generating commands...")
     all_commands = []
-
     append_command(all_commands, 'global_env', var = "REPO", value = common.repo)
     append_command(all_commands, 'global_env', var = "COMMIT", value = common.commit_id)
     append_command(all_commands, 'global_env', var = "BUILD", value = common.build_id)
     append_command(all_commands, 'global_env', var = "BRANCH", value = common.branch)
-
-
     # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
     append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
 
@@ -912,7 +908,6 @@ def make(options, parse_files_only=False):
     else:
         file_to_generate = "DMakefile"
     generate_command(file_to_generate, all_commands)
-
     common.logger.info("Commands have been written to %s" % file_to_generate)
 
     if common.command == "deploy" and common.is_local:
