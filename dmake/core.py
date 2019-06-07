@@ -1,13 +1,11 @@
 import os
 import subprocess
 import sys
-import uuid
 
 import dmake.common as common
 from dmake.common import DMakeException, SharedVolumeNotFoundException, append_command
+from dmake.commands import Commands
 from dmake.deepobuild import DMakeFile
-
-tag_push_error_msg = "Unauthorized to push the current state of deployment to git server. If the repository belongs to you, please check that the credentials declared in the DMAKE_JENKINS_SSH_AGENT_CREDENTIALS and DMAKE_JENKINS_HTTP_CREDENTIALS allow you to write to the repository."
 
 ###############################################################################
 
@@ -404,243 +402,6 @@ def order_dependencies(dependencies, sorted_leaves):
 
 ###############################################################################
 
-def make_path_unique_per_variant(path, service_name):
-    """If multi variant: prefix filename with `<variant>-`"""
-    service_name_parts = service_name.split(':')
-    if len(service_name_parts) == 2:
-        variant = service_name_parts[1]
-        head, tail = os.path.split(path)
-        path = os.path.join(head, '%s-%s' % (variant, tail))
-    return path
-
-###############################################################################
-
-def generate_command_pipeline(file, cmds):
-    indent_level = 0
-
-    def write_line(data):
-        if len(data) > 0:
-            file.write('  ' * indent_level)
-        file.write(data + '\n')
-
-    if common.build_description is not None:
-        write_line("currentBuild.description = '%s'" % common.build_description.replace("'", "\\'"))
-
-    cobertura_tests_results_dir = os.path.join(common.relative_cache_dir, 'cobertura_tests_results')
-    emit_cobertura = False
-
-    for cmd, kwargs in cmds:
-        if cmd == "try":
-            write_line('try {')
-            indent_level += 1
-        elif cmd == "try_end":
-            indent_level -= 1
-            write_line('}')
-        elif cmd == "stage":
-            name = kwargs['name'].replace("'", "\\'")
-            write_line('')
-            if kwargs['concurrency'] is not None and kwargs['concurrency'] > 1:
-                raise DMakeException("Unsupported stage concurrency: %s > 1" % kwargs['concurrency'])
-            write_line("stage('%s') {" % name)
-            indent_level += 1
-        elif cmd == "stage_end":
-            indent_level -= 1
-            write_line("}")
-        elif cmd == "lock":
-            assert(kwargs['label'] == 'GPUS')
-            write_line("lock(label: 'GPUS', quantity: 1, variable: 'DMAKE_GPU') {")
-            indent_level += 1
-        elif cmd == "lock_end":
-            indent_level -= 1
-            write_line("}")
-        elif cmd == "timeout":
-            time = kwargs['time']
-            write_line("timeout(time: %s, unit: 'SECONDS') {" % time)
-            indent_level += 1
-        elif cmd == "timeout_end":
-            indent_level -= 1
-            write_line("}")
-        elif cmd == "echo":
-            message = kwargs['message'].replace("'", "\\'")
-            write_line("echo '%s'" % message)
-        elif cmd == "sh":
-            commands = kwargs['shell']
-            if common.is_string(commands):
-                commands = [commands]
-            commands = [common.escape_cmd(c) for c in commands]
-            if len(commands) == 0:
-                return
-            if len(commands) == 1:
-                write_line('sh("%s")' % commands[0])
-            else:
-                write_line('parallel (')
-                commands_list = []
-                for c in enumerate(commands):
-                    commands_list.append("cmd%d: { sh('%s') }" % c)
-                write_line(','.join(commands_list))
-                write_line(')')
-        elif cmd == "read_sh":
-            file_output = os.path.join(common.cache_dir, "output_%s" % uuid.uuid4())
-            write_line("sh('%s > %s')" % (kwargs['shell'], file_output))
-            write_line("env.%s = readFile '%s'" % (kwargs['var'], file_output))
-            if kwargs['fail_if_empty']:
-                write_line("sh('if [ -z \"${%s}\" ]; then exit 1; fi')" % kwargs['var'])
-        elif cmd == "global_env":
-            write_line('env.%s = "%s"' % (kwargs['var'], kwargs['value']))
-        elif cmd == "with_env":
-            write_line('withEnv([')
-            indent_level += 1
-            environment = kwargs['value']
-            for element in environment[:-1]:
-                write_line('"%s=%s",' % (element[0], element[1]))
-            last_element = environment[-1]
-            write_line('"%s=%s"]) {' % (last_element[0], last_element[1]))
-        elif cmd == "with_env_end":
-            indent_level -= 1
-            write_line('} // WithEnv end')
-        elif cmd == "git_tag":
-            if common.repo_url is not None:
-                write_line("sh('git tag --force %s')" % kwargs['tag'])
-                write_line('try {')
-                indent_level += 1
-                if common.repo_url.startswith('https://') or common.repo_url.startswith('http://'):
-                    i = common.repo_url.find(':')
-                    prefix = common.repo_url[:i]
-                    host = common.repo_url[(i + 3):]
-                    write_line("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: env.DMAKE_JENKINS_HTTP_CREDENTIALS, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {")
-                    indent_level += 1
-                    write_line('try {')
-                    write_line("""  sh("git push --force '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' refs/tags/%s")""" % (prefix, host, kwargs['tag']))
-                    write_line('} catch(error) {')
-                    write_line("""  sh('echo "%s"')""" % tag_push_error_msg.replace("'", "\\'"))
-                    write_line('}')
-                    error_msg = "Define 'User/Password' credentials and set their ID in the 'DMAKE_JENKINS_HTTP_CREDENTIALS' environment variable to be able to build and deploy only changed parts of the app."
-                    indent_level -= 1
-                    write_line('}')
-                else:
-                    write_line("sh('git push --force %s refs/tags/%s')" % (common.remote, kwargs['tag']))
-                    error_msg = tag_push_error_msg
-                indent_level -= 1
-                write_line('} catch(error) {')
-                write_line("""  sh('echo "%s"')""" % error_msg.replace("'", "\\'"))
-                write_line('}')
-        elif cmd == "junit":
-            container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
-            host_report = os.path.join(common.relative_cache_dir, 'tests_results', str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['report'])
-            write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_report, host_report))
-            write_line("junit keepLongStdio: true, testResults: '%s'" % host_report)
-            write_line('''sh('rm -rf "%s"')''' % host_report)
-        elif cmd == "cobertura":
-            # coberturaPublisher plugin only supports one step, so we delay generating it, and make it get all reports
-            container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
-            host_report = os.path.join(cobertura_tests_results_dir, str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['report'])
-            if not host_report.endswith('.xml'):
-                raise DMakeException("`cobertura_report` must end with '.xml' in service '%s'" % kwargs['service_name'])
-            write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_report, host_report))
-            emit_cobertura = True
-        elif cmd == "publishHTML":
-            container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
-            host_html_directory = os.path.join(common.cache_dir, 'tests_results', str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['directory'])
-            write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_html_directory, host_html_directory))
-            write_line("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])" % (host_html_directory, kwargs['index'], kwargs['title'].replace("'", "\'")))
-            write_line('''sh('rm -rf "%s"')''' % host_html_directory)
-        else:
-            raise DMakeException("Unknown command %s" % cmd)
-
-    if emit_cobertura:
-        write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
-        write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
-
-    indent_level -= 1
-    write_line('}')
-    write_line('catch (error) {')
-    write_line('  if ( env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP == "1" ) {')
-    write_line('    slackSend channel: "#jenkins-dmake", message: "This jenkins build requires your attention: <${env.BUILD_URL}/console|${env.JOB_NAME} ${env.BUILD_NUMBER}>"')
-    write_line("    input message: 'An error occurred. DMake will stop and clean all the running containers upon any answer.'")
-    write_line('  }')
-    write_line('  throw error')
-    write_line('}')
-    write_line('finally {')
-    write_line('  sh("dmake_clean")')
-    write_line('}')
-
-    # FIXME: Find a better way to close the withEnv
-    indent_level -= 1
-    write_line('} // withEnv end')
-
-###############################################################################
-
-def generate_command_bash(file, cmds):
-    file.write('test "${DMAKE_DEBUG}" = "1" && set -x\n')
-    file.write('set -e\n')
-    for cmd, kwargs in cmds:
-        if cmd == "try":
-            pass
-        elif cmd == "try_end":
-            pass
-        elif cmd == "stage":
-            file.write("\n")
-            file.write("echo -e '\n## %s ##'\n" % kwargs['name'])
-        elif cmd == "stage_end":
-            pass
-        elif cmd == "lock":
-            # lock not supported with bash
-            pass
-        elif cmd == "lock_end":
-            pass
-        elif cmd == "timeout":
-            # timeout not supported with bash
-            pass
-        elif cmd == "timeout_end":
-            pass
-        elif cmd == "echo":
-            message = kwargs['message'].replace("'", "\\'")
-            file.write("echo '%s'\n" % message)
-        elif cmd == "sh":
-            commands = kwargs['shell']
-            if common.is_string(commands):
-                commands = [commands]
-            for c in commands:
-                file.write("%s\n" % c)
-        elif cmd == "read_sh":
-            file.write("%s=`%s`\n" % (kwargs['var'], kwargs['shell']))
-            if kwargs['fail_if_empty']:
-                file.write("if [ -z \"${%s}\" ]; then exit 1; fi\n" % kwargs['var'])
-        elif cmd == "global_env":
-            file.write('%s="%s"\n' % (kwargs['var'], kwargs['value'].replace('"', '\\"')))
-            file.write('export %s\n' % kwargs['var'])
-        elif cmd == "with_env":
-            environment = kwargs['value']
-            for element in environment:
-                file.write('%s="%s"\n' % (element[0], element[1].replace('"', '\\"')))
-                file.write('export %s\n' % element[0])
-        elif cmd == "with_env_end":
-            pass
-        elif cmd == "git_tag":
-            file.write('git tag --force %s\n' % kwargs['tag'])
-            file.write('git push --force %s refs/tags/%s || echo %s\n' % (common.remote, kwargs['tag'], tag_push_error_msg))
-        elif cmd == "junit" or cmd == "cobertura":
-            container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
-            host_report = make_path_unique_per_variant(kwargs['report'], kwargs['service_name'])
-            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_report, host_report))
-        elif cmd == "publishHTML":
-            container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
-            host_html_directory = make_path_unique_per_variant(kwargs['directory'], kwargs['service_name'])
-            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_html_directory, host_html_directory))
-        else:
-            raise DMakeException("Unknown command %s" % cmd)
-
-###############################################################################
-
-def generate_command(file_name, cmds):
-    with open(file_name, "w") as file:
-        if common.use_pipeline:
-            generate_command_pipeline(file, cmds)
-        else:
-            generate_command_bash(file, cmds)
-
-###############################################################################
-
 def get_tag_name():
     return 'deployed_version_%s' % common.branch
 
@@ -817,16 +578,7 @@ def make(options, parse_files_only=False):
     common.logger.info("Here is the plan:")
     # Generate the list of command to run
     common.logger.info("Generating commands...")
-    all_commands = []
-
-    append_command(all_commands, 'global_env', var = "REPO", value = common.repo)
-    append_command(all_commands, 'global_env', var = "COMMIT", value = common.commit_id)
-    append_command(all_commands, 'global_env', var = "BUILD", value = common.build_id)
-    append_command(all_commands, 'global_env', var = "BRANCH", value = common.branch)
-    append_command(all_commands, 'with_env', value = [("DMAKE_TMP_DIR", common.tmp_dir)])
-    append_command(all_commands, 'try')
-    # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
-    append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
+    all_commands = Commands()
 
     for stage, commands in ordered_build_files:
         if len(commands) == 0:
@@ -910,7 +662,7 @@ def make(options, parse_files_only=False):
         file_to_generate = os.path.join(common.tmp_dir, "DMakefile")
     else:
         file_to_generate = "DMakefile"
-    generate_command(file_to_generate, all_commands)
+    all_commands.generate_script(file_to_generate)
 
     common.logger.info("Commands have been written to %s" % file_to_generate)
 
