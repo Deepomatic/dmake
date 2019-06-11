@@ -24,19 +24,81 @@ def get_cobertura_tests_results_dir():
 
 ###############################################################################
 
-    def generate_bash_header(context):
+class WriteContext(object):
+    """ A Class that held the writing context and knows how to wirte a line
+    """
+
+    def __init__(self, file):
+        self.file = file
+        self.indent_level = 0
+
+    def write_line(self, data):
+        if len(data) > 0:
+            self.file.write('  ' * self.indent_level)
+        self.file.write(data + '\n')
+
+    def indent(self):
+        self.indent_level += 1
+
+    def outdent(self):
+        self.indent_level -= 1
+
+###############################################################################
+
+class CommandNode(object):
+    """ A node
+    """
+    def __init__(self):
+        self.commands = []
+
+    def _header(self, context):
+        """
+        A CommandNode class should override this method to generate code
+        at the beginning of each node
+        """
+        raise NotImplementedError
+
+    def _trailer(self, context):
+        """
+        A CommandsNode class should override this method to generate code
+        at the end of each node
+        """
+        raise NotImplementedError
+
+    def generate_command(self, context, cmd, **kwargs):
+        """
+        A CommandNode should override this method putting the
+        the logic
+        """
+        raise NotImplementedError
+
+    def generate_commands(self, context):
+        self._header(context)
+        for cmd, kwargs in self.commands:
+            self.generate_command(context, cmd, **kwargs)
+        self._trailer(context)
+
+###############################################################################
+
+class BashCommandNode(CommandNode):
+    """ A node that knows what to write in case of bash
+    """
+    def __init__(self):
+         CommandNode.__init__(self)
+
+    def _header(self, context):
         """
         The commands to be generated at the beginning of each bash node
         """
         pass
 
-    def generate_bash_trailer(context):
+    def _trailer(self, context):
         """
          The commands to be generated at the end of each bash node
         """
         pass
 
-    def generate_bash_command(context, cmd, **kwargs):
+    def generate_command(self,context, cmd, **kwargs):
 
         if cmd == "stage":
             context.write_line("")
@@ -92,7 +154,14 @@ def get_cobertura_tests_results_dir():
 
 ###############################################################################
 
-    def generate_pipeline_header(context):
+class PipelineCommandNode(CommandNode):
+    """ A node that knows what to write a pipeline node
+    """
+    def __init__(self):
+        CommandNode.__init__(self)
+        self.emit_cobertura = True
+
+    def _header(self, context):
         """
         The commands to be generated at the beginning of each pipeline node
         """
@@ -100,15 +169,17 @@ def get_cobertura_tests_results_dir():
         context.write_line('try {')
         context.indent()
 
-    def generate_pipeline_trailer(context):
+    def _trailer(self, context):
         """
          The commands to be generated at the end of each pipeline node
         """
-        context.write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (get_cobertura_tests_results_dir()))
-        context.write_line('''sh('rm -rf "%s"')''' % (get_cobertura_tests_results_dir()))
+        if self.emit_cobertura:
+            cobertura_tests_results_dir = get_cobertura_tests_results_dir()
+            context.write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
+            context.write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
 
         # try end
-        context.outdent()
+        context.indent_level -= 1
         context.write_line('}')
         context.write_line('catch (error) {')
         context.write_line('  if ( env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP == "1" ) {')
@@ -121,7 +192,7 @@ def get_cobertura_tests_results_dir():
         context.write_line('  sh("dmake_clean")')
         context.write_line('}')
 
-    def generate_command(context, cmd, **kwargs):
+    def generate_command(self, context, cmd, **kwargs):
         if cmd == "stage":
             name = kwargs['name'].replace("'", "\\'")
             context.write_line('')
@@ -232,75 +303,11 @@ def get_cobertura_tests_results_dir():
             context.write_line('''sh('rm -rf "%s"')''' % host_html_directory)
         else:
             raise DMakeException("Unknown command %s" % cmd)
-###############################################################################
-
-class CommandNode(object):
-    """ A node
-    """
-    def __init__(self):
-        self.commands = []
-
-    def _header(self, context, use_pipeline):
-        """
-        A CommandNode class should override this method to generate code
-        at the beginning of each node
-        """
-        if use_pipeline:
-            generate_pipeline_header()
-        else:
-            generate_shell_header()
-
-    def _trailer(self, context, use_pipeline):
-        """
-        A CommandsNode class should override this method to generate code
-        at the end of each node
-        """
-        if use_pipeline:
-            generate_pipeline_trailer()
-        else:
-            generate_shell_trailer()
-
-    def generate_command(self, context, use_pipeline, cmd, **kwargs):
-        """
-        A CommandNode should override this method putting the
-        the logic
-        """
-        if use_pipeline:
-            generate_pipeline_command()
-        else:
-            generate_shell_command()
-
-    def generate_commands(self, context, use_pipeline):
-        self._header(context, use_pipeline)
-        for cmd, kwargs in self.commands:
-            self.generate_command(context, use_pipeline, cmd, **kwargs)
-        self._trailer(context, use_pipeline)
-
-###############################################################################
-
-class WriteContext(object):
-    """ A Class that held the writing context and knows how to wirte a line
-    """
-
-    def __init__(self, file):
-        self.file = file
-        self.indent_level = 0
-
-    def write_line(self, data):
-        if len(data) > 0:
-            self.file.write('  ' * self.indent_level)
-        self.file.write(data + '\n')
-
-    def indent(self):
-        self.indent_level += 1
-
-    def outdent(self):
-        self.indent_level -= 1
 
 ###############################################################################
 
 class CommandsManager(object):
-    """ This class that handles command nodes and ouputs them in a specific order.
+    """ This class that handles command nodes and ouputs them to in a specific order.
         The script will be written to the output in this order:
             _write_header()
             for each node in nodes:
@@ -316,10 +323,16 @@ class CommandsManager(object):
         self.use_pipeline = common.use_pipeline
         self.nodes = []
         # Temporary "fake" node. In future people may want to add more
-        self.addNode(CommandNode())
+        self.make_node()
 
-    def addNode(self, node):
+    def make_node(self):
+        node = None
+        if self.use_pipeline:
+            node = PipelineCommandNode()
+        else:
+            node = BashCommandNode()
         self.nodes.append(node)
+        return node
 
     def add_command(self, position, cmd, prepend=False):
         last_node = self.nodes[-1]
@@ -377,7 +390,7 @@ class CommandsManager(object):
         self.validate_command(cmd, **args)
         cmd = (cmd, args)
         # FIXME: Remember to put the correct position
-        self.add_command(1, cmd, prepend=prepend)
+        self.add_command(1,cmd, prepend=prepend)
 
     def _write_header(self, context):
         """
@@ -419,6 +432,6 @@ class CommandsManager(object):
             self._write_header(context)
 
             for node in self.nodes:
-                node.generate_commands(context, self.use_pipeline)
+                node.generate_commands(context)
 
             self._write_trailer(context)
