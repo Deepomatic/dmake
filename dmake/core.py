@@ -578,16 +578,24 @@ def make(options, parse_files_only=False):
     common.logger.info("Here is the plan:")
     # Generate the list of command to run
     common.logger.info("Generating commands...")
-    all_commands = CommandsManager()
+
+    cmd_manager = CommandsManager()
 
     for stage, commands in ordered_build_files:
         if len(commands) == 0:
             continue
         common.logger.info("## %s ##" % (stage))
 
-        all_commands.try_append('stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
+        stage_node = cmd_manager.make_node()
+        stage_node.try_append('stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
 
-        stage_commands = []
+        # GPU resource lock
+        # `common.need_gpu` is set during Testing commands generations: need to delay adding commands to all_commands to create the gpu lock if needed around the Testing stage
+        lock_gpu = (stage == "Running App") and common.need_gpu
+        if lock_gpu:
+            stage_node.try_append('lock', label='GPUS')
+        #stage_commands = cmd_manager.make_node()
+
         for node, order in commands:
             # Sanity check
             sub_task_orders = [build_files_order[a] for a in service_dependencies[node]]
@@ -627,23 +635,15 @@ def make(options, parse_files_only=False):
             if len(step_commands) > 0:
                 node_display_str = display_command_node(node)
                 common.logger.info("- {}".format(node_display_str))
-                append_command(stage_commands, 'echo', message = '- Running {}'.format(node_display_str))
-                stage_commands += step_commands
+                stage_node.try_append('echo', message = '- Running {}'.format(node_display_str))
+                stage_node.append_many(step_commands)
 
-        # GPU resource lock
-        # `common.need_gpu` is set during Testing commands generations: need to delay adding commands to all_commands to create the gpu lock if needed around the Testing stage
-        lock_gpu = (stage == "Running App") and common.need_gpu
-        if lock_gpu:
-            all_commands.try_append('lock', label='GPUS')
-
-        for cmd in stage_commands :
-            all_commands.add_command(1,cmd)
-        #all_commands += stage_commands
 
         if lock_gpu:
-            all_commands.try_append('lock_end')
+            stage_node.try_append('lock_end')
 
-        all_commands.try_append('stage_end')
+        stage_node.try_append('stage_end')
+        cmd_manager.add_node(stage_node)
 
     # TODO: move this kind of checks in the CommandManager
     # Check stages do not appear twice (otherwise it may block Jenkins)
@@ -665,7 +665,7 @@ def make(options, parse_files_only=False):
         file_to_generate = os.path.join(common.tmp_dir, "DMakefile")
     else:
         file_to_generate = "DMakefile"
-    all_commands.generate_script(file_to_generate)
+    cmd_manager.generate_script(file_to_generate)
 
     common.logger.info("Commands have been written to %s" % file_to_generate)
 

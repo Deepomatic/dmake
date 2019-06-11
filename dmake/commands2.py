@@ -78,6 +78,62 @@ class CommandNode(object):
             self.generate_command(context, cmd, **kwargs)
         self._trailer(context)
 
+    def validate_command(self, cmd, **args):
+        def check_cmd(args, required, optional = []):
+            for a in required:
+                if a not in args:
+                    raise DMakeException("%s is required for command %s" % (a, cmd))
+            for a in args:
+                if a not in required and a not in optional:
+                    raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
+        if cmd == "stage":
+            check_cmd(args, ['name', 'concurrency'])
+        elif cmd == "stage_end":
+            check_cmd(args, [])
+        elif cmd == "lock":
+            check_cmd(args, ['label'])
+        elif cmd == "lock_end":
+            check_cmd(args, [])
+        elif cmd == "timeout":
+            check_cmd(args, ['time'])
+        elif cmd == "timeout_end":
+            check_cmd(args, [])
+        elif cmd == "echo":
+            check_cmd(args, ['message'])
+        elif cmd == "sh":
+            check_cmd(args, ['shell'])
+        elif cmd == "read_sh":
+            check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
+            if 'fail_if_empty' not in args:
+                args['fail_if_empty'] = False
+        elif cmd == "global_env":
+            check_cmd(args, ['var', 'value'])
+        elif cmd == "with_env":
+            check_cmd(args, ['value'])
+        elif cmd == "with_env_end":
+            pass
+        elif cmd == "git_tag":
+            check_cmd(args, ['tag'])
+        elif cmd == "junit":
+            check_cmd(args, ['report', 'service_name', 'mount_point'])
+        elif cmd == "cobertura":
+            check_cmd(args, ['report', 'service_name', 'mount_point'])
+        elif cmd == "publishHTML":
+            check_cmd(args, ['directory', 'index', 'title', 'service_name', 'mount_point'])
+        else:
+            raise DMakeException("Unknown command %s" % cmd)
+
+    def try_append(self, cmd, prepend = False, **args ):
+        self.validate_command(cmd, **args)
+        cmd = (cmd, args)
+        if prepend:
+            self.commands.insert(0, cmd)
+        else:
+            self.commands.append(cmd)
+
+    def append_many(self, commands):
+        for cmd in commands:
+            self.commands.append(cmd)
 ###############################################################################
 
 class BashCommandNode(CommandNode):
@@ -323,7 +379,7 @@ class CommandsManager(object):
         self.use_pipeline = common.use_pipeline
         self.nodes = []
         # Temporary "fake" node. In future people may want to add more
-        self.make_node()
+        #self.make_node()
 
     def make_node(self):
         node = None
@@ -331,8 +387,10 @@ class CommandsManager(object):
             node = PipelineCommandNode()
         else:
             node = BashCommandNode()
-        self.nodes.append(node)
         return node
+
+    def add_node(self, node):
+        self.nodes.append(node)
 
     def add_command(self, position, cmd, prepend=False):
         last_node = self.nodes[-1]
@@ -340,57 +398,6 @@ class CommandsManager(object):
             last_node.commands.insert(0, cmd)
         else:
             last_node.commands.append(cmd)
-
-    def validate_command(self, cmd, **args):
-        def check_cmd(args, required, optional = []):
-            for a in required:
-                if a not in args:
-                    raise DMakeException("%s is required for command %s" % (a, cmd))
-            for a in args:
-                if a not in required and a not in optional:
-                    raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
-        if cmd == "stage":
-            check_cmd(args, ['name', 'concurrency'])
-        elif cmd == "stage_end":
-            check_cmd(args, [])
-        elif cmd == "lock":
-            check_cmd(args, ['label'])
-        elif cmd == "lock_end":
-            check_cmd(args, [])
-        elif cmd == "timeout":
-            check_cmd(args, ['time'])
-        elif cmd == "timeout_end":
-            check_cmd(args, [])
-        elif cmd == "echo":
-            check_cmd(args, ['message'])
-        elif cmd == "sh":
-            check_cmd(args, ['shell'])
-        elif cmd == "read_sh":
-            check_cmd(args, ['var', 'shell'], optional = ['fail_if_empty'])
-            if 'fail_if_empty' not in args:
-                args['fail_if_empty'] = False
-        elif cmd == "global_env":
-            check_cmd(args, ['var', 'value'])
-        elif cmd == "with_env":
-            check_cmd(args, ['value'])
-        elif cmd == "with_env_end":
-            pass
-        elif cmd == "git_tag":
-            check_cmd(args, ['tag'])
-        elif cmd == "junit":
-            check_cmd(args, ['report', 'service_name', 'mount_point'])
-        elif cmd == "cobertura":
-            check_cmd(args, ['report', 'service_name', 'mount_point'])
-        elif cmd == "publishHTML":
-            check_cmd(args, ['directory', 'index', 'title', 'service_name', 'mount_point'])
-        else:
-            raise DMakeException("Unknown command %s" % cmd)
-
-    def try_append(self, cmd, prepend = False, **args ):
-        self.validate_command(cmd, **args)
-        cmd = (cmd, args)
-        # FIXME: Remember to put the correct position
-        self.add_command(1,cmd, prepend=prepend)
 
     def _write_header(self, context):
         """
