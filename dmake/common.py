@@ -132,7 +132,10 @@ def append_command(commands, cmd, prepend = False, **args):
     else:
         raise DMakeException("Unknown command %s" % cmd)
     cmd = (cmd, args)
-    commands.add_command(cmd, prepend=prepend)
+    if prepend:
+          commands.insert(0, cmd)
+    else:
+          commands.append(cmd)
 
 ###############################################################################
 

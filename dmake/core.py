@@ -4,7 +4,7 @@ import sys
 
 import dmake.common as common
 from dmake.common import DMakeException, SharedVolumeNotFoundException, append_command
-from dmake.commands import Commands
+from dmake.commands2 import CommandsManager
 from dmake.deepobuild import DMakeFile
 
 ###############################################################################
@@ -578,14 +578,14 @@ def make(options, parse_files_only=False):
     common.logger.info("Here is the plan:")
     # Generate the list of command to run
     common.logger.info("Generating commands...")
-    all_commands = Commands()
+    all_commands = CommandsManager()
 
     for stage, commands in ordered_build_files:
         if len(commands) == 0:
             continue
         common.logger.info("## %s ##" % (stage))
 
-        append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
+        all_commands.try_append('stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
 
         stage_commands = []
         for node, order in commands:
@@ -634,28 +634,31 @@ def make(options, parse_files_only=False):
         # `common.need_gpu` is set during Testing commands generations: need to delay adding commands to all_commands to create the gpu lock if needed around the Testing stage
         lock_gpu = (stage == "Running App") and common.need_gpu
         if lock_gpu:
-            append_command(all_commands, 'lock', label='GPUS')
+            all_commands.try_append('lock', label='GPUS')
 
-        all_commands += stage_commands
+        for cmd in stage_commands :
+            all_commands.add_command(1,cmd)
+        #all_commands += stage_commands
 
         if lock_gpu:
-            append_command(all_commands, 'lock_end')
+            all_commands.try_append('lock_end')
 
-        append_command(all_commands, 'stage_end')
+        all_commands.try_append('stage_end')
 
+    # TODO: move this kind of checks in the CommandManager
     # Check stages do not appear twice (otherwise it may block Jenkins)
-    stage_names = set()
-    for cmd, kwargs in all_commands:
-        if cmd == "stage":
-            name = kwargs['name']
-            if name in stage_names:
-                raise DMakeException('Duplicate stage name: %s' % name)
-            else:
-                stage_names.add(name)
+    #stage_names = set()
+    #for cmd, kwargs in all_commands:
+    #    if cmd == "stage":
+    #        name = kwargs['name']
+    #        if name in stage_names:
+    #            raise DMakeException('Duplicate stage name: %s' % name)
+    #        else:
+    #            stage_names.add(name)
 
     # If not on Pull Request, tag the commit as deployed
     if common.command == "deploy" and not common.is_pr:
-        append_command(all_commands, 'git_tag', tag = get_tag_name())
+        all_commands.try_append('git_tag', tag = get_tag_name())
 
     # Generate output
     if common.is_local:
