@@ -29,6 +29,7 @@ def generate_env_file(tmp_dir, env):
 
 def get_docker_run_gpu_cmd_prefix(need_gpu, service_type, service_name):
     prefix = ''
+    my_need_gpu = False
     if need_gpu:
         if common.no_gpu:
             common.logger.info("GPU needed by %s '%s' but DMAKE_NO_GPU set: trying without GPU." % (service_type, service_name))
@@ -36,8 +37,9 @@ def get_docker_run_gpu_cmd_prefix(need_gpu, service_type, service_name):
             pass
         else:
             common.need_gpu = True
+            my_need_gpu = True
             prefix = 'DMAKE_DOCKER_RUN_WITH_GPU=yes '
-    return prefix
+    return prefix, my_need_gpu
 
 # ###############################################################################
 
@@ -465,8 +467,8 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
         raise DMakeException("Badly formatted probe ports.")
 
     def get_docker_run_gpu_cmd_prefix(self):
-        return get_docker_run_gpu_cmd_prefix(self.need_gpu, 'docker link', self.link_name)
-
+        prefix, use_gpu = get_docker_run_gpu_cmd_prefix(self.need_gpu, 'docker link', self.link_name)
+        return prefix, use_gpu
 class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
     name_prefix  = FieldSerializer("string", default = "${DMAKE_DEPLOY_PREFIX}", help_text = "The prefix to add to the 'deploy_name'. Can be useful as application name have to be unique across all users of Elastic BeanStalk.")
     region       = FieldSerializer("string", default = "eu-west-1", help_text = "The AWS region where to deploy.")
@@ -1110,7 +1112,8 @@ class ServicesSerializer(YAML2PipelineSerializer):
         return service
 
     def get_docker_run_gpu_cmd_prefix(self):
-        return get_docker_run_gpu_cmd_prefix(self.config.need_gpu, 'service', self.service_name)
+        prefix, use_gpu = get_docker_run_gpu_cmd_prefix(self.config.need_gpu, 'service', self.service_name)
+        return prefix, use_gpu
 
     def get_shared_volumes(self):
         return [volume.get_shared_volume() for volume in self.config.volumes if isinstance(volume, SharedVolumeMountSerializer)]
@@ -1333,8 +1336,11 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, additional_env_variables = additional_customization_env_variables)
         docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
         docker_cmd = 'dmake_run_docker_daemon "%s" "%s" "%s" "" %s -i %s' % (self.app_name, unique_service_name, link_name or "", docker_opts, image_name)
-        docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
+        prefix, need_gpu = service.get_docker_run_gpu_cmd_prefix()
+        docker_cmd = prefix + docker_cmd
 
+        if need_gpu :
+            append_command(commands, 'lock', label='GPUS')
         # Run daemon
         append_command(commands, 'read_sh', var = "DAEMON_ID", shell = docker_cmd)
 
@@ -1342,6 +1348,8 @@ class DMakeFile(DMakeFileSerializer):
         cmd = service.config.readiness_probe.get_cmd()
         if cmd:
             append_command(commands, 'sh', shell = 'dmake_exec_docker ${DAEMON_ID} %s' % cmd)
+        if need_gpu :
+            append_command(commands, 'lock_end')
 
     def generate_build_docker(self, commands, service_name):
         service = self._get_service_(service_name)
@@ -1390,11 +1398,16 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts += " -i %s" % docker_base_image
 
         docker_cmd = "dmake_run_docker_command %s " % docker_opts
-        docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
+        prefix, need_gpu = service.get_docker_run_gpu_cmd_prefix()
+        docker_cmd = prefix + docker_cmd
 
         if command is None:
             command = self.docker.command
+        if need_gpu :
+            append_command(commands, 'lock', label='GPUS')
         append_command(commands, 'sh', shell=docker_cmd + command)
+        if need_gpu :
+            append_command(commands, 'lock_end')
 
     def generate_test(self, commands, service_name, docker_links):
         service = self._get_service_(service_name)
@@ -1405,7 +1418,8 @@ class DMakeFile(DMakeFileSerializer):
         docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, use_host_ports=False)
         docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
         docker_cmd = 'dmake_run_docker_test %s "" %s -i %s ' % (service_name, docker_opts, image_name)
-        docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
+        prefix, need_gpu = service.get_docker_run_gpu_cmd_prefix()
+        docker_cmd = prefix + docker_cmd
 
         # Run test commands
         service.tests.generate_test(commands, self.__path__, service_name, docker_cmd, docker_links, self.docker.mount_point)
@@ -1418,8 +1432,14 @@ class DMakeFile(DMakeFileSerializer):
         env = link.get_env(context_env)
         env_file = generate_env_file(common.tmp_dir, env)
         docker_cmd = 'dmake_run_docker_link "%s" "%s" "%s" "%s" --env-file %s %s' % (self.app_name, image_name, link.link_name, link.probe_ports_list(), env_file, options)
-        docker_cmd = link.get_docker_run_gpu_cmd_prefix() + docker_cmd
+        prefix, need_gpu = link.get_docker_run_gpu_cmd_prefix()
+        docker_cmd = prefix + docker_cmd
+
+        if need_gpu :
+            append_command(commands, 'lock', label='GPUS')
         append_command(commands, 'sh', shell=docker_cmd)
+        if need_gpu :
+            append_command(commands, 'lock_end')
 
     def generate_deploy(self, commands, service_name):
         service = self._get_service_(service_name)
