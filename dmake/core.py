@@ -578,8 +578,8 @@ def make(options, parse_files_only=False):
     common.logger.info("Here is the plan:")
     # Generate the list of command to run
     common.logger.info("Generating commands...")
-
     cmd_manager = CommandsManager()
+
 
     for stage, commands in ordered_build_files:
         if len(commands) == 0:
@@ -592,9 +592,8 @@ def make(options, parse_files_only=False):
         # GPU resource lock
         # `common.need_gpu` is set during Testing commands generations: need to delay adding commands to all_commands to create the gpu lock if needed around the Testing stage
         lock_gpu = (stage == "Running App") and common.need_gpu
-        if lock_gpu:
+        if  lock_gpu :
             stage_node.try_append('lock', label='GPUS')
-        #stage_commands = cmd_manager.make_node()
 
         for node, order in commands:
             # Sanity check
@@ -638,14 +637,13 @@ def make(options, parse_files_only=False):
                 stage_node.try_append('echo', message = '- Running {}'.format(node_display_str))
                 stage_node.append_many(step_commands)
 
-
         if lock_gpu:
             stage_node.try_append('lock_end')
 
         stage_node.try_append('stage_end')
         cmd_manager.add_node(stage_node)
 
-    # TODO: move this kind of checks in the CommandManager
+    # TODO: move this check in the CommandsManager
     # Check stages do not appear twice (otherwise it may block Jenkins)
     #stage_names = set()
     #for cmd, kwargs in all_commands:
