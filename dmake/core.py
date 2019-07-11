@@ -527,7 +527,7 @@ def generate_command_pipeline(file, cmds):
             container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
             host_html_directory = os.path.join(common.cache_dir, 'tests_results', str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['directory'])
             write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_html_directory, host_html_directory))
-            write_line("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: true, keepAll: false, reportDir: '%s', reportFiles: '%s', reportName: '%s'])" % (host_html_directory, kwargs['index'], kwargs['title'].replace("'", "\'")))
+            write_line("publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: false, keepAll: true, reportDir: '%s', reportFiles: '%s', reportName: '%s'])" % (host_html_directory, kwargs['index'], kwargs['title'].replace("'", "\'")))
             write_line('''sh('rm -rf "%s"')''' % host_html_directory)
         else:
             raise DMakeException("Unknown command %s" % cmd)
