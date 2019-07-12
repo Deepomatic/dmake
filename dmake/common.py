@@ -57,6 +57,17 @@ class DependenciesBooleanAction(argparse.Action):
             assert False, "Invalid DependenciesBooleanAction option: {}".format(option_string)
         setattr(namespace, self.dest, value)
 
+class FlagBooleanAction(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        super(FlagBooleanAction, self).__init__(option_strings, dest, nargs=0, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if option_string.startswith("--no-"):
+            value = False
+        else:
+            value = True
+        setattr(namespace, self.dest, value)
+
 ###############################################################################
 
 def yaml_ordered_load(stream, all=False):

@@ -405,14 +405,19 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
 
     def get_options(self, path, env):
         options = common.eval_str_in_env(self.testing_options, env)
-        in_shell = common.command == "shell"
+
+        if hasattr(common.options, 'with_docker_links_volumes_persistence'):
+            volume_persistence = common.options.with_docker_links_volumes_persistence
+        else:
+            # skip host vols in non shell (i.e. in test: we don't want persistence)
+            volume_persistence = (common.command == "shell")
+
         for volume in self.volumes:
             if isinstance(volume, SharedVolumeMountSerializer):
                 # named shared volume
                 options += ' ' + volume.get_mount_opt(env)
             elif isinstance(volume, VolumeMountSerializer):
-                if not in_shell:
-                    # skip host vols in non shell (i.e. in test: we don't want persistence)
+                if not volume_persistence:
                     continue
                 host_vol = common.eval_str_in_env(volume.host_volume, env)
 
