@@ -987,7 +987,7 @@ class TestSerializer(YAML2PipelineSerializer):
         if not self.has_value() or len(self.commands) == 0:
             return
 
-        tests_cmd = '/bin/bash -c %s' % common.wrap_cmd_simple_quotes(' && '.join(self.commands))
+        tests_cmd = '/bin/bash -x -c %s' % common.wrap_cmd_simple_quotes(' && '.join(self.commands))
 
         has_timeout = self.timeout is not None
         if has_timeout:
