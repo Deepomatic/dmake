@@ -23,7 +23,7 @@ fi
 set -e
 
 if [ ! -d "${DMAKE_TMP_DIR}" ]; then
-    dmake_fail "DMake temporary directory not found. Maybe you reran the Jenkins job? It is not supported. Build the job again instead."
+    dmake_fail "DMake temporary directory not found. Maybe you clicked on 'rerun' (or 'replay') on the Jenkins job? It is not supported. Build the job again instead: 'Run' (play icon) on the PRs list on the blueocean interface; 'Build with Parameters' (play+clock icon) on the classic interface."
     echo "exit 1"
     exit 1
 fi
