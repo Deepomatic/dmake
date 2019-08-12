@@ -890,8 +890,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
             opts.append("-v %s:%s" % (common.join_without_slash(host_volume), common.join_without_slash(volume.container_volume)))
 
         docker_opts = self.docker_opts
-        opts = docker_opts + " " + (" ".join(opts))
-        return opts
+        return docker_opts + " " + (" ".join(opts))
 
 class DeploySerializer(YAML2PipelineSerializer):
     deploy_name = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to '{:app_name}-{:service_name}' if not specified")
