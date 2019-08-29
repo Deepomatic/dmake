@@ -128,9 +128,7 @@ class SharedVolumeSerializer(YAML2PipelineSerializer):
         return result
 
     def _serialize_(self, commands, path_dir):
-        cmd = "dmake_create_docker_shared_volume %s" % (self.id)
-        if common.command == "shell":
-            cmd += " 777"
+        cmd = "dmake_create_docker_shared_volume %s 777" % (self.id)
         append_command(commands, 'sh', shell = cmd)
 
     def get_service_name(self):
