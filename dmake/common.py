@@ -5,6 +5,7 @@ import logging
 import subprocess
 import re
 from ruamel.yaml import YAML
+from ruamel.yaml.emitter import Emitter as YAML_Emitter
 import uuid
 
 # Set logger
@@ -70,9 +71,16 @@ class FlagBooleanAction(argparse.Action):
 
 ###############################################################################
 
+class YAMLEmitterNoVersionDirective(YAML_Emitter):
+    def write_version_directive(self, version_text):
+        # disable emitting version directive (%YAML 1.1)
+        pass
+
 def yaml_ordered_load(stream, all=False):
     try:
         yaml = YAML(typ='safe', pure=True)
+        # kubectl and everyone else uses yaml 1.1
+        yaml.version = '1.1'
         data = list(yaml.load_all(stream)) if all else yaml.load(stream)
         return data
     except Exception as e:
@@ -84,6 +92,10 @@ def yaml_ordered_dump(data, stream=None, default_flow_style=False, all=False, no
         stream = StringIO()
         return_string = True
     yaml = YAML(pure=True)
+    # kubernetes reads yaml 1.1, notably interprets `no` as boolean instead of string vs default ruamel which dumps yaml 1.2
+    yaml.version = '1.1'
+    # kubectl does not tolerate %YAML 1.1 directive, disabling it
+    yaml.Emitter = YAMLEmitterNoVersionDirective
     if normalize_indent:
         yaml.default_flow_style = default_flow_style
         yaml.width = 4096
