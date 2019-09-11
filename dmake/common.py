@@ -92,6 +92,8 @@ def yaml_ordered_dump(data, stream=None, default_flow_style=False, all=False, no
         stream = StringIO()
         return_string = True
     yaml = YAML(pure=True)
+    # simplify concatenating yaml files
+    yaml.explicit_start = True
     # kubernetes reads yaml 1.1, notably interprets `no` as boolean instead of string vs default ruamel which dumps yaml 1.2
     yaml.version = '1.1'
     # kubectl does not tolerate %YAML 1.1 directive, disabling it

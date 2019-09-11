@@ -742,8 +742,8 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 return
             manifest_files.append(filename)
             data = [source.generate_manifest(env=env, labels=extra_labels) for source in sources]
-            # concat manifests
-            data_str = '%s\n' % ('\n\n---\n\n'.join(data))
+            # concat manifests, no need for `---\n` because explicit_start are added when dumping yaml in k8s_utils.generate_from_create() in source.generate_manifest().
+            data_str = '%s\n' % ('\n\n'.join(data))
             # write manifests to file
             with open(os.path.join(tmp_dir, filename), 'w') as f:
                 k8s_utils.dump_all_str_and_add_labels(data_str, dmake_generated_labels, f)
