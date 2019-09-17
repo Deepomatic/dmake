@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+import hashlib
 import logging
 import subprocess
 import re
@@ -227,12 +228,30 @@ def join_without_slash(*args):
         path = path[:-1]
     return path
 
-def sanitize_name(name):
-    """Return sanitized name that follow regex '[a-z0-9]([-a-z0-9]*[a-z0-9])?'"""
-    name = name.lower()
-    name = re.sub(r'[^a-z0-9\-]+', '-', name)
-    name = name.lstrip('-')
+def sanitize_name(name, mode='kubernetes'):
+    """
+    Return sanitized name that follow a regex specified by mode:
+    - '[a-z0-9]([-a-z0-9]*[a-z0-9])?' (kubernetes name restrictions)
+    - '[a-zA-Z0-9][a-zA-Z0-9_.-]+' (docker name restrictions)
+    """
+    if mode == 'kubernetes':
+        name = name.lower()
+        name = re.sub(r'[^a-z0-9\-]+', '-', name)
+        name = name.lstrip('-')
+    elif mode == 'docker':
+        name = re.sub(r'[^a-zA-Z0-9_.\-]+', '-', name)
+        name = name.lstrip('_.-')
+    else:
+        assert False, 'Invalid sanitize mode'
     return name
+
+def sanitize_name_unique(name, mode):
+    sanitized_name = sanitize_name(name, mode)
+    if sanitized_name == name:
+        return name
+    unique = hashlib.sha256(name.encode('UTF-8')).hexdigest()[:10]
+    return "{}-{}".format(sanitized_name, unique)
+
 
 ###############################################################################
 
