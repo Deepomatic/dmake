@@ -436,12 +436,6 @@ def init(_options, early_exit=False):
             branch = "PR-%s" % pr_id
         if branch is None:
             branch = run_shell_command("git rev-parse --abbrev-ref HEAD")
-        if branch is not None:
-            branch = branch.split('/')
-            if len(branch) > 1:
-                branch = '/'.join(branch[1:])
-            else:
-                branch = branch[0]
     else:
         target   = os.getenv('CHANGE_TARGET', None)
         pr_id    = os.getenv('CHANGE_ID')
