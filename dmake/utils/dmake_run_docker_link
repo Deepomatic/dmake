@@ -26,7 +26,7 @@ LINK_NAME=$1; shift
 PROBE_PORTS=$1; shift
 OPTIONS=( $@ )
 
-BASE_NAME=${REPO}.${BRANCH}.${BUILD}.${APP_NAME}.${LINK_NAME}
+BASE_NAME=${NAME_PREFIX}.${LINK_NAME}
 
 COUNT=0
 while [ 1 = 1 ]; do

@@ -124,7 +124,7 @@ class SharedVolumeSerializer(YAML2PipelineSerializer):
         SharedVolumes.register(self, file)
         # unique volume name
         # docker seems to limit around 256, only "[a-zA-Z0-9][a-zA-Z0-9_.-]" are allowed
-        self.id = '{repo}.{branch}.{build_id}.{session_id}.{name}'.format(name=self.name, **vars(common))
+        self.id = '{name_prefix}.{session_id}.{name}'.format(name_prefix=common.name_prefix, session_id=common.session_id, name=self.name)
         return result
 
     def _serialize_(self, commands, path_dir):

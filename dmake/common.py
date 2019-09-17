@@ -354,7 +354,7 @@ def dump_dot_graph(dependencies, attributes):
 def init(_options, early_exit=False):
     global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_filename, dot_graph_format
     global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
-    global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
+    global branch, target, is_pr, pr_id, build_id, commit_id, name_prefix, force_full_deploy
     global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global no_gpu, need_gpu
     global build_description
@@ -485,6 +485,9 @@ def init(_options, early_exit=False):
         repo_github_owner = repo_github_owner.groups()[0]
     commit_id = run_shell_command('git rev-parse HEAD')
 
+    # Generate name prefix: readable, unique, stable identifier
+    name_prefix = sanitize_name_unique('{repo}.{branch}.{build_id}'.format(repo=repo, branch=branch, build_id=build_id), mode='docker')
+
     # Set Job description
     build_description = None
     if use_pipeline:
@@ -522,6 +525,7 @@ def init(_options, early_exit=False):
     else:
         logger.info("BRANCH : %s" % branch)
     logger.info("COMMIT_ID : %s" % commit_id[:7])
+    logger.info("NAME_PREFIX : %s" % name_prefix)
     logger.info("===============")
 
     # Check the SSH Key for cloning private repositories is correctly set up
