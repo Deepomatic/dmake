@@ -5,6 +5,7 @@ env:
   default:
     variables:
       NAME: ${REPO_SANITIZED}-${BRANCH_SANITIZED}-${BUILD}
+      IMAGE_TAG_PREFIX: ${IMAGE_TAG_PREFIX}
 
 docker:
   root_image:
@@ -25,6 +26,6 @@ services:
           dockerfile: ./deploy/Dockerfile
     tests:
       commands:
-        - echo running tutorial from ${NAME}
+        - echo running tutorial from ${NAME} with image tag prefix ${IMAGE_TAG_PREFIX}
         - curl -sSf "${WEB_URL}/api/factorial/?n=5"
       timeout: 5
