@@ -105,7 +105,7 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
             name = common.eval_str_in_env(self.name, env)
         # tag
         if self.tag is None:
-            tag = common.sanitize_name_unique(common.branch, mode='docker')
+            tag = common.image_tag_prefix
             if latest:
                 tag += "-latest"
             else:
