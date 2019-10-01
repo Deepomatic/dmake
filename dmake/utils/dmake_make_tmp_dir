@@ -10,9 +10,11 @@ test "${DMAKE_DEBUG}" = "1" && set -x
 
 set -e
 
+NAME=$1
+
 while [ 1 ]; do
     # Trailing slash allows to have correct local path when DMAKE_TMP_DIR is not defined
-    TMP=dmake_tmp_`date +%s%N`_$RANDOM/
+    TMP=dmake_tmp_`date +%s%N`_`printf "%05d" $RANDOM`_${NAME}/
     if [ -z "${DMAKE_TMP_DIR}" ]; then
         if [ `uname` = "Darwin" ]; then
             TMP=/private/tmp/$TMP
