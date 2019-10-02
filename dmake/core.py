@@ -883,8 +883,8 @@ def make(options, parse_files_only=False):
     common.logger.info("Commands have been written to %s" % file_to_generate)
 
     if common.command == "deploy" and common.is_local:
-        r = common.read_input("Careful ! Are you sure you want to deploy ? [Y/n] ")
-        if r.lower() != 'y' and r != "":
+        r = common.read_input("Careful ! Are you sure you want to deploy ? [y/N] ")
+        if r.lower() != 'y':
             print('Aborting')
             sys.exit(0)
 
