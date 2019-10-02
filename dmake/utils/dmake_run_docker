@@ -29,11 +29,7 @@ NAME=$2
 shift 2
 
 if [ -z "${NAME}" ]; then
-    if [ ! -z "${BUILD}" ]; then
-        PREFIXED_BUILD=".${BUILD}"
-    fi
-
-    BASE_NAME="${REPO}.${BRANCH}${PREFIXED_BUILD}.tmp"
+    BASE_NAME="${NAME_PREFIX}.tmp"
 
     while [ 1 = 1 ]; do
         NAME=$BASE_NAME.$RANDOM

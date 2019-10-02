@@ -6,6 +6,7 @@ env:
     variables:
       REPO: ${REPO}
       REPO_SANITIZED: ${REPO_SANITIZED}
+      IMAGE_TAG_PREFIX: ${IMAGE_TAG_PREFIX}
       COMMIT_ID: ${COMMIT_ID}
 
 docker:
@@ -41,6 +42,7 @@ services:
       commands:
         - test "${REPO}" = 'dmake'
         - test "${REPO_SANITIZED}" = 'dmake'
+        - bash -xc "[[ \"${IMAGE_TAG_PREFIX}\" =~ [a-zA-Z0-9][a-zA-Z0-9_.-]+ ]]"
         - curl -sSf "${NGINX_URL}"
         - curl -sSf "${WEB_URL}/api/factorial/?n=5"
         - test -f /dmake.yml

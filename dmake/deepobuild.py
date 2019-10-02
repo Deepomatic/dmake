@@ -124,13 +124,11 @@ class SharedVolumeSerializer(YAML2PipelineSerializer):
         SharedVolumes.register(self, file)
         # unique volume name
         # docker seems to limit around 256, only "[a-zA-Z0-9][a-zA-Z0-9_.-]" are allowed
-        self.id = '{repo}.{branch}.{build_id}.{session_id}.{name}'.format(name=self.name, **vars(common))
+        self.id = '{name_prefix}.{session_id}.{name}'.format(name_prefix=common.name_prefix, session_id=common.session_id, name=self.name)
         return result
 
     def _serialize_(self, commands, path_dir):
-        cmd = "dmake_create_docker_shared_volume %s" % (self.id)
-        if common.command == "shell":
-            cmd += " 777"
+        cmd = "dmake_create_docker_shared_volume %s 777" % (self.id)
         append_command(commands, 'sh', shell = cmd)
 
     def get_service_name(self):
@@ -744,8 +742,8 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 return
             manifest_files.append(filename)
             data = [source.generate_manifest(env=env, labels=extra_labels) for source in sources]
-            # concat manifests
-            data_str = '%s\n' % ('\n\n---\n\n'.join(data))
+            # concat manifests, no need for `---\n` because explicit_start are added when dumping yaml in k8s_utils.generate_from_create() in source.generate_manifest().
+            data_str = '%s\n' % ('\n\n'.join(data))
             # write manifests to file
             with open(os.path.join(tmp_dir, filename), 'w') as f:
                 k8s_utils.dump_all_str_and_add_labels(data_str, dmake_generated_labels, f)

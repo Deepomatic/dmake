@@ -1,10 +1,12 @@
 import os
 import sys
 import argparse
+import hashlib
 import logging
 import subprocess
 import re
 from ruamel.yaml import YAML
+from ruamel.yaml.emitter import Emitter as YAML_Emitter
 import uuid
 
 # Set logger
@@ -70,9 +72,16 @@ class FlagBooleanAction(argparse.Action):
 
 ###############################################################################
 
+class YAMLEmitterNoVersionDirective(YAML_Emitter):
+    def write_version_directive(self, version_text):
+        # disable emitting version directive (%YAML 1.1)
+        pass
+
 def yaml_ordered_load(stream, all=False):
     try:
         yaml = YAML(typ='safe', pure=True)
+        # kubectl and everyone else uses yaml 1.1
+        yaml.version = '1.1'
         data = list(yaml.load_all(stream)) if all else yaml.load(stream)
         return data
     except Exception as e:
@@ -84,6 +93,12 @@ def yaml_ordered_dump(data, stream=None, default_flow_style=False, all=False, no
         stream = StringIO()
         return_string = True
     yaml = YAML(pure=True)
+    # simplify concatenating yaml files
+    yaml.explicit_start = True
+    # kubernetes reads yaml 1.1, notably interprets `no` as boolean instead of string vs default ruamel which dumps yaml 1.2
+    yaml.version = '1.1'
+    # kubectl does not tolerate %YAML 1.1 directive, disabling it
+    yaml.Emitter = YAMLEmitterNoVersionDirective
     if normalize_indent:
         yaml.default_flow_style = default_flow_style
         yaml.width = 4096
@@ -213,12 +228,30 @@ def join_without_slash(*args):
         path = path[:-1]
     return path
 
-def sanitize_name(name):
-    """Return sanitized name that follow regex '[a-z0-9]([-a-z0-9]*[a-z0-9])?'"""
-    name = name.lower()
-    name = re.sub(r'[^a-z0-9\-]+', '-', name)
-    name = name.lstrip('-')
+def sanitize_name(name, mode='kubernetes'):
+    """
+    Return sanitized name that follow a regex specified by mode:
+    - '[a-z0-9]([-a-z0-9]*[a-z0-9])?' (kubernetes name restrictions)
+    - '[a-zA-Z0-9][a-zA-Z0-9_.-]+' (docker name restrictions)
+    """
+    if mode == 'kubernetes':
+        name = name.lower()
+        name = re.sub(r'[^a-z0-9\-]+', '-', name)
+        name = name.lstrip('-')
+    elif mode == 'docker':
+        name = re.sub(r'[^a-zA-Z0-9_.\-]+', '-', name)
+        name = name.lstrip('_.-')
+    else:
+        assert False, 'Invalid sanitize mode'
     return name
+
+def sanitize_name_unique(name, mode):
+    sanitized_name = sanitize_name(name, mode)
+    if sanitized_name == name:
+        return name
+    unique = hashlib.sha256(name.encode('UTF-8')).hexdigest()[:10]
+    return "{}-{}".format(sanitized_name, unique)
+
 
 ###############################################################################
 
@@ -321,7 +354,7 @@ def dump_dot_graph(dependencies, attributes):
 def init(_options, early_exit=False):
     global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_filename, dot_graph_format
     global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
-    global branch, target, is_pr, pr_id, build_id, commit_id, force_full_deploy
+    global branch, target, is_pr, pr_id, build_id, commit_id, name_prefix, image_tag_prefix, force_full_deploy
     global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global no_gpu, need_gpu
     global build_description
@@ -403,12 +436,6 @@ def init(_options, early_exit=False):
             branch = "PR-%s" % pr_id
         if branch is None:
             branch = run_shell_command("git rev-parse --abbrev-ref HEAD")
-        if branch is not None:
-            branch = branch.split('/')
-            if len(branch) > 1:
-                branch = '/'.join(branch[1:])
-            else:
-                branch = branch[0]
     else:
         target   = os.getenv('CHANGE_TARGET', None)
         pr_id    = os.getenv('CHANGE_ID')
@@ -452,6 +479,12 @@ def init(_options, early_exit=False):
         repo_github_owner = repo_github_owner.groups()[0]
     commit_id = run_shell_command('git rev-parse HEAD')
 
+    # Generate name prefix: readable, unique, stable identifier
+    name_prefix = sanitize_name_unique('{repo}.{branch}.{build_id}'.format(repo=repo, branch=branch, build_id=build_id), mode='docker')
+
+    # Generate default image tag prefix
+    image_tag_prefix = sanitize_name_unique(branch, mode='docker')
+
     # Set Job description
     build_description = None
     if use_pipeline:
@@ -476,6 +509,7 @@ def init(_options, early_exit=False):
     os.environ["BUILD"]       = str(build_id)
     os.environ["REPO_SANITIZED"]   = sanitize_name(repo)
     os.environ["BRANCH_SANITIZED"] = sanitize_name(str(branch))
+    os.environ["IMAGE_TAG_PREFIX"] = image_tag_prefix
 
     if early_exit:
         return
@@ -489,6 +523,7 @@ def init(_options, early_exit=False):
     else:
         logger.info("BRANCH : %s" % branch)
     logger.info("COMMIT_ID : %s" % commit_id[:7])
+    logger.info("NAME_PREFIX : %s" % name_prefix)
     logger.info("===============")
 
     # Check the SSH Key for cloning private repositories is correctly set up

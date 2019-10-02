@@ -93,7 +93,7 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
     name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.")
     base_image_variant = FieldSerializer(["string", "array"], optional = True, child = "string", help_text = "Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'.")
     check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
-    tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}'")
+    tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}', sanitized and made unique with a hash suffix if needed")
 
     def get_image_name(self, env=None, latest=False):
         if env is None:
@@ -105,7 +105,7 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
             name = common.eval_str_in_env(self.name, env)
         # tag
         if self.tag is None:
-            tag = common.branch.lower()
+            tag = common.image_tag_prefix
             if latest:
                 tag += "-latest"
             else:
