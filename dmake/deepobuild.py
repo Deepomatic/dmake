@@ -15,15 +15,16 @@ from dmake.docker_image import DockerImageFieldSerializer
 
 ###############################################################################
 
-def generate_env_file(tmp_dir, env):
+def generate_env_file(tmp_dir, env, name):
     while True:
-        file = os.path.join(tmp_dir, 'env.txt.%s' % uuid.uuid4())
-        if not os.path.isfile(file):
+        filename = 'env_{uuid}_{name}.txt'.format(uuid=uuid.uuid4(), name=common.sanitize_name(name))
+        filepath = os.path.join(tmp_dir, filename)
+        if not os.path.isfile(filepath):
             break
-    with open(file, 'w') as f:
+    with open(filepath, 'w') as f:
         for key, value in env.items():
             f.write('%s=%s\n' % (key, value))
-    return file
+    return filepath
 
 ###############################################################################
 
@@ -212,7 +213,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
 
     def _serialize_(self, commands, path_dir):
         # Make the temporary directory
-        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+        tmp_dir = common.make_tmp_dir('base_image_{name}'.format(name=common.sanitize_name(self.name)))
 
         # Copy file and compute their md5
         files_to_copy = []
@@ -482,7 +483,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
         if not self.has_value():
             return
 
-        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+        tmp_dir = common.make_tmp_dir('AWSBeanStalkDeploy')
 
         for port in config.ports:
             if port.container_port != port.host_port:
@@ -569,9 +570,9 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
         if not self.has_value():
             return
 
-        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+        tmp_dir = common.make_tmp_dir('SSHDeploy')
         deploy_name = deploy_name + "-%s" % common.branch.lower()
-        env_file = generate_env_file(tmp_dir, env)
+        env_file = generate_env_file(tmp_dir, env, 'SSHDeploy')
 
         opts = config.full_docker_opts(env, mount_host_volumes=True) + " --env-file " + os.path.basename(env_file)
 
@@ -607,7 +608,7 @@ class K8SCDDeploySerializer(YAML2PipelineSerializer):
             selectors.append("%s=%s" % (key, value))
         selectors = ",".join(selectors)
 
-        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+        tmp_dir = common.make_tmp_dir('deploy_k8s_cd_{app_name}_{deploy_name}'.format(app_name=app_name, deploy_name=deploy_name))
         configmap_env_file = os.path.join(tmp_dir, 'kubernetes-configmap-env.yaml')
         configmap_env_labels = {
             'app': deploy_name,
@@ -714,7 +715,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         if not self.has_value():
             return
 
-        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+        tmp_dir = common.make_tmp_dir('deploy_kubernetes_{app_name}_{deploy_name}'.format(app_name=app_name, deploy_name=deploy_name))
 
         # dmake service label used for pruning resources on kubectl apply: dmake automatically adds this label to all (top level) resources, then kubectl apply is limited to these resources by label selection
         dmake_generated_labels = {
@@ -1268,7 +1269,7 @@ class DMakeFile(DMakeFileSerializer):
                 workdir = os.path.join(mount_point, self.__path__)
             docker_cmd += "-w %s " % (workdir)
 
-        env_file = generate_env_file(common.tmp_dir, env)
+        env_file = generate_env_file(common.tmp_dir, env, service.service_name)
         docker_cmd += '--env-file ' + env_file
         return docker_cmd
 
@@ -1416,7 +1417,7 @@ class DMakeFile(DMakeFileSerializer):
         image_name = common.eval_str_in_env(link.image_name, context_env)
         options = link.get_options(self.__path__, context_env)
         env = link.get_env(context_env)
-        env_file = generate_env_file(common.tmp_dir, env)
+        env_file = generate_env_file(common.tmp_dir, env, service)
         docker_cmd = 'dmake_run_docker_link "%s" "%s" "%s" "%s" --env-file %s %s' % (self.app_name, image_name, link.link_name, link.probe_ports_list(), env_file, options)
         docker_cmd = link.get_docker_run_gpu_cmd_prefix() + docker_cmd
         append_command(commands, 'sh', shell=docker_cmd)

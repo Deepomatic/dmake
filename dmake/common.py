@@ -191,6 +191,14 @@ def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=N
 def run_shell_command2(commands, additional_env=None, stdin=None):
     return run_shell_command(commands, ignore_error=False, additional_env=additional_env, stdin=stdin, raise_on_return_code=True)
 
+def make_tmp_dir(name, in_root_dir=False):
+    additional_env = {}
+    if in_root_dir:
+        # force generate directly in /tmp
+        additional_env['DMAKE_TMP_DIR'] = ""
+    return run_shell_command2('dmake_make_tmp_dir "{name}"'.format(name=name),
+                              additional_env=additional_env)
+
 def array_to_env_vars(array):
     return '#@#'.join([a.replace("@", "\\@") for a in array])
 
@@ -398,11 +406,6 @@ def init(_options, early_exit=False):
     do_pull_config_dir = os.getenv('DMAKE_PULL_CONFIG_DIR', '1') != '0'
     use_host_ports = os.getenv('DMAKE_USE_HOST_PORTS', '0') != '0'
 
-    if 'DMAKE_TMP_DIR' in os.environ:
-        del os.environ['DMAKE_TMP_DIR']
-    tmp_dir = run_shell_command("dmake_make_tmp_dir")
-    os.environ['DMAKE_TMP_DIR'] = tmp_dir
-
     # Get uname
     uname = run_shell_command("uname")
 
@@ -481,6 +484,9 @@ def init(_options, early_exit=False):
 
     # Generate name prefix: readable, unique, stable identifier
     name_prefix = sanitize_name_unique('{repo}.{branch}.{build_id}'.format(repo=repo, branch=branch, build_id=build_id), mode='docker')
+
+    tmp_dir = make_tmp_dir(name_prefix, in_root_dir=True)
+    os.environ['DMAKE_TMP_DIR'] = tmp_dir
 
     # Generate default image tag prefix
     image_tag_prefix = sanitize_name_unique(branch, mode='docker')

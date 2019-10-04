@@ -148,7 +148,8 @@ class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
         return self.start_script is not None
 
     def generate_build_docker(self, commands, path_dir, docker_base, build):
-        tmp_dir = common.run_shell_command('dmake_make_tmp_dir')
+        image_name = self.get_image_name()
+        tmp_dir = common.make_tmp_dir('service_docker_v1_build_{}'.format(common.sanitize_name(image_name)))
         common.run_shell_command('mkdir %s' % os.path.join(tmp_dir, 'app'))
 
         generate_copy_command(commands, tmp_dir, path_dir)
@@ -197,7 +198,6 @@ class ServiceDockerV1Serializer(ServiceDockerCommonSerializer):
             if self.entrypoint is not None:
                 f.write('ENTRYPOINT ["%s"]\n' % os.path.join(mount_point, path_dir, self.entrypoint))
 
-        image_name = self.get_image_name()
         append_command(commands, 'sh', shell = 'dmake_build_docker "%s" "%s"' % (tmp_dir, image_name))
 
 ###############################################################################
