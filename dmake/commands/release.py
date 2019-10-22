@@ -85,10 +85,11 @@ def entry_point(options):
         prev_version = tags_list[prev_key]
         no_prefix_next = remove_tag_prefix(release_tag.name)
         no_prefix_prev = remove_tag_prefix(prev_version.name)
-        if semver.bump_major(no_prefix_prev) != no_prefix_next and \
-           semver.bump_minor(no_prefix_prev) != no_prefix_next and \
-           semver.bump_patch(no_prefix_prev) != no_prefix_next and \
-           semver.bump_prerelease(no_prefix_prev) != no_prefix_next and \
+        no_prefix_next_without_prerelease = no_prefix_next.split('-')[0]
+        if semver.bump_major(no_prefix_prev) != no_prefix_next_without_prerelease and \
+           semver.bump_minor(no_prefix_prev) != no_prefix_next_without_prerelease and \
+           semver.bump_patch(no_prefix_prev) != no_prefix_next_without_prerelease and \
+           semver.bump_prerelease(no_prefix_prev) != no_prefix_next_without_prerelease and \
             (release_key.major != prev_key.major or
              release_key.minor != prev_key.minor or
              release_key.patch != prev_key.patch or
