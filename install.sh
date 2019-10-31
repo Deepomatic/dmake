@@ -162,5 +162,5 @@ if [ ! -f "${DMAKE_CONFIG_DIR}/completion.bash.inc" ]; then
   dmake completion > "${DMAKE_CONFIG_DIR}/completion.bash.inc"
 fi
 
-echo "You should be good to go !"
-echo "IMPORTANT: restart your shell session before testing the 'dmake' command !"
+echo "You should be good to go!"
+echo "IMPORTANT: restart your shell session before testing the 'dmake' command!"

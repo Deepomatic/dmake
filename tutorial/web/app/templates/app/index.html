@@ -6,8 +6,8 @@
     <body>
         <div class="row">
             <div class="col-xs-10 col-xs-offset-1">
-                <h3>Let's do some complicated stuff that obviously require a worker !</h3>
-                <h4>Let's compute n factorial !</h4>
+                <h3>Let's do some complicated stuff that obviously require a worker!</h3>
+                <h4>Let's compute n factorial!</h4>
             </div>
         </div>
         <div class="row" style="padding-top: 30px">
@@ -46,12 +46,12 @@
             $('#result').text('');
             var n = $('#n').val();
             if(n == '' || isNaN(n)) {
-                $('#error').text("Please enter a valid number !");
+                $('#error').text("Please enter a valid number!");
             } else if (n < 0) {
-                $('#error').text("Please entre a non-negative number !");
+                $('#error').text("Please enter a non-negative number!");
             }
             else if (n > 20) {
-                $('#error').text("The result won't fit on 64 bits, we leave the extension of this demo to computing the factorial of an arbitrary number as an exercice ;-)");
+                $('#error').text("The result won't fit on 64 bits, we leave the extension of this demo to computing the factorial of an arbitrary number as an exercise ;-)");
             }
             else {
                 var form = $(this);

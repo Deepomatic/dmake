@@ -15,6 +15,7 @@ from dmake.docker_image import DockerImageFieldSerializer
 
 ###############################################################################
 
+
 def generate_env_file(tmp_dir, env, name):
     while True:
         filename = 'env_{uuid}_{name}.txt'.format(uuid=uuid.uuid4(), name=common.sanitize_name(name))
@@ -27,6 +28,7 @@ def generate_env_file(tmp_dir, env, name):
     return filepath
 
 ###############################################################################
+
 
 def get_docker_run_gpu_cmd_prefix(need_gpu, service_type, service_name):
     prefix = ''
@@ -41,6 +43,7 @@ def get_docker_run_gpu_cmd_prefix(need_gpu, service_type, service_name):
     return prefix
 
 # ###############################################################################
+
 
 class EnvBranchSerializer(YAML2PipelineSerializer):
     source    = FieldSerializer('string', optional=True, help_text='Source a bash file which defines the environment variables before evaluating the strings of environment variables passed in the *variables* field. It might contain environment variables itself.')
@@ -86,6 +89,7 @@ class EnvBranchSerializer(YAML2PipelineSerializer):
 
         return replaced_variables
 
+
 class EnvSerializer(YAML2PipelineSerializer):
     default  = EnvBranchSerializer(optional = True, help_text = "List of environment variables that will be set by default.")
     branches = FieldSerializer('dict', child = EnvBranchSerializer(), default = {}, help_text = "If the branch matches one of the following fields, those variables will be defined as well, eventually replacing the default.", example = {'master': {'ENV_TYPE': 'prod'}})
@@ -109,6 +113,7 @@ class SharedVolumes(object):
         if volume is None:
             raise SharedVolumeNotFoundException(name)
         return volume
+
 
 class SharedVolumeSerializer(YAML2PipelineSerializer):
     name = FieldSerializer("string", help_text = "Shared volume name.", example = "datasets")
@@ -173,6 +178,7 @@ class SharedVolumeMountSerializer(YAML2PipelineSerializer):
         volume_id = self.get_shared_volume().get_volume_id()
         options = '-v %s:%s' % (volume_id, target)
         return options
+
 
 class VolumeMountSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
@@ -331,9 +337,11 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         image = self.name + ":" + self.tag
         return image
 
+
 class DockerRootImageSerializer(YAML2PipelineSerializer):
     name = FieldSerializer("string", help_text = "Root image name.", example = "library/ubuntu")
     tag  = FieldSerializer("string", help_text = "Root image tag (you can use environment variables).", example = "16.04")
+
 
 class DockerSerializer(YAML2PipelineSerializer):
     root_image   = FieldSerializer([FieldSerializer("file", help_text = "to another dmake file, in which base the root_image will be this file's base_image."), DockerRootImageSerializer()], optional = True, help_text = "The default source image name to build on.")
@@ -386,10 +394,12 @@ class DockerSerializer(YAML2PipelineSerializer):
                 return base_image
         raise DMakeException("Could not find base_image service '%s'" % base_image_service_name)
 
+
 class HTMLReportSerializer(YAML2PipelineSerializer):
     directory  = FieldSerializer("string", example = "test-reports/cover", help_text = "Directory of the html pages.")
     index      = FieldSerializer("string", default = "index.html", help_text = "Main page.")
     title      = FieldSerializer("string", default = "HTML Report", help_text = "Main page title.")
+
 
 class DockerLinkSerializer(YAML2PipelineSerializer):
     image_name       = FieldSerializer("string", example = "mongo:3.2", help_text = "Name and tag of the image to launch.")
@@ -470,6 +480,7 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
 
     def get_docker_run_gpu_cmd_prefix(self):
         return get_docker_run_gpu_cmd_prefix(self.need_gpu, 'docker link', self.link_name)
+
 
 class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
     name_prefix  = FieldSerializer("string", default = "${DMAKE_DEPLOY_PREFIX}", help_text = "The prefix to add to the 'deploy_name'. Can be useful as application name have to be unique across all users of Elastic BeanStalk.")
@@ -561,6 +572,7 @@ class AWSBeanStalkDeploySerializer(YAML2PipelineSerializer):
             self.region,
             self.stack))
 
+
 class SSHDeploySerializer(YAML2PipelineSerializer):
     user = FieldSerializer("string", example = "ubuntu", help_text = "User name")
     host = FieldSerializer("string", example = "192.168.0.1", help_text = "Host address")
@@ -591,6 +603,7 @@ class SSHDeploySerializer(YAML2PipelineSerializer):
 
         cmd = 'dmake_deploy_ssh "%s" "%s" "%s" "%s" "%d"' % (tmp_dir, deploy_name, self.user, self.host, self.port)
         append_command(commands, 'sh', shell = cmd)
+
 
 class K8SCDDeploySerializer(YAML2PipelineSerializer):
     context   = FieldSerializer("string", help_text = "kubectl context to use.")
@@ -806,6 +819,7 @@ class DeployConfigPortsSerializer(YAML2PipelineSerializer):
     container_port    = FieldSerializer("int", example = 8000, help_text = "Port on the container")
     host_port         = FieldSerializer("int", optional = True, example = 80, help_text = "Port on the host. If not set, a random port will be used.")
 
+
 class DeployStageSerializer(YAML2PipelineSerializer):
     description   = FieldSerializer("string", example = "Deployment on AWS and via SSH", help_text = "Deploy stage description.")
     branches      = FieldSerializer(["string", "array"], child = "string", default = ['stag'], post_validation = lambda x: [x] if common.is_string(x) else x, help_text = "Branch list for which this stag is active, '*' can be used to match any branch. Can also be a simple string.")
@@ -815,11 +829,12 @@ class DeployStageSerializer(YAML2PipelineSerializer):
     k8s_continuous_deployment = K8SCDDeploySerializer(optional = True, help_text = "Continuous deployment via Kubernetes. Look for all the deployments running this service.")
     kubernetes    = KubernetesDeploySerializer(optional = True, help_text = "Deploy to Kubernetes cluster.")
 
+
 class ReadinessProbeSerializer(YAML2PipelineSerializer):
-    command               = FieldSerializer("array", child = "string", default = [], example = ['cat', '/tmp/worker_ready'], help_text = "The command to run to check if the container is ready. The command should fail with a non-zero code if not ready.")
-    initial_delay_seconds = FieldSerializer("int", default = 0, example = 1, help_text = "The delay before the first probe is launched")
-    period_seconds        = FieldSerializer("int", default = 5, example = 5, help_text = "The delay between two first probes")
-    max_seconds           = FieldSerializer("int", default = 0, example = 40, help_text = "The maximum delay after failure")
+    command               = FieldSerializer("array", child="string", default=[], example=['cat', '/tmp/worker_ready'], help_text="The command to run to check if the container is ready. The command should fail with a non-zero code if not ready.")
+    initial_delay_seconds = FieldSerializer("int", default=0, example=1, help_text="The delay before the first probe is launched")
+    period_seconds        = FieldSerializer("int", default=5, example=5, help_text="The delay between two probes, minumum 1 second")
+    max_seconds           = FieldSerializer("int", default=0, example=40, help_text="The maximum delay after failure")
 
     def get_cmd(self):
         if not self.has_value() or len(self.command) == 0:
@@ -838,14 +853,15 @@ class ReadinessProbeSerializer(YAML2PipelineSerializer):
         cmd = common.escape_cmd(cmd)
         return 'bash -c "%s"' % cmd
 
+
 class DeployConfigSerializer(YAML2PipelineSerializer):
     docker_image       = DockerImageFieldSerializer()
-    docker_opts        = FieldSerializer("string", default = "", example = "--privileged", help_text = "Docker options to add.")
-    env_override       = FieldSerializer("dict", child = "string", optional = True, default = {}, help_text = "Extra environment variables for this service. Overrides dmake.yml root `env`, with variable substitution evaluated from it.", example = {'INFO': '${BRANCH}-${BUILD}'})
-    need_gpu           = FieldSerializer("bool", default = False, help_text = "Whether the service needs to be run on a GPU node.")
-    ports              = FieldSerializer("array", child = DeployConfigPortsSerializer(), default = [], help_text = "Ports to open.")
-    volumes            = FieldSerializer("array", child = FieldSerializer([SharedVolumeMountSerializer(), VolumeMountSerializer()]), default = [], example = ["datasets:/datasets"], help_text = "Volumes to mount.")
-    readiness_probe    = ReadinessProbeSerializer(optional = True, help_text = "A probe that waits until the container is ready.")
+    docker_opts        = FieldSerializer("string", default="", example="--privileged", help_text="Docker options to add.")
+    env_override       = FieldSerializer("dict", child="string", optional=True, default={}, help_text="Extra environment variables for this service. Overrides dmake.yml root `env`, with variable substitution evaluated from it.", example = {'INFO': '${BRANCH}-${BUILD}'})
+    need_gpu           = FieldSerializer("bool", default=False, help_text="Whether the service needs to be run on a GPU node.")
+    ports              = FieldSerializer("array", child=DeployConfigPortsSerializer(), default=[], help_text = "Ports to open.")
+    volumes            = FieldSerializer("array", child=FieldSerializer([SharedVolumeMountSerializer(), VolumeMountSerializer()]), default=[], example=["datasets:/datasets"], help_text="Volumes to mount.")
+    readiness_probe    = ReadinessProbeSerializer(optional=True, help_text="A probe that waits until the container is ready.")
 
     def full_docker_opts(self, env, mount_host_volumes, use_host_ports=None):
         if not self.has_value():
@@ -891,6 +907,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
         docker_opts = self.docker_opts
         return docker_opts + " " + (" ".join(opts))
 
+
 class DeploySerializer(YAML2PipelineSerializer):
     deploy_name = FieldSerializer("string", optional = True, example = "", help_text = "The name used for deployment. Will default to '{:app_name}-{:service_name}' if not specified")
     stages      = FieldSerializer("array", child = DeployStageSerializer(), help_text = "Deployment possibilities")
@@ -921,6 +938,7 @@ class DeploySerializer(YAML2PipelineSerializer):
             stage.ssh._serialize_(commands, app_name, deploy_name, config, image_name, branch_env)
             stage.k8s_continuous_deployment._serialize_(commands, app_name, deploy_name, image_name, branch_env)
             stage.kubernetes._serialize_(commands, app_name, deploy_name, image_name, branch_env)
+
 
 class DataVolumeSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
@@ -1035,7 +1053,9 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         # NeededServiceSerializer objects are equal if equivalent, to deduplicate their instances at runtime
         # objects are not comparable before the call to _validate_(), because fields are not populated yet
         assert self.__has_value__, "NeededServiceSerializer objects are not comparable before validation"
-        # easiest implementation for now: handle different link_name as different needed_services; later should try to aggregate various link_names to one instance of NeededServiceSerializer in `service_customization`
+        # easiest implementation for now: handle different link_name as different
+        # needed_services; later should try to aggregate various link_names to
+        # one instance of NeededServiceSerializer in `service_customization`
         return self.service_name == other.service_name \
             and self.link_name == other.link_name \
             and self.env == other.env
@@ -1067,8 +1087,10 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
     def get_service_name_unique_suffix(self):
         return "--%s" % (self._id) if self._specialized else ""
 
+
 class DevConfigSerializer(YAML2PipelineSerializer):
     entrypoint       = FieldSerializer("file", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint used with `dmake shell`.")
+
 
 class ServicesSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", default = "", help_text = "The name of the application part.", example = "api", no_slash_no_space = True)
@@ -1115,6 +1137,7 @@ class ServicesSerializer(YAML2PipelineSerializer):
 
     def get_shared_volumes(self):
         return [volume.get_shared_volume() for volume in self.config.volumes if isinstance(volume, SharedVolumeMountSerializer)]
+
 
 class BuildSerializer(YAML2PipelineSerializer):
     env      = FieldSerializer("dict", child = "string", default = {}, help_text = "List of environment variables used when building applications (excluding base_image).", example = {'BUILD': '${BUILD}'})
