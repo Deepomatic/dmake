@@ -1,16 +1,15 @@
 #!/bin/bash
 #
 # Usage:
-# ID=$(dmake_run_docker_daemon APP_NAME SERVICE_NAME LINK_NAME NAME ARGS...)
+# ID=$(dmake_run_docker_daemon APP_NAME LINK_NAME NAME ARGS...)
 #
 # Result:
 # Run a docker daemon, save container ID to list of containers to stop and return the container ID
-# if SERVICE_NAME is non-empty, save container ID as the daemon for SERVICE_NAME (in the list of daemons ID)
 # if LINK_NAME is non-empty, save container ID as the link for LINK_NAME (in <app>/links/<LINK_NAME>.id)
 
 test "${DMAKE_DEBUG}" = "1" && set -x
 
-if [ $# -lt 2 ]; then
+if [ $# -lt 3 ]; then
     dmake_fail "$0: Missing arguments"
     echo "exit 1"
     exit 1
@@ -24,7 +23,6 @@ fi
 set -e
 
 APP_NAME=$1; shift
-SERVICE_NAME=$1; shift
 LINK_NAME=$1; shift
 NAME=$1; shift
 
@@ -44,10 +42,6 @@ while [ 1 = 1 ]; do
     fi
     sleep 1
 done
-
-if [ ! -z "${SERVICE_NAME}" ]; then
-    echo "${CONTAINER_ID} ${SERVICE_NAME}" >> ${DMAKE_TMP_DIR}/daemon_ids.txt
-fi
 
 if [ ! -z "${LINK_NAME}" ]; then
   CACHE_DIR="${DMAKE_TMP_DIR}/links/${APP_NAME}"

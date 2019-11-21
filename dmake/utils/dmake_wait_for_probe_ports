@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Use this script to wait on probe ports
+#
+# Usage:
+# dmake_wait_for_probe_ports CONTAINER_ID PORTS
+#
+# Result:
+# Wait for ports to be open
+
+test "${DMAKE_DEBUG}" = "1" && set -x
+
+if [ $# -ne 2 ]; then
+    >&2 echo -e "$0: Missing arguments"
+    exit 1
+fi
+
+set -e
+
+CONTAINER_ID=${1}
+PROBE_PORTS=${2}
+
+if [ "${PROBE_PORTS}" = "none" ]; then
+    :
+else
+    if [ "${PROBE_PORTS}" = "auto" ]; then
+        PROBE_PORTS=$(docker ps -f id=${CONTAINER_ID} --format "{{.Ports}}" | sed "s/ *//g" | sed "s/\([0-9]*\.\)\{3\}[0-9]*:[0-9]*->//g")
+    fi
+    if [ ! -z "${PROBE_PORTS}" ]; then
+        ROOT=$(dirname $0)
+        >&2 docker run --rm --link ${CONTAINER_ID}:link_to_wait -v ${ROOT}/dmake_wait_for_it:/usr/bin/dmake_wait_for_it -v ${ROOT}/dmake_wait_for_it_wrapper:/usr/bin/dmake_wait_for_it_wrapper -i ubuntu dmake_wait_for_it_wrapper "link_to_wait" "${PROBE_PORTS}"
+    fi
+fi
