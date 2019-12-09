@@ -1,4 +1,23 @@
-#!/usr/bin/python
+#!/bin/sh
+
+# Shell commands follow
+# Next line is bilingual: it starts a comment in Python, and is a no-op in shell
+""":"
+
+# Find a suitable python interpreter
+for cmd in python3 python2 ; do
+   command -v > /dev/null $cmd && exec $cmd $0 "$@"
+done
+
+echo "Python not found, exiting!" >2
+
+exit 2
+
+":"""
+# Previous line is bilingual: it ends a comment in Python, and is a no-op in shell
+# Shell commands end here
+# Python script follows (example commands shown)
+
 #
 # Usage:
 # dmake_replace_vars [--no-fail] input_file [output_file]
