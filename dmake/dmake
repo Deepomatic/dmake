@@ -9,7 +9,7 @@ for cmd in python3 python2 ; do
    command -v > /dev/null $cmd && exec $cmd $0 "$@"
 done
 
-echo "OMG Python not found, exiting!" >2
+echo "Python not found, exiting!" >2
 
 exit 2
 
