@@ -151,8 +151,14 @@ for SHRC in `ls ~/\.*shrc`; do
     fi
 done
 
-echo "Installing python dependencies with: pip install --user -r requirements.txt"
-pip install --user -r $(dirname $0)/requirements.txt
+if [ -x "$(command -v pip3)" ]; then
+    pip='pip3'
+else
+    pip='pip2'
+fi;
+
+echo "Installing python dependencies with: $pip install --user -r requirements.txt"
+$pip install --user -r $(dirname $0)/requirements.txt
 echo ""
 
 if [ ! -f "${DMAKE_CONFIG_DIR}/completion.bash.inc" ]; then
