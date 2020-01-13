@@ -424,28 +424,26 @@ def init(_options, early_exit=False):
     # Currently set if any dmake file describes a deploy stage matching current branch; updated after files parsing
     is_release_branch = None
 
-    use_pipeline = True
     # For PRs on Jenkins this will give the source branch name
     branch = os.getenv('CHANGE_BRANCH', None)
-    # When not PR, this will be the actual branch name
     if branch is None:
+        # When on Jenkins but not PR, this will be the actual branch name
         branch = os.getenv('BRANCH_NAME', None)
     if branch is None:
+        # Not on Jenkins: bash mode: do not emit jenkins pipeline script
+        branch = run_shell_command("git rev-parse --abbrev-ref HEAD")
         use_pipeline = False
-        target = os.getenv('ghprbTargetBranch', None)
-        pr_id  = os.getenv('ghprbPullId', None)
+        target = None
+        pr_id  = None
         build_id = os.getenv('BUILD_NUMBER', '0')
-        if target is None:
-            branch = os.getenv('GIT_BRANCH')
-        else:
-            branch = "PR-%s" % pr_id
-        if branch is None:
-            branch = run_shell_command("git rev-parse --abbrev-ref HEAD")
+        is_pr = False
     else:
+        # On Jenkins, assume multibranch project
+        use_pipeline = True
         target   = os.getenv('CHANGE_TARGET', None)
         pr_id    = os.getenv('CHANGE_ID')
         build_id = os.getenv('BUILD_ID', '0')
-    is_pr = target is not None
+        is_pr = target is not None
     force_full_deploy = False
 
     if 'branch' in options and options.branch:
