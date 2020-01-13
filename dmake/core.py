@@ -32,18 +32,16 @@ def look_for_changed_directories():
     if common.target is None:
         tag = get_tag_name()
         common.logger.info("Looking for changes between HEAD and %s" % tag)
-        try:
-            output = common.run_shell_command("git diff --name-only %s...HEAD" % tag)
-        except common.ShellError as e:
-            common.logger.error("Error: " + str(e))
-            return None
+        git_ref = "%s...HEAD" % tag
     else:
         common.logger.info("Looking for changes between HEAD and %s" % common.target)
-        try:
-            output = common.run_shell_command("git diff --name-only %s/%s...HEAD" % (common.remote, common.target))
-        except common.ShellError as e:
-            common.logger.error("Error: " + str(e))
-            return None
+        git_ref = "%s/%s...HEAD" % (common.remote, common.target)
+
+    try:
+        output = common.run_shell_command("git diff --name-only %s" % git_ref)
+    except common.ShellError as e:
+        common.logger.error("Error: " + str(e))
+        return None
 
     if len(output) == 0:
         return []
@@ -63,9 +61,7 @@ def look_for_changed_directories():
                     f = f[1:]
                 to_append.append(os.path.join(sl[0], f))
     output += to_append
-
-    #common.logger.info("Changed files:")
-    #common.logger.info(output)
+    common.logger.debug("Changed files: %s", output)
 
     changed_dirs = set()
     for file in output:
@@ -87,6 +83,7 @@ def look_for_changed_directories():
         changed_dirs.difference_update(to_remove)
         if do_add:
             changed_dirs.add(d)
+    common.logger.info("Changed directories: %s", changed_dirs)
     return list(changed_dirs)
 
 ###############################################################################
@@ -270,6 +267,7 @@ def find_active_files(loaded_files, service_providers, service_dependencies, sub
             for d in changed_dirs:
                 if d.startswith(root):
                     active = True
+                    break
 
         if active:
             activate_file(loaded_files, service_providers, service_dependencies, command, file_name)
@@ -635,6 +633,9 @@ def service_completer(prefix, parsed_args, **kwargs):
 
 def make(options, parse_files_only=False):
     app = getattr(options, 'service', None)
+
+    if common.sub_dir:
+        common.logger.info("Working in subdirectory: %s", common.sub_dir)
 
     # Format args
     auto_complete = False
