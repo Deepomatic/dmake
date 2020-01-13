@@ -433,7 +433,7 @@ def init(_options, early_exit=False):
         # Not on Jenkins: bash mode: do not emit jenkins pipeline script
         branch = run_shell_command("git rev-parse --abbrev-ref HEAD")
         use_pipeline = False
-        target = None
+        target = os.getenv('CHANGE_TARGET', '@{upstream}')
         pr_id  = None
         build_id = os.getenv('BUILD_NUMBER', '0')
         is_pr = False

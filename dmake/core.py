@@ -33,6 +33,9 @@ def look_for_changed_directories():
         tag = get_tag_name()
         common.logger.info("Looking for changes between HEAD and %s" % tag)
         git_ref = "%s...HEAD" % tag
+    elif common.target == '@{upstream}':
+        common.logger.info("Looking for changes with @{upstream}")
+        git_ref = '@{upstream}'
     else:
         common.logger.info("Looking for changes between HEAD and %s" % common.target)
         git_ref = "%s/%s...HEAD" % (common.remote, common.target)
@@ -641,8 +644,12 @@ def make(options, parse_files_only=False):
     auto_complete = False
     auto_completed_app = None
     if app == "*":
+        # all services
         app = None
         common.force_full_deploy = True
+    elif app == "+":
+        # changed services only
+        pass
     elif app is not None:
         n = len(app.split('/'))
         if n > 2:
