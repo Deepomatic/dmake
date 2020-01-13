@@ -175,7 +175,6 @@ height=1"]
 	"('test', 'dmake-test/test-web', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
 	"('test', 'dmake-test/test-web', None)" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
 	"('test', 'dmake-test/test-web2', None)" -> "('build_docker', 'dmake-test/test-web2', None)"
-	"('test', 'dmake-test/test-web2', None)" -> "('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))"
 	"('test', 'dmake-test/test-web2', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1604', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
