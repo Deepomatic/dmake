@@ -90,7 +90,7 @@ node {
     sh ". workspace/.venv2/bin/activate && pip install -r requirements.txt"
     dir('workspace') {
       if (self_test) {
-        sh ". .venv2/bin/activate && pytest -v --junit-xml=junit.xml --junit-prefix=python2"
+        sh ". .venv2/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python2"
         junit keepLongStdio: true, testResults: 'junit.xml'
       }
       sh ". .venv2/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
@@ -106,7 +106,7 @@ node {
     sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
     dir('workspace') {
       if (self_test) {
-        sh ". .venv3/bin/activate && pytest -v --junit-xml=junit.xml --junit-prefix=python3"
+        sh ". .venv3/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python3"
         junit keepLongStdio: true, testResults: 'junit.xml'
       }
       sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"

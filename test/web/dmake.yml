@@ -85,6 +85,11 @@ services:
       cobertura_report: coverage.xml
 
   - service_name: test-web2
+    needed_services:
+      - service_name: test-worker:ubuntu-1804
+        link_name: worker-ubuntu-1804
+        env:
+          TEST_SHARED_VOLUME: 1
     needed_links:
       - rabbitmq
     config:

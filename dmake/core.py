@@ -722,7 +722,7 @@ def make(options, parse_files_only=False):
     if auto_complete and auto_completed_app is None:
         raise DMakeException("Could not find any app or sub-app matching '%s'" % app)
 
-    # Filter base images which are not provided
+    # Remove base images which are not provided (by dmake.yml definitions): they are external base images
     for deps in service_dependencies.values():
         to_delete = []
         for i, dep in enumerate(deps):
@@ -752,15 +752,20 @@ def make(options, parse_files_only=False):
         else:
             activate_service(loaded_files, service_providers, service_dependencies, common.command, auto_completed_app)
 
-    # check services circularity
+    # (warninig: tree vocabulary is reversed here: `leaves` are the nodes with no parent dependency, and depth is the number of levels of child dependencies)
+    # check services circularity, and compute node depth
     sorted_leaves = check_no_circular_dependencies(service_dependencies)
-    sorted_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, sorted_leaves)
-    build_files_order = order_dependencies(service_dependencies, sorted_leaves)
+    # get nodes leaves related to the dmake command (exclude notably `base` and `shared_volumes` which are created independently from the command)
+    dmake_command_sorted_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, sorted_leaves)
+    # prepare reorder by computing shortest node depth starting from the dmake-command-created leaves
+    build_files_order = order_dependencies(service_dependencies, dmake_command_sorted_leaves)
+    # cleanup service_dependencies: remove nodes with no depth: they are not related (directly or by dependency) to dmake-command-created leaves: they are not needed
+    service_dependencies = dict(filter(lambda service_deps: service_deps[0] in build_files_order, service_dependencies.items()))
 
-    common.dump_dot_graph(service_dependencies, build_files_order)
+    debug_dot_graph = common.dump_dot_graph(service_dependencies, build_files_order)
     if common.exit_after_generate_dot_graph:
         print('Exiting after debug graph generation')
-        sys.exit(0)
+        return debug_dot_graph
 
     # Sort by order
     ordered_build_files = sorted(build_files_order.items(), key = lambda file_order: file_order[1])

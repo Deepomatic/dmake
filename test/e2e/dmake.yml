@@ -24,10 +24,16 @@ services:
        link_name: web
        env_exports:
          WEB_URL: http://web:8000
+     - service_name: test-web2
+       link_name: web2
+       env_exports:
+         WEB2_URL: http://web2:8000
      - service_name: test-external-dependency-nginx
        link_name: nginx
        env_exports:
          NGINX_URL: http://nginx/
+     - service_name: test-external-dependency-nginx
+       link_name: nginx2
     config:
       docker_image:
         build:
@@ -45,6 +51,7 @@ services:
         - bash -xc "[[ \"${IMAGE_TAG_PREFIX}\" =~ [a-zA-Z0-9][a-zA-Z0-9_.-]+ ]]"
         - curl -sSf "${NGINX_URL}"
         - curl -sSf "${WEB_URL}/api/factorial/?n=5"
+        - curl -sSf "${WEB2_URL}/api/factorial/?n=5"
         - test -f /dmake.yml
         - rm -rf /artifacts/digest
         - echo "${COMMIT_ID}" > /artifacts/digest
