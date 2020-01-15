@@ -317,7 +317,7 @@ def get_dmake_build_type():
 
 ###############################################################################
 
-def dump_dot_graph(dependencies, attributes):
+def dump_dot_graph(dependencies, nodes_height):
     if not generate_dot_graph:
         return
 
@@ -329,8 +329,8 @@ def dump_dot_graph(dependencies, attributes):
 
     def node2label(node):
         label = '{}\n{}\n{}'.format(*node)
-        if node in attributes:
-            label += '\n{}'.format(attributes[node])
+        if node in nodes_height:
+            label += '\nheight={}'.format(nodes_height[node])
         return label
 
     dot = Digraph(comment='DMake Services', filename=dot_graph_filename, format=dot_graph_format)
@@ -338,24 +338,26 @@ def dump_dot_graph(dependencies, attributes):
 
     # group nodes by commands
     commands = {}
-    for node, deps in dependencies.items():
+    for node, deps in sorted(dependencies.items()):
         command = node[0]
         if command not in commands:
             commands[command] = []
         commands[command].append((node, deps))
-    for command, nodes_deps in commands.items():
+    for command, nodes_deps in sorted(commands.items()):
         # sub graph with same rank: horizontal node alignment per command
         with dot.subgraph() as s:
             s.attr(rank='same')
-            for node, deps in nodes_deps:
+            for node, deps in sorted(nodes_deps):
                 # create nodes
                 s.node(node2node_id(node), label=node2label(node))
-                for dep in deps:
+                for dep in sorted(deps):
                     # create edges
                     dot.edge(node2node_id(node), node2node_id(dep))
 
-    dot.render()
-    logger.info("Generated debug DOT graph: '%s' and '%s'" % (dot_graph_filename, dot_graph_filename + '.' + dot_graph_format))
+    if dot_graph_filename is not None:
+        dot.render()
+        logger.info("Generated debug DOT graph: '%s' and '%s'" % (dot_graph_filename, dot_graph_filename + '.' + dot_graph_format))
+    return dot
 
 ###############################################################################
 

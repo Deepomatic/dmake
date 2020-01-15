@@ -1,0 +1,19 @@
+// DMake Services
+digraph {
+	node [shape=box]
+	{
+		rank=same
+		"('base', 'dmake-test-web-base__base', None)" [label="base
+dmake-test-web-base::base
+None
+height=0"]
+	}
+	"('build_docker', 'dmake-test/test-web', None)" -> "('base', 'dmake-test-web-base__base', None)"
+	{
+		rank=same
+		"('build_docker', 'dmake-test/test-web', None)" [label="build_docker
+dmake-test/test-web
+None
+height=1"]
+	}
+}

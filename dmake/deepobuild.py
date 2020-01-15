@@ -1,5 +1,6 @@
 import os
 import copy
+import functools
 import json
 import uuid
 import importlib
@@ -95,6 +96,10 @@ class SharedVolumes(object):
     volumes = dict()
 
     allowed_volume_name_pattern = re.compile("^[a-zA-Z0-9][a-zA-Z0-9_.-]+$")
+
+    @staticmethod
+    def reset():
+        SharedVolumes.volumes = dict()
 
     @staticmethod
     def register(volume, file):
@@ -1009,6 +1014,8 @@ class TestSerializer(YAML2PipelineSerializer):
 
 
 allowed_link_name_pattern = re.compile("^[a-z0-9-]{1,63}$")  # too laxist, but easy to read
+
+@functools.total_ordering
 class NeededServiceSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", help_text = "The name of the needed application part.", example = "worker-nn", no_slash_no_space = True)
     link_name       = FieldSerializer("string", optional = True, example = "worker-nn", help_text = "Link name.")
@@ -1024,12 +1031,12 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         if self.link_name:
             s += " (%s)" % (self.link_name)
         if self._specialized:
-            s += " -- env: %s" % (self.env)
-            s += " -- env_exports: %s" % (self.env_exports)
+            s += " -- env: %s" % (sorted(self.env))
+            s += " -- env_exports: %s" % (sorted(self.env_exports))
         return s
 
     def __repr__(self):
-        return "NeededServiceSerializer(service_name=%r, link_name=%r, env=%r, env_exports=%r)" % (self.service_name, self.link_name, self.env, self.env_exports)
+        return "NeededServiceSerializer(service_name=%r, link_name=%r, env=%r, env_exports=%r)" % (self.service_name, self.link_name, sorted(self.env), sorted(self.env_exports))
 
     def __eq__(self, other):
         # NeededServiceSerializer objects are equal if equivalent, to deduplicate their instances at runtime
@@ -1039,6 +1046,12 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         return self.service_name == other.service_name \
             and self.link_name == other.link_name \
             and self.env == other.env
+
+    def __lt__(self, other):
+        # Need to have stability on graph dump
+        assert self.__has_value__, "NeededServiceSerializer objects are not comparable before validation"
+        return ((self.service_name, self.link_name, sorted(self.env))
+                < (other.service_name, other.link_name, sorted(other.env)))
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -1430,3 +1443,7 @@ class DMakeFile(DMakeFileSerializer):
         if not service.config.docker_image.is_runnable():
             raise DMakeException("You need to specify a 'config.docker_image.start_script' when deploying service '%s'." % service_name)
         service.deploy.generate_deploy(commands, self.app_name, self.env, service.config)
+
+
+def reset():
+    SharedVolumes.reset()
