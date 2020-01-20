@@ -45,6 +45,10 @@ class AbstractDockerImage(SerializerMixin):
         pass
 
     @abstractmethod
+    def get_source_directories_additional_contexts(self):
+        pass
+
+    @abstractmethod
     def is_runnable(self):
         pass
 
@@ -74,6 +78,10 @@ class ExternalDockerImage(AbstractDockerImage):
         """No variant for external image"""
         return None
 
+    def get_source_directories_additional_contexts(self):
+        """No additional source context supported"""
+        return []
+
     def is_runnable(self):
         return True
 
@@ -92,8 +100,12 @@ class ExternalDockerImage(AbstractDockerImage):
 class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage):
     name             = FieldSerializer("string", optional = True, help_text = "Name of the docker image to build. By default it will be {:app_name}-{:service_name}. If there is no docker user, it won be pushed to the registry. You can use environment variables.")
     base_image_variant = FieldSerializer(["string", "array"], optional = True, child = "string", help_text = "Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'.")
+    source_directories_additional_contexts = FieldSerializer("array", child = "string", default = [], example = ['../web'], help_text = "NOT RECOMMENDED. Additional source directories contexts for changed services auto detection in case of build context going outside of the dmake.yml directory.")
     check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}', sanitized and made unique with a hash suffix if needed")
+
+    def get_source_directories_additional_contexts(self):
+        return self.source_directories_additional_contexts
 
     def get_image_name(self, env=None, latest=False):
         if env is None:

@@ -55,6 +55,8 @@ services:
         base_image_variant:
           - ubuntu-1604
           - ubuntu-1804
+        source_directories_additional_contexts:
+          - ../web
         build:
           context: ../  # limited to worker/ and web/, see ../.dockerignore
           dockerfile: worker/Dockerfile

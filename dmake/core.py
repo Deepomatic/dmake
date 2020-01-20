@@ -259,21 +259,28 @@ def find_active_files(loaded_files, service_providers, service_dependencies, sub
     if changed_dirs is None:
         common.logger.info("Forcing full re-build")
 
-    for file_name, dmake in loaded_files.items():
+    def has_changed(root):
+        if changed_dirs is None:
+            return True
+        for d in changed_dirs:
+            if d.startswith(root):
+                return True
+        return False
+
+    for file_name, dmake_file in loaded_files.items():
         if not file_name.startswith(sub_dir):
             continue
         root = os.path.dirname(file_name)
-        active = False
-        if changed_dirs is None:
-            active = True
-        else:
-            for d in changed_dirs:
-                if d.startswith(root):
-                    active = True
-                    break
-
-        if active:
-            activate_file(loaded_files, service_providers, service_dependencies, command, file_name)
+        contexts = set([root])
+        # add additional contexts (to support docker_image.build.context: ../)
+        for service in dmake_file.get_services():
+            for additional_root in service.config.docker_image.get_source_directories_additional_contexts():
+                contexts.add(os.path.normpath(os.path.join(root, additional_root)))
+        # activate file if any of its contexts has changed
+        for root in contexts:
+            if has_changed(root):
+                activate_file(loaded_files, service_providers, service_dependencies, command, file_name)
+                break
 
 ###############################################################################
 
