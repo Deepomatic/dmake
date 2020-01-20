@@ -38,6 +38,12 @@ docker_links:
       RABBITMQ_DEFAULT_PASS: password
 
 services:
+  - service_name: test-worker2
+    config:
+      docker_image: ubuntu:18.04
+    tests:
+      commands:
+        - echo 'OK'
   - service_name: test-worker
     needed_links:
       - rabbitmq
@@ -49,10 +55,9 @@ services:
         base_image_variant:
           - ubuntu-1604
           - ubuntu-1804
-        # short form: `build: .`
         build:
-          context: .
-          dockerfile: Dockerfile
+          context: ../  # limited to worker/ and web/, see ../.dockerignore
+          dockerfile: worker/Dockerfile
           args:
             BUILD_HOSTNAME: ${HOSTNAME}
           labels:
