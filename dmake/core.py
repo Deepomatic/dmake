@@ -29,7 +29,8 @@ def find_symlinked_directories():
 def look_for_changed_directories():
     if common.force_full_deploy:
         return None
-    if common.target is None:
+
+    if not common.target:
         tag = get_tag_name()
         common.logger.info("Looking for changes between HEAD and %s" % tag)
         git_ref = "%s...HEAD" % tag
@@ -40,13 +41,13 @@ def look_for_changed_directories():
             common.logger.debug("Fetching tag {} failed: {}".format(tag, e))
             common.logger.info("Tag {} not found on remote, assuming everything changed.")
             return None
-
-    elif common.target == '@{upstream}':
-        common.logger.info("Looking for changes with @{upstream}")
-        git_ref = '@{upstream}'
     else:
-        common.logger.info("Looking for changes between HEAD and %s" % common.target)
-        git_ref = "%s/%s...HEAD" % (common.remote, common.target)
+        if common.is_local:
+            common.logger.info("Looking for changes with {}".format(common.target))
+            git_ref = common.target
+        else:
+            common.logger.info("Looking for changes between HEAD and %s" % common.target)
+            git_ref = "%s/%s...HEAD" % (common.remote, common.target)
 
     try:
         output = common.run_shell_command("git diff --name-only %s" % git_ref)
