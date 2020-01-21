@@ -33,6 +33,14 @@ def look_for_changed_directories():
         tag = get_tag_name()
         common.logger.info("Looking for changes between HEAD and %s" % tag)
         git_ref = "%s...HEAD" % tag
+
+        try:
+            common.run_shell_command2("git fetch origin +refs/tags/{tag}:refs/tags/{tag}".format(tag=tag))
+        except common.ShellError as e:
+            common.logger.debug("Fetching tag {} failed: {}".format(tag, e))
+            common.logger.info("Tag {} not found on remote, assuming everything changed.")
+            return None
+
     elif common.target == '@{upstream}':
         common.logger.info("Looking for changes with @{upstream}")
         git_ref = '@{upstream}'
