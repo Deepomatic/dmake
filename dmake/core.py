@@ -280,16 +280,21 @@ def find_active_files(loaded_files, service_providers, service_dependencies, sub
         if not file_name.startswith(sub_dir):
             continue
         root = os.path.dirname(file_name)
-        contexts = set([root])
-        # add additional contexts (to support docker_image.build.context: ../)
+        if has_changed(root):
+            activate_file(loaded_files, service_providers, service_dependencies, command, file_name)
+            continue
+        # still, maybe activate some services in this file with extended build context
+        #  (to support docker_image.build.context: ../)
         for service in dmake_file.get_services():
+            contexts = set()
             for additional_root in service.config.docker_image.get_source_directories_additional_contexts():
                 contexts.add(os.path.normpath(os.path.join(root, additional_root)))
-        # activate file if any of its contexts has changed
-        for root in contexts:
-            if has_changed(root):
-                activate_file(loaded_files, service_providers, service_dependencies, command, file_name)
-                break
+            # activate service if any of its additional contexts has changed
+            for root in contexts:
+                if has_changed(root):
+                    full_service_name = "%s/%s" % (dmake_file.app_name, service.service_name)
+                    activate_service(loaded_files, service_providers, service_dependencies, command, full_service_name)
+                    break
 
 ###############################################################################
 
