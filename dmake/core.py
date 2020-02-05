@@ -96,7 +96,7 @@ def load_dmake_files_list():
     build_files = common.run_shell_command('dmake_find . -name dmake.yml').split("\n")
     build_files = filter(lambda f: len(f.strip()) > 0, build_files)
     build_files = [file[2:] for file in build_files]
-    # Important: for black listed files: we load file in order from root to deepest file
+    # Important: for block listed files: we load file in order from root to deepest file
     build_files = sorted(build_files, key = lambda path: len(os.path.dirname(path)))
     return build_files
 
@@ -276,11 +276,11 @@ def find_active_files(loaded_files, service_providers, service_dependencies, sub
 
 ###############################################################################
 
-def load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, file):
+def load_dmake_file(loaded_files, blocklist, service_providers, service_dependencies, file):
     if file in loaded_files:
         return
 
-    if file in blacklist:
+    if file in blocklist:
         return
 
     # Load YAML and check version
@@ -297,9 +297,15 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
         dmake_file = DMakeFile(file, data)
     loaded_files[file] = dmake_file
 
-    # Blacklist should be on child file because they are loaded this way
+    # Blocklist should be on child file because they are loaded this way
+
+    # TODO: 'blacklist' is deprecated. Remove the two following lines when the
+    # field will be completely removed
     for bl in dmake_file.blacklist:
-        blacklist.append(bl)
+        blocklist.append(bl)
+
+    for bl in dmake_file.blocklist:
+        blocklist.append(bl)
 
     for volume in dmake_file.volumes:
         shared_volume_service_name = volume.get_service_name()
@@ -312,14 +318,14 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
     # Unroll docker image references
     if common.is_string(dmake_file.docker):
         ref = dmake_file.docker
-        load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
+        load_dmake_file(loaded_files, blocklist, service_providers, service_dependencies, ref)
         if common.is_string(loaded_files[ref].docker):
             raise DMakeException('Circular references: trying to load %s which is already loaded.' % loaded_files[ref].docker)
         dmake_file.__fields__['docker'] = loaded_files[ref].docker
     else:
         if common.is_string(dmake_file.docker.root_image):
             ref = dmake_file.docker.root_image
-            load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
+            load_dmake_file(loaded_files, blocklist, service_providers, service_dependencies, ref)
             dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.root_image
         elif dmake_file.docker.root_image is not None:
             default_root_image = dmake_file.docker.root_image
@@ -345,7 +351,7 @@ def load_dmake_file(loaded_files, blacklist, service_providers, service_dependen
 
     if common.is_string(dmake_file.env):
         ref = dmake_file.env
-        load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, ref)
+        load_dmake_file(loaded_files, blocklist, service_providers, service_dependencies, ref)
         if common.is_string(loaded_files[ref].env):
             raise DMakeException('Circular references: trying to load %s which is already loaded.' % ref)
         dmake_file.__fields__['env'] = loaded_files[ref].env
@@ -652,13 +658,13 @@ def make(options, parse_files_only=False):
     if len(build_files) == 0:
         raise DMakeException('No dmake.yml file found !')
 
-    # Load all dmake.yml files (except those blacklisted)
-    blacklist = []
+    # Load all dmake.yml files (except those blocklisted)
+    blocklist = []
     loaded_files = {}
     service_providers = {}
     service_dependencies = {}
     for file in build_files:
-        load_dmake_file(loaded_files, blacklist, service_providers, service_dependencies, file)
+        load_dmake_file(loaded_files, blocklist, service_providers, service_dependencies, file)
 
     if parse_files_only:
         return loaded_files

@@ -1,6 +1,6 @@
 - **dmake_version** *(string)*: The dmake version.
 - **app_name** *(string)*: The application name.
-- **blacklist** *(array\<file path\>, default = `[]`)*: List of dmake files to blacklist.
+- **blocklist** *(array\<file path\>, default = `[]`)*: List of dmake files to ignore.
 - **env** *(mixed)*: Environment variables to embed in built docker images. It can be one of the followings:
     - a file path
     - an object with the following fields:

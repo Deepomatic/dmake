@@ -1,7 +1,7 @@
 ```yaml
 dmake_version: '0.1'
 app_name: my_app
-blacklist:
+blocklist:
   - some/sub/dmake.yml
 env:
   default:

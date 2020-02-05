@@ -1146,7 +1146,8 @@ class BuildSerializer(YAML2PipelineSerializer):
 class DMakeFileSerializer(YAML2PipelineSerializer):
     dmake_version      = FieldSerializer("string", help_text = "The dmake version.", example = "0.1")
     app_name           = FieldSerializer("string", help_text = "The application name.", example = "my_app", no_slash_no_space = True)
-    blacklist          = FieldSerializer("array", child = "file", default = [], help_text = "List of dmake files to blacklist.", child_path_only = True, example = ['some/sub/dmake.yml'])
+    blocklist          = FieldSerializer("array", child = "file", default = [], help_text = "List of dmake files to ignore", child_path_only = True, example = ['some/sub/dmake.yml'])
+    blacklist          = FieldSerializer("array", child = "file", default = [], help_text = "Deprecated. Prefer use of 'blocklist'", child_path_only = True, example = ['some/sub/dmake.yml'])
     env                = FieldSerializer(["file", EnvSerializer()], optional = True, help_text = "Environment variables to embed in built docker images.")
     volumes            = FieldSerializer("array", child = SharedVolumeSerializer(), default = [], help_text = "List of shared volumes usabled on services and docker_links", example = ['datasets'])
     docker             = FieldSerializer([FieldSerializer("file", help_text = "to another dmake file (which will be added to dependencies) that declares a docker field, in which case it replaces this file's docker field."), DockerSerializer()], help_text = "The environment in which to build and deploy.")
