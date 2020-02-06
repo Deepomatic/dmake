@@ -114,12 +114,27 @@ def load_dmake_files_list():
 def add_service_provider(service_providers, service, file, needs = None, base_variant = None):
     """'service', 'needs' and 'base_variant' are all service names."""
     common.logger.debug("add_service_provider: service: %s, needs: %s, variant: %s" % (service, needs, base_variant))
+    trigger_test_parents = set()
     if service in service_providers:
-        existing_service_provider, _, _ = service_providers[service]
-        if existing_service_provider != file:
-            raise DMakeException('Service %s re-defined in %s. First defined in %s' % (service, file, existing_service_provider))
-    else:
-        service_providers[service] = (file, needs, base_variant)
+        existing_service_provider, _, _, trigger_test_parents = service_providers[service]
+        # to construct parents links (when child trigger test on parents) (4th member of the tuple), we temporarily have service providers not defined yet, but already with some parents. It's materialized with file==None
+        if existing_service_provider is not None:
+            if existing_service_provider != file:
+                raise DMakeException('Service %s re-defined in %s. First defined in %s' % (service, file, existing_service_provider))
+
+    service_providers[service] = (file, needs, base_variant, trigger_test_parents)
+    # add `service` to `trigger_test_parents` backlink for each needed_service child which was asked to trigger the parent test
+    # `trigger_test_parents` == reverse link of `needs`, filtered on `needed_for.trigger_test`
+    if needs is not None:
+        for child_service, child_service_customization in needs:
+            if not child_service_customization.needed_for.kind('trigger_test'):
+                continue
+
+            if child_service in service_providers:
+                # TODO do we need to do something for child_service_customization?
+                service_providers[child_service][3].add(service)
+            else:
+                service_providers[child_service] = (None, None, None, set([service]))
 
 ###############################################################################
 
@@ -146,7 +161,7 @@ def activate_shared_volumes(shared_volumes):
 ###############################################################################
 
 def activate_link_shared_volumes(loaded_files, service_providers, service):
-    file, _, _ = service_providers[service]
+    file, _, _, _ = service_providers[service]
     dmake = loaded_files[file]
     link = dmake.get_docker_link(service)
 
@@ -159,7 +174,7 @@ def activate_link_shared_volumes(loaded_files, service_providers, service):
 ###############################################################################
 
 def activate_service_shared_volumes(loaded_files, service_providers, service):
-    file, _, _ = service_providers[service]
+    file, _, _, _ = service_providers[service]
     dmake = loaded_files[file]
     s = dmake._get_service_(service)
 
@@ -182,7 +197,7 @@ def activate_base(base_variant):
 ###############################################################################
 
 def activate_link(loaded_files, service_providers, service_dependencies, service):
-    file, _, _ = service_providers[service]
+    file, _, _, _ = service_providers[service]
     dmake = loaded_files[file]
     s = dmake._get_service_(service)
 
@@ -204,6 +219,7 @@ def activate_needed_services(loaded_files, service_providers, service_dependenci
 ###############################################################################
 
 def activate_service(loaded_files, service_providers, service_dependencies, command, service, service_customization=None):
+    common.logger.debug("activate_service: command: %s, service: %s, service_customization: %s" % (command, service, service_customization))
     node = (command, service, service_customization)
     if command == 'test' and common.skip_tests:
         return []
@@ -211,7 +227,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
     if node not in service_dependencies:
         if service not in service_providers:
             raise DMakeException("Cannot find service: %s" % service)
-        file, needs, base_variant = service_providers[service]
+        file, needs, base_variant, trigger_test_parents = service_providers[service]
         children = []
         if command == 'shell':
             children += activate_service_shared_volumes(loaded_files, service_providers, service)
@@ -254,6 +270,16 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             raise Exception("Unknown command '%s'" % command)
 
         service_dependencies[node] = children
+
+        # parent dependencies, after updating service_dependencies to avoid infinite recursion
+        # test parent when child changed
+        if command == 'test':
+            if common.options.with_dependencies and common.change_detection:
+                for parent_service in trigger_test_parents:
+                    common.logger.debug("activate_service: parent test: service: %s, parent service: %s" % (service, parent_service))
+                    parent_node = activate_service(loaded_files, service_providers, service_dependencies, 'test', parent_service)[0]
+                    if node not in service_dependencies[parent_node]:
+                        service_dependencies[parent_node].append(node)
 
     return [node]
 
@@ -673,7 +699,7 @@ def make(options, parse_files_only=False):
         common.force_full_deploy = True
     elif app == "+":
         # changed services only
-        pass
+        common.change_detection = True
     elif app is not None:
         n = len(app.split('/'))
         if n > 2:
@@ -783,7 +809,7 @@ def make(options, parse_files_only=False):
             app_services = services[auto_completed_app]
             for service in app_services.values():
                 full_service_name = "%s/%s" % (auto_completed_app, service.service_name)
-                file, _, _ = service_providers[full_service_name]
+                file, _, _, _ = service_providers[full_service_name]
                 active_file.add(file)
             for file in active_file:
                 activate_file(loaded_files, service_providers, service_dependencies, common.command, file)
@@ -855,7 +881,7 @@ def make(options, parse_files_only=False):
                 raise DMakeException('Bad ordering')
 
             command, service, service_customization = node
-            file, _, _ = service_providers[service]
+            file, _, _, _ = service_providers[service]
             dmake_file = loaded_files[file]
             app_name = dmake_file.get_app_name()
             links = docker_links[app_name]
