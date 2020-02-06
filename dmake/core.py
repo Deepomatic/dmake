@@ -216,6 +216,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children += activate_service_shared_volumes(loaded_files, service_providers, service)
             if common.options.with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, 'run')
+            if common.options.with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
             children += activate_base(base_variant)
         elif command == 'test':
@@ -234,6 +235,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if common.options.with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, 'run')
+            if common.options.with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'run_link':
             children += activate_link_shared_volumes(loaded_files, service_providers, service)
