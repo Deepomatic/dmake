@@ -372,6 +372,7 @@ def init(_options, early_exit=False):
     global do_pull_config_dir
     global use_host_ports
     global session_id
+    global change_detection
 
     options = _options
     command = _options.cmd
@@ -386,6 +387,8 @@ def init(_options, early_exit=False):
     exit_after_generate_dot_graph = options.debug_graph_and_exit
     dot_graph_filename = options.debug_graph_output_filename
     dot_graph_format = options.debug_graph_output_format
+
+    change_detection = False  # set in core.make()
 
     try:
         root_dir, sub_dir = find_repo_root()

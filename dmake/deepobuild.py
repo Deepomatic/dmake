@@ -1019,6 +1019,7 @@ allowed_link_name_pattern = re.compile("^[a-z0-9-]{1,63}$")  # too laxist, but e
 class NeededForSerializer(YAML2PipelineSerializer):
     run            = FieldSerializer("bool", default = True, help_text = "Parent service `run` needs this dependency service.")
     test           = FieldSerializer("bool", default = True, help_text = "Parent service `test` needs this dependency service.")
+    trigger_test   = FieldSerializer("bool", default = True, help_text = "Parent service `test` is triggered by this dependency service change.")
 
     def kind(self, kind):
         return getattr(self, kind)
