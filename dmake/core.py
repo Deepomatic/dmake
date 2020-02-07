@@ -29,21 +29,31 @@ def find_symlinked_directories():
 def look_for_changed_directories():
     if common.force_full_deploy:
         return None
-    if common.target is None:
+
+    if not common.target:
         tag = get_tag_name()
         common.logger.info("Looking for changes between HEAD and %s" % tag)
+        git_ref = "%s...HEAD" % tag
+
         try:
-            output = common.run_shell_command("git diff --name-only %s...HEAD" % tag)
+            common.run_shell_command2("git fetch origin +refs/tags/{tag}:refs/tags/{tag}".format(tag=tag))
         except common.ShellError as e:
-            common.logger.error("Error: " + str(e))
+            common.logger.debug("Fetching tag {} failed: {}".format(tag, e))
+            common.logger.info("Tag {} not found on remote, assuming everything changed.")
             return None
     else:
-        common.logger.info("Looking for changes between HEAD and %s" % common.target)
-        try:
-            output = common.run_shell_command("git diff --name-only %s/%s...HEAD" % (common.remote, common.target))
-        except common.ShellError as e:
-            common.logger.error("Error: " + str(e))
-            return None
+        if common.is_local:
+            common.logger.info("Looking for changes with {}".format(common.target))
+            git_ref = common.target
+        else:
+            common.logger.info("Looking for changes between HEAD and %s" % common.target)
+            git_ref = "%s/%s...HEAD" % (common.remote, common.target)
+
+    try:
+        output = common.run_shell_command("git diff --name-only %s" % git_ref)
+    except common.ShellError as e:
+        common.logger.error("Error: " + str(e))
+        return None
 
     if len(output) == 0:
         return []
@@ -63,9 +73,7 @@ def look_for_changed_directories():
                     f = f[1:]
                 to_append.append(os.path.join(sl[0], f))
     output += to_append
-
-    #common.logger.info("Changed files:")
-    #common.logger.info(output)
+    common.logger.debug("Changed files: %s", output)
 
     changed_dirs = set()
     for file in output:
@@ -87,6 +95,7 @@ def look_for_changed_directories():
         changed_dirs.difference_update(to_remove)
         if do_add:
             changed_dirs.add(d)
+    common.logger.info("Changed directories: %s", changed_dirs)
     return list(changed_dirs)
 
 ###############################################################################
@@ -259,20 +268,33 @@ def find_active_files(loaded_files, service_providers, service_dependencies, sub
     if changed_dirs is None:
         common.logger.info("Forcing full re-build")
 
-    for file_name, dmake in loaded_files.items():
+    def has_changed(root):
+        if changed_dirs is None:
+            return True
+        for d in changed_dirs:
+            if d.startswith(root):
+                return True
+        return False
+
+    for file_name, dmake_file in loaded_files.items():
         if not file_name.startswith(sub_dir):
             continue
         root = os.path.dirname(file_name)
-        active = False
-        if changed_dirs is None:
-            active = True
-        else:
-            for d in changed_dirs:
-                if d.startswith(root):
-                    active = True
-
-        if active:
+        if has_changed(root):
             activate_file(loaded_files, service_providers, service_dependencies, command, file_name)
+            continue
+        # still, maybe activate some services in this file with extended build context
+        #  (to support docker_image.build.context: ../)
+        for service in dmake_file.get_services():
+            contexts = set()
+            for additional_root in service.config.docker_image.get_source_directories_additional_contexts():
+                contexts.add(os.path.normpath(os.path.join(root, additional_root)))
+            # activate service if any of its additional contexts has changed
+            for root in contexts:
+                if has_changed(root):
+                    full_service_name = "%s/%s" % (dmake_file.app_name, service.service_name)
+                    activate_service(loaded_files, service_providers, service_dependencies, command, full_service_name)
+                    break
 
 ###############################################################################
 
@@ -636,12 +658,19 @@ def service_completer(prefix, parsed_args, **kwargs):
 def make(options, parse_files_only=False):
     app = getattr(options, 'service', None)
 
+    if common.sub_dir:
+        common.logger.info("Working in subdirectory: %s", common.sub_dir)
+
     # Format args
     auto_complete = False
     auto_completed_app = None
     if app == "*":
+        # all services
         app = None
         common.force_full_deploy = True
+    elif app == "+":
+        # changed services only
+        pass
     elif app is not None:
         n = len(app.split('/'))
         if n > 2:

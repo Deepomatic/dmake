@@ -1,0 +1,11 @@
+# this is used by worker/ (its docker build context is `../`) , which uses worker/ and web/ only
+*
+!worker/
+!web/
+
+# worker/ ignores
+worker/dmake.yml
+worker/.dmake/
+worker/.dockerignore
+worker/deploy/Dockerfile
+worker/bin/

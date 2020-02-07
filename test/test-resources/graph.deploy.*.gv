@@ -18,6 +18,7 @@ height=0"]
 	}
 	"('build_docker', 'dmake-test/test-web', None)" -> "('base', 'dmake-test-web-base__base', None)"
 	"('build_docker', 'dmake-test/test-web2', None)" -> "('base', 'dmake-test-web-base__base', None)"
+	"('build_docker', 'dmake-test/test-worker2', None)" -> "('base', 'dmake-test-worker-base_ubuntu-1604__base', None)"
 	"('build_docker', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('base', 'dmake-test-worker-base_ubuntu-1604__base', None)"
 	"('build_docker', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('base', 'dmake-test-worker-base_ubuntu-1804__base', None)"
 	{
@@ -46,6 +47,10 @@ height=3"]
 dmake-test/test-web2
 None
 height=3"]
+		"('build_docker', 'dmake-test/test-worker2', None)" [label="build_docker
+dmake-test/test-worker2
+None
+height=1"]
 		"('build_docker', 'dmake-test/test-worker_ubuntu-1604', None)" [label="build_docker
 dmake-test/test-worker:ubuntu-1604
 None
@@ -74,6 +79,8 @@ height=1"]
 	"('deploy', 'dmake-test/test-web2', None)" -> "('build_docker', 'dmake-test/test-web2', None)"
 	"('deploy', 'dmake-test/test-web2', None)" -> "('deploy', 'dmake-test/test-worker_ubuntu-1804', None)"
 	"('deploy', 'dmake-test/test-web2', None)" -> "('test', 'dmake-test/test-web2', None)"
+	"('deploy', 'dmake-test/test-worker2', None)" -> "('build_docker', 'dmake-test/test-worker2', None)"
+	"('deploy', 'dmake-test/test-worker2', None)" -> "('test', 'dmake-test/test-worker2', None)"
 	"('deploy', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1604', None)"
 	"('deploy', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('test', 'dmake-test/test-worker_ubuntu-1604', None)"
 	"('deploy', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1804', None)"
@@ -104,6 +111,10 @@ height=6"]
 dmake-test/test-web2
 None
 height=6"]
+		"('deploy', 'dmake-test/test-worker2', None)" [label="deploy
+dmake-test/test-worker2
+None
+height=3"]
 		"('deploy', 'dmake-test/test-worker_ubuntu-1604', None)" [label="deploy
 dmake-test/test-worker:ubuntu-1604
 None
@@ -199,6 +210,7 @@ height=1"]
 	"('test', 'dmake-test/test-web2', None)" -> "('build_docker', 'dmake-test/test-web2', None)"
 	"('test', 'dmake-test/test-web2', None)" -> "('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))"
 	"('test', 'dmake-test/test-web2', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
+	"('test', 'dmake-test/test-worker2', None)" -> "('build_docker', 'dmake-test/test-worker2', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1604', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
@@ -233,6 +245,10 @@ height=4"]
 dmake-test/test-web2
 None
 height=4"]
+		"('test', 'dmake-test/test-worker2', None)" [label="test
+dmake-test/test-worker2
+None
+height=2"]
 		"('test', 'dmake-test/test-worker_ubuntu-1604', None)" [label="test
 dmake-test/test-worker:ubuntu-1604
 None

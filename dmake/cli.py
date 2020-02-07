@@ -54,14 +54,16 @@ parser_release = subparsers.add_parser('release', help="Create a release of the 
 
 
 # "service" argument
-for parser in [parser_test, parser_deploy]:
+for parser in [parser_deploy]:
     parser.add_argument("service", nargs='?', default='*', help="Apply command to the full repository or, if specified, to the app/service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
+for parser in [parser_test]:
+    parser.add_argument("service", nargs='?', default='*', help="Apply command to the full repository (`*`) or to changed services (`+`), or the specified app/service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
 for parser in [parser_shell]:
     parser.add_argument("service", nargs='?', default='.', help="Run a shell session withing the docker base image for the given service. You may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
 for parser in [parser_run]:
     parser.add_argument("service", help="Run an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
 for parser in [parser_build]:
-    parser.add_argument("service", help="Build an application or a service. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
+    parser.add_argument("service", help="Build an application or a service. Use `+` to build only changed services. When specifying a service, you may skip the app if there is no ambiguity, otherwise, you need to specify 'app/service'.").completer = core.service_completer
 
 parser_shell.add_argument("-c", '--command', help="Pass to `docker run` specified command instead of `docker.command` defined in `dmake.yml` (default: `bash`).")
 add_argument([parser_shell, parser_run, parser_test, parser_deploy],
