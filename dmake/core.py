@@ -194,10 +194,11 @@ def activate_link(loaded_files, service_providers, service_dependencies, service
 
 ###############################################################################
 
-def activate_needed_services(loaded_files, service_providers, service_dependencies, needs, command):
+def activate_needed_services(loaded_files, service_providers, service_dependencies, needs, command, needed_for):
     children = []
     for service, service_customization in needs:
-        children += activate_service(loaded_files, service_providers, service_dependencies, command, service, service_customization)
+        if service_customization is None or service_customization.needed_for.kind(needed_for):
+            children += activate_service(loaded_files, service_providers, service_dependencies, command, service, service_customization)
     return children
 
 ###############################################################################
@@ -215,13 +216,14 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         if command == 'shell':
             children += activate_service_shared_volumes(loaded_files, service_providers, service)
             if common.options.with_dependencies and needs is not None:
-                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, 'run')
+                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, command='run', needed_for='run')
+            if common.options.with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
             children += activate_base(base_variant)
         elif command == 'test':
             children += activate_service_shared_volumes(loaded_files, service_providers, service)
             if common.options.with_dependencies and needs is not None:
-                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, 'run')
+                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, command='run', needed_for='test')
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if common.options.with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
@@ -233,7 +235,8 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
                 children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if common.options.with_dependencies and needs is not None:
-                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, 'run')
+                children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, command='run', needed_for='run')
+            if common.options.with_dependencies:
                 children += activate_link(loaded_files, service_providers, service_dependencies, service)
         elif command == 'run_link':
             children += activate_link_shared_volumes(loaded_files, service_providers, service)
@@ -245,7 +248,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
                 # but we don't want to create extra deployments because of customization
                 # => deploy recursively using needs dependency, but ignore service customization
                 uncustomized_needs = [(child_service, None) for child_service, child_service_customization in needs]
-                children += activate_needed_services(loaded_files, service_providers, service_dependencies, uncustomized_needs, 'deploy')
+                children += activate_needed_services(loaded_files, service_providers, service_dependencies, uncustomized_needs, command='deploy', needed_for='fake__not_used')
 
         else:
             raise Exception("Unknown command '%s'" % command)

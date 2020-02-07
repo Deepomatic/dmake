@@ -90,6 +90,8 @@ services:
         link_name: worker-ubuntu-1804
         env:
           TEST_SHARED_VOLUME: 1
+        needed_for:
+          test: false
     needed_links:
       - rabbitmq
     config:

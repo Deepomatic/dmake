@@ -1015,12 +1015,22 @@ class TestSerializer(YAML2PipelineSerializer):
 
 allowed_link_name_pattern = re.compile("^[a-z0-9-]{1,63}$")  # too laxist, but easy to read
 
+
+class NeededForSerializer(YAML2PipelineSerializer):
+    run            = FieldSerializer("bool", default = True, help_text = "Parent service `run` needs this dependency service.")
+    test           = FieldSerializer("bool", default = True, help_text = "Parent service `test` needs this dependency service.")
+
+    def kind(self, kind):
+        return getattr(self, kind)
+
+
 @functools.total_ordering
 class NeededServiceSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", help_text = "The name of the needed application part.", example = "worker-nn", no_slash_no_space = True)
     link_name       = FieldSerializer("string", optional = True, example = "worker-nn", help_text = "Link name.")
     env             = FieldSerializer("dict", child = "string", optional = True, default = {}, help_text = "List of environment variables that will be set when executing the needed service.", example = {'CNN_ID': '2'})
     env_exports     = FieldSerializer("dict", child = "string", default = {}, help_text = "A set of environment variables that will be exported in services that use this service when testing.")
+    needed_for      = NeededForSerializer(help_text = "When is this dependency service needed for?")
 
     def __init__(self, **kwargs):
         super(NeededServiceSerializer, self).__init__(**kwargs)
@@ -1122,6 +1132,11 @@ class ServicesSerializer(YAML2PipelineSerializer):
         service.config.docker_image.__fields__['base_image_variant'].value = variant
 
         return service
+
+    def get_needed_services_for(self, kind):
+        return [needed_service
+                for needed_service in self.needed_services
+                if needed_service.needed_for.kind(kind)]
 
     def get_docker_run_gpu_cmd_prefix(self):
         return get_docker_run_gpu_cmd_prefix(self.config.need_gpu, 'service', self.service_name)
@@ -1294,19 +1309,19 @@ class DMakeFile(DMakeFileSerializer):
                 return t
         raise DMakeException("Could not find service '%s'" % service)
 
-    def _get_link_opts_(self, service):
+    def _get_link_opts_(self, needed_links, needed_services):
         if common.options.with_dependencies:
-            needed_links = service.needed_links + [ns.link_name for ns in service.needed_services if ns.link_name]
-            if len(needed_links) > 0:
-                return 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(needed_links))
+            full_needed_links = needed_links + [ns.link_name for ns in needed_services if ns.link_name]
+            if len(full_needed_links) > 0:
+                return 'dmake_return_docker_links %s %s' % (self.app_name, ' '.join(full_needed_links))
         return None
 
-    def _get_check_needed_services_(self, commands, service):
-        if common.options.with_dependencies and len(service.needed_services) > 0:
+    def _get_check_needed_services_(self, commands, needed_services):
+        if common.options.with_dependencies and len(needed_services) > 0:
             app_name = self.app_name
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; needed_service.service_name doesn't contain app_name
-            needed_services = map(lambda needed_service: "%s/%s%s" % (app_name, needed_service.service_name, needed_service.get_service_name_unique_suffix()), service.needed_services)
-            append_command(commands, 'sh', shell = "dmake_check_services %s" % (' '.join(needed_services)))
+            needed_services_names = map(lambda needed_service: "%s/%s%s" % (app_name, needed_service.service_name, needed_service.get_service_name_unique_suffix()),needed_services)
+            append_command(commands, 'sh', shell = "dmake_check_services %s" % (' '.join(needed_services_names)))
 
     def _get_shared_volume_from_service_name_(self, shared_volume_service_name):
         for volume in self.volumes:
@@ -1322,8 +1337,8 @@ class DMakeFile(DMakeFileSerializer):
         base_image = self.docker.get_base_image_from_service_name(base_image_service_name)
         base_image._serialize_(commands, self.__path__)
 
-    def _generate_run_docker_opts_(self, commands, service, docker_links, additional_env_variables=None, use_host_ports=None):
-        docker_opts, env = self._launch_options_(commands, service, docker_links, additional_env_variables=additional_env_variables, run_base_image=False, mount_root_dir=False, force_workdir=False, use_host_ports=use_host_ports)
+    def _generate_run_docker_opts_(self, commands, service, docker_links, dependencies_needed_for, additional_env_variables=None, use_host_ports=None):
+        docker_opts, env = self._launch_options_(commands, service, docker_links, dependencies_needed_for=dependencies_needed_for, additional_env_variables=additional_env_variables, run_base_image=False, mount_root_dir=False, force_workdir=False, use_host_ports=use_host_ports)
         image_name = service.config.docker_image.get_image_name(env=env)
 
         return docker_opts, image_name, env
@@ -1345,7 +1360,7 @@ class DMakeFile(DMakeFileSerializer):
             unique_service_name += service_customization.get_service_name_unique_suffix()
             link_name = service_customization.link_name
 
-        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, additional_env_variables = additional_customization_env_variables)
+        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, dependencies_needed_for='run', additional_env_variables=additional_customization_env_variables)
         docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
         docker_cmd = 'dmake_run_docker_daemon "%s" "%s" "%s" "" %s -i %s' % (self.app_name, unique_service_name, link_name or "", docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
@@ -1362,7 +1377,7 @@ class DMakeFile(DMakeFileSerializer):
         service = self._get_service_(service_name)
         service.config.docker_image.generate_build_docker(commands, self.__path__, self.docker, self.build)
 
-    def _launch_options_(self, commands, service, docker_links, run_base_image, mount_root_dir, force_workdir, additional_env = None, additional_env_variables = None, use_host_ports = None):
+    def _launch_options_(self, commands, service, docker_links, dependencies_needed_for, run_base_image, mount_root_dir, force_workdir, additional_env = None, additional_env_variables = None, use_host_ports = None):
         if additional_env is None:
             additional_env = {}
 
@@ -1381,14 +1396,23 @@ class DMakeFile(DMakeFileSerializer):
         else:
             entrypoint_opt = ''
 
-        env = self.env.get_replaced_variables(additional_variables_layers=[service.config.env_override, additional_env_variables], docker_links=docker_links, needed_links=service.needed_links, needed_services=service.needed_services)
+        needed_links = service.needed_links
+        needed_services = service.get_needed_services_for(dependencies_needed_for)
+        env = self.env.get_replaced_variables(
+            additional_variables_layers=[service.config.env_override, additional_env_variables],
+            docker_links=docker_links,
+            needed_links=needed_links,
+            needed_services=needed_services
+        )
         env.update(additional_env)
         docker_opts = self._generate_docker_cmd_(self.docker, service, env=env, mount_root_dir=mount_root_dir, force_workdir=force_workdir)
         docker_opts += entrypoint_opt
 
-        self._get_check_needed_services_(commands, service)
+        self._get_check_needed_services_(commands, needed_services)
+
         docker_opts += " " + service.config.full_docker_opts(env, mount_host_volumes=False, use_host_ports=use_host_ports)
-        link_opts_command = self._get_link_opts_(service)
+
+        link_opts_command = self._get_link_opts_(needed_links, needed_services)
         if link_opts_command is not None:
             docker_opts += " $(%s)" % link_opts_command
 
@@ -1397,7 +1421,7 @@ class DMakeFile(DMakeFileSerializer):
     def generate_shell(self, commands, service_name, docker_links, command=None):
         service = self._get_service_(service_name)
 
-        docker_opts, env = self._launch_options_(commands, service, docker_links, run_base_image=True, mount_root_dir=True, force_workdir=True, additional_env=self.build.env)
+        docker_opts, env = self._launch_options_(commands, service, docker_links, dependencies_needed_for='run', run_base_image=True, mount_root_dir=True, force_workdir=True, additional_env=self.build.env)
         docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
 
         docker_base_image = self.docker.get_docker_base_image(service.get_base_image_variant())
@@ -1417,7 +1441,7 @@ class DMakeFile(DMakeFileSerializer):
             # no test specified, nothing to generate for tests
             return
 
-        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, use_host_ports=False)
+        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, dependencies_needed_for='test', use_host_ports=False)
         docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
         docker_cmd = 'dmake_run_docker_test %s "" %s -i %s ' % (service_name, docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd
