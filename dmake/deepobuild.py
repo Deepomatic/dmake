@@ -638,8 +638,13 @@ class KubernetesConfigMapFromFileSerializer(YAML2PipelineSerializer):
     key  = FieldSerializer("string", example="nginx.conf", help_text="File key")
     path = FieldSerializer("file",  example="deploy/nginx.conf", help_text="File path (relative to this dmake.yml file)")
 
-    def get_arg(self):
-        arg = "--from-file=%s=%s" % (self.key, self.path)
+    def get_arg(self, env):
+        path = common.eval_str_in_env(self.path, env)
+
+        if not os.path.isfile(path):
+            raise DMakeException("Invalid Kubernetes ConfigMap 'from_files' relative path: key '%s', path '%s' (expanded from '%s'): file not found" % (self.key, path, self.path))
+
+        arg = "--from-file=%s=%s" % (self.key, path)
         return arg
 
 
@@ -662,7 +667,7 @@ class KubernetesConfigMapSerializer(YAML2PipelineSerializer):
     from_files = FieldSerializer("array", child=KubernetesConfigMapFromFileSerializer(), default=[], help_text="Kubernetes create values from files")
 
     def generate_manifest(self, env, labels):
-        from_file_args = [file_source.get_arg() for file_source in self.from_files]
+        from_file_args = [file_source.get_arg(env) for file_source in self.from_files]
         data_str = k8s_utils.generate_from_create(args=['configmap'], name=self.name, from_file_args=from_file_args)
         return k8s_utils.dump_all_str_and_add_labels(data_str, labels=labels)
 
