@@ -81,7 +81,7 @@ class FieldSerializer(object):
             if self.migration:
                 needed_migrations.append(self.migration)
             if self.deprecated:
-                common.logger.warning("[DEPRECATION WARNING]: Field '{}' in '{}' is deprecated: {}".format(file, field_name, self.deprecated))
+                common.logger.warning("[DEPRECATION WARNING] D001: Field '{field}' in '{file}' is deprecated: {message}".format(field=field_name, file=file, message=self.deprecated))
 
             ok = False
             err = []
