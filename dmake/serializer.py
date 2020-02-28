@@ -151,6 +151,8 @@ class FieldSerializer(object):
         elif data_type == "int":
             if not isinstance(data, int):
                 raise WrongType("Expecting int")
+            if isinstance(data, bool):
+                common.logger.warning("[DEPRECATION WARNING] D004: Field '{field}' in '{file}' should contain an int, it currently contains a bool: {value}.".format(field=field_name, file=file, value=data))
             return data
         elif data_type == "number":
             if not isinstance(data, Number) or isinstance(data, bool):
