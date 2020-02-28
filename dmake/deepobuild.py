@@ -1160,7 +1160,7 @@ class BuildSerializer(YAML2PipelineSerializer):
 
 
 class DMakeFileSerializer(YAML2PipelineSerializer):
-    dmake_version      = FieldSerializer("string", help_text = "The dmake version.", example = "0.1")
+    dmake_version      = FieldSerializer(["number", "string"], help_text = "The dmake version.", example = "0.1")
     app_name           = FieldSerializer("string", help_text = "The application name.", example = "my_app", no_slash_no_space = True)
     blocklist          = FieldSerializer("array", child = "file", default = [], help_text = "List of dmake files to ignore", child_path_only = True, example = ['some/sub/dmake.yml'])
     blacklist          = FieldSerializer("array", child = "file", default = [], help_text = "Deprecated. Prefer use of 'blocklist'", child_path_only = True, example = ['some/sub/dmake.yml'])
