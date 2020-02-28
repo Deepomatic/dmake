@@ -134,6 +134,7 @@ class FieldSerializer(object):
             return data
         elif data_type == "string":
             if isinstance(data, int) or isinstance(data, float):
+                common.logger.warning("[DEPRECATION WARNING] D002: Field '{field}' in '{file}' should contain a string, it currently contains a {type}: {value}. Add quotes arount the value.".format(field=field_name, file=file, type=type(data), value=data))
                 data = str(data)
             if not common.is_string(data):
                 raise WrongType("Expecting string")
