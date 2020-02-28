@@ -1,6 +1,7 @@
 import os, sys
 import copy
 from collections import OrderedDict
+from numbers import Number
 from dmake.common import DMakeException
 import dmake.common as common
 
@@ -37,7 +38,7 @@ class FieldSerializer(object):
             example=None,
             deprecated=None,
             migration=None):
-        self.allowed_types = ["bool", "int", "path", "file", "dir", "string", "array", "dict"]
+        self.allowed_types = ["bool", "int", "number", "path", "file", "dir", "string", "array", "dict"]
 
         if not isinstance(data_type, list):
             data_type = [data_type]
@@ -126,6 +127,10 @@ class FieldSerializer(object):
         elif data_type == "int":
             if not isinstance(data, int):
                 raise WrongType("Expecting int")
+            return data
+        elif data_type == "number":
+            if not isinstance(data, Number) or isinstance(data, bool):
+                raise WrongType("Expecting number")
             return data
         elif data_type == "string":
             if isinstance(data, int) or isinstance(data, float):
