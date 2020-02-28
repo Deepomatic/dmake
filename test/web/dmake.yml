@@ -7,7 +7,8 @@ env:
       AMQP_URL: amqp://rabbitmq/dev
       SHARED_VOLUME_ROOT: /shared_volume_root_value
       ENV_EVALUATION_TEST: foobar
-      ENV_OVERRIDE_TEST: 1
+      ENV_OVERRIDE_TEST: "1"
+      SHOULD_DEPRECATE_WARN_STRING: 1
   branches:
     master:
       variables:
@@ -21,7 +22,7 @@ volumes:
 docker:
   root_image:
     name: ubuntu
-    tag: 16.04
+    tag: "16.04"
   base_image:
     name: dmake-test-web-base
     install_scripts:
@@ -35,14 +36,14 @@ services:
     needed_services:
       - service_name: test-worker:ubuntu-1604
         env:
-          TEST_SHARED_VOLUME: 1
-          TEST_ENV_OVERRIDE: 1
+          TEST_SHARED_VOLUME: "1"
+          TEST_ENV_OVERRIDE: "1"
           ENV_OVERRIDE_TEST3: from_needed_service_env
           ENV_OVERRIDE_TEST5: from_needed_service_env
       - service_name: test-worker:ubuntu-1804
         link_name: worker-ubuntu-1804
         env:
-          TEST_SHARED_VOLUME: 1
+          TEST_SHARED_VOLUME: "1"
     config:
       docker_image:
         entrypoint: deploy/entrypoint.sh
@@ -89,7 +90,7 @@ services:
       - service_name: test-worker:ubuntu-1804
         link_name: worker-ubuntu-1804
         env:
-          TEST_SHARED_VOLUME: 1
+          TEST_SHARED_VOLUME: "1"
         needed_for:
           test: false
     needed_links:
@@ -99,8 +100,8 @@ services:
         entrypoint: deploy/entrypoint.sh
         start_script: deploy/start.sh
       env_override:
-        ENV_OVERRIDE_TEST: 2
-        ENV_OVERRIDE_TEST2: 3
+        ENV_OVERRIDE_TEST: "2"
+        ENV_OVERRIDE_TEST2: "3"
       ports:
         - container_port: 8000
           # no host_port: always random port

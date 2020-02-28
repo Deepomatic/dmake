@@ -10,7 +10,7 @@ env:
 docker:
   root_image:
     name: ubuntu
-    tag: 16.04
+    tag: "16.04"
 
 services:
   - service_name: e2e
