@@ -7,7 +7,7 @@ import importlib
 import re
 import requests.exceptions
 from string import Template
-from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer
+from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer, SerializerType
 import dmake.common as common
 from dmake.common import DMakeException, SharedVolumeNotFoundException, append_command
 import dmake.kubernetes as k8s_utils
@@ -971,7 +971,7 @@ class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer(deprecated="Use 'services:needed_links' instead", data_type="array", child = "string", migration='0001_docker_links_names_to_needed_links', default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
     data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
-    timeout            = FieldSerializer("string", optional = True, example = "600", help_text = "The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks).")
+    timeout            = FieldSerializer(["number", SerializerType("string", deprecated=True)], optional = True, example = "600", help_text = "The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks).")
     junit_report       = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if common.is_string(x) else x, example = "test-reports/nosetests.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a XUnit test report.")
     cobertura_report   = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if common.is_string(x) else x, example = "test-reports/coverage.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a Cobertura report.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
@@ -1160,7 +1160,7 @@ class BuildSerializer(YAML2PipelineSerializer):
 
 
 class DMakeFileSerializer(YAML2PipelineSerializer):
-    dmake_version      = FieldSerializer("string", help_text = "The dmake version.", example = "0.1")
+    dmake_version      = FieldSerializer(["number", "string"], help_text = "The dmake version.", example = "0.1")
     app_name           = FieldSerializer("string", help_text = "The application name.", example = "my_app", no_slash_no_space = True)
     blocklist          = FieldSerializer("array", child = "file", default = [], help_text = "List of dmake files to ignore", child_path_only = True, example = ['some/sub/dmake.yml'])
     blacklist          = FieldSerializer("array", child = "file", default = [], help_text = "Deprecated. Prefer use of 'blocklist'", child_path_only = True, example = ['some/sub/dmake.yml'])

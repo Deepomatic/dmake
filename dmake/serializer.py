@@ -1,6 +1,7 @@
 import os, sys
 import copy
 from collections import OrderedDict
+from numbers import Number
 from dmake.common import DMakeException
 import dmake.common as common
 
@@ -19,8 +20,30 @@ class ValidationError(Exception):
 class WrongType(ValidationError):
     pass
 
+# Serializer types
+class SerializerType(object):
+    allowed_types = ["bool", "int", "number", "path", "file", "dir", "string", "array", "dict"]
+
+    def __init__(self, type, deprecated=False):
+        self.type = type
+        self.deprecated = deprecated
+
+    def __eq__(self, other):
+        # support comparison to simple string type representation
+        if common.is_string(other):
+            return self.type == other
+        return (self.type == other.type and
+                self.deprecated == other.deprecated)
+
+    def __str__(self):
+        str_ = self.type
+        if self.deprecated:
+            str_ += " (deprecated)"
+        return str_
+
 # Serializers
 class FieldSerializer(object):
+
     def __init__(self,
             data_type,
             optional=False,
@@ -37,15 +60,13 @@ class FieldSerializer(object):
             example=None,
             deprecated=None,
             migration=None):
-        self.allowed_types = ["bool", "int", "path", "file", "dir", "string", "array", "dict"]
-
         if not isinstance(data_type, list):
             data_type = [data_type]
         for t in data_type:
             isComplex = isinstance(t, YAML2PipelineSerializer) or isinstance(t, FieldSerializer)
-            assert(isComplex or t in self.allowed_types)
+            assert(isComplex or t in SerializerType.allowed_types)
             if not isComplex and (t == "array" or t == "dict"):
-                if child in self.allowed_types:
+                if child in SerializerType.allowed_types:
                     child = FieldSerializer(child, blank = True)
                 else:
                     assert(isinstance(child, FieldSerializer) or isinstance(child, YAML2PipelineSerializer))
@@ -81,7 +102,7 @@ class FieldSerializer(object):
             if self.migration:
                 needed_migrations.append(self.migration)
             if self.deprecated:
-                common.logger.warning("[DEPRECATION WARNING]: Field '{}' in '{}' is deprecated: {}".format(file, field_name, self.deprecated))
+                common.logger.warning("[DEPRECATION WARNING] D001: Field '{field}' in '{file}' is deprecated: {message}".format(field=field_name, file=file, message=self.deprecated))
 
             ok = False
             err = []
@@ -98,6 +119,10 @@ class FieldSerializer(object):
                     try:
                         validated_data = self._validate_type_(file, needed_migrations=needed_migrations, data_type=t, data=data, field_name=field_name)
                         ok = True
+                        if isinstance(t, SerializerType) and t.deprecated:
+                            common.logger.warning("[DEPRECATION WARNING] D003: Field '{field}' in '{file}' uses a deprecated type: {type} (value: {value}). Use any of {recommended_types} instead.".format(
+                                field=field_name, file=file, type=t.type, value=data,
+                                recommended_types=[str(t) for t in self.data_type if not (isinstance(t, SerializerType) and t.deprecated)]))
                         break
                     except WrongType as e:
                         err.append(str(e))
@@ -126,9 +151,16 @@ class FieldSerializer(object):
         elif data_type == "int":
             if not isinstance(data, int):
                 raise WrongType("Expecting int")
+            if isinstance(data, bool):
+                common.logger.warning("[DEPRECATION WARNING] D004: Field '{field}' in '{file}' should contain an int, it currently contains a bool: {value}.".format(field=field_name, file=file, value=data))
+            return data
+        elif data_type == "number":
+            if not isinstance(data, Number) or isinstance(data, bool):
+                raise WrongType("Expecting number")
             return data
         elif data_type == "string":
             if isinstance(data, int) or isinstance(data, float):
+                common.logger.warning("[DEPRECATION WARNING] D002: Field '{field}' in '{file}' should contain a string, it currently contains a {type}: {value}. Add quotes arount the value.".format(field=field_name, file=file, type=type(data), value=data))
                 data = str(data)
             if not common.is_string(data):
                 raise WrongType("Expecting string")
