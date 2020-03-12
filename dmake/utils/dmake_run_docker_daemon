@@ -28,6 +28,9 @@ SERVICE_NAME=$1; shift
 LINK_NAME=$1; shift
 NAME=$1; shift
 
+if [ -z "${NAME}" ]; then
+  NAME_PREFIX="${NAME_PREFIX}.$(echo ${SERVICE_NAME} | sed 's/[^a-zA-Z0-9_.-]/_/g')"
+fi
 
 CONTAINER_ID=`dmake_run_docker "" "${NAME}" -d "$@"`
 while [ 1 = 1 ]; do
