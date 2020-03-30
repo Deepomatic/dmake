@@ -118,7 +118,7 @@ class SharedVolumes(object):
 class SharedVolumeSerializer(YAML2PipelineSerializer):
     name = FieldSerializer("string", help_text = "Shared volume name.", example = "datasets")
 
-    def _validate_(self, file, needed_migrations, data, field_name):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: the name
         if common.is_string(data):
             data = {'name': data}
@@ -149,7 +149,7 @@ class SharedVolumeMountSerializer(YAML2PipelineSerializer):
     source = FieldSerializer("string", example = "datasets", help_text = "The shared volume name (declared in .")
     target = FieldSerializer("string", example = "/datasets", help_text = "The path in the container where the volume is mounted")
 
-    def _validate_(self, file, needed_migrations, data, field_name):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: <volume_name>:<container_path>
         if common.is_string(data):
             parts = data.split(':')
@@ -183,7 +183,7 @@ class VolumeMountSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
     host_volume       = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume from the host")
 
-    def _validate_(self, file, needed_migrations, data, field_name):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: <host_path>:<container_path>
         if common.is_string(data):
             parts = data.split(':')
@@ -346,7 +346,7 @@ class DockerSerializer(YAML2PipelineSerializer):
     mount_point  = FieldSerializer("string", default = "/app", help_text = "Mount point of the app in the built docker image. Needs to be an absolute path.")
     command      = FieldSerializer("string", default = "bash", help_text = "Only used when running 'dmake shell': command passed to `docker run`")
 
-    def _validate_(self, file, needed_migrations, data, field_name):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         super(DockerSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
 
         # make base_image an array
@@ -685,7 +685,7 @@ class KubernetesManifestSerializer(YAML2PipelineSerializer):
     template  = FieldSerializer("file", example="path/to/kubernetes-manifest.yaml", help_text="Kubernetes manifest file (Python PEP 292 template format) defining all the resources needed to deploy the service")
     variables = FieldSerializer('dict', child="string", default={}, help_text="Defines variables used in the kubernetes manifest template", example={'TLS_SECRET_NAME': '${K8S_DEPLOY_TLS_SECRET_NAME}'})
 
-    def _validate_(self, file, needed_migrations, data, field_name):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: file path to the kubernetes manifest template
         if common.is_string(data):
             data = {'template': data}
@@ -710,7 +710,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
     config_maps = FieldSerializer("array", child=KubernetesConfigMapSerializer(), default=[], help_text="Additional Kubernetes ConfigMaps")
     secrets     = FieldSerializer("array", child=KubernetesSecretSerializer(), default=[], help_text="Additional Kubernetes Secrets")
 
-    def _validate_(self, file, needed_migrations, data, field_name):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         result = super(KubernetesDeploySerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         if result and self.manifest and self.manifests:
             raise ValidationError("Invalid `kubernetes` deployment step: `manifest` and `manifests` cannot be specified at the same time: just use `manifests` in such case.")
@@ -1074,7 +1074,7 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
             self._env_frozenset = frozenset(self.env.items())
         return hash((self.service_name, self.link_name, self._env_frozenset))
 
-    def _validate_(self, file, needed_migrations, data, field_name):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: the service_name
         if common.is_string(data):
             data = {'service_name': data}
@@ -1104,7 +1104,7 @@ class ServicesSerializer(YAML2PipelineSerializer):
     tests           = TestSerializer(optional = True, help_text = "Unit tests list.")
     deploy          = DeploySerializer(optional = True, help_text = "Deploy stage")
 
-    def _validate_(self, file, needed_migrations, data, field_name):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         super(ServicesSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
 
         # default internal values
@@ -1149,7 +1149,7 @@ class BuildSerializer(YAML2PipelineSerializer):
     env      = FieldSerializer("dict", child = "string", default = {}, help_text = "List of environment variables used when building applications (excluding base_image).", example = {'BUILD': '${BUILD}'})
     commands = FieldSerializer("array", default = [], child = FieldSerializer(["string", "array"], child = "string", post_validation = lambda x: [x] if common.is_string(x) else x), help_text ="Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.", example = ["cmake .", "make"])
 
-    def _validate_(self, file, needed_migrations, data, field_name):
+    def _validate_(self, file, needed_migrations, data, field_name=''):
         super(BuildSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         # populate env
         env = self.__fields__['env'].value
