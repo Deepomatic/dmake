@@ -26,5 +26,11 @@ CONTEXT_DIR=$1
 IMAGE_NAME=$2
 shift 2
 
-docker ${DOCKER_BUILD_DEBUG:+--debug} image build "$@" --tag ${IMAGE_NAME} ${CONTEXT_DIR}
+BUILD_EXTRA_ARGS=()
+# test if buildkit for debug
+if [ "${DOCKER_BUILD_DEBUG}" = "1" ] && docker image build --help | grep -q -- --progress; then
+  BUILD_EXTRA_ARGS+=("--progress=plain")
+fi
+
+docker ${DOCKER_BUILD_DEBUG:+--debug} image build "${BUILD_EXTRA_ARGS[@]}" "$@" --tag ${IMAGE_NAME} ${CONTEXT_DIR}
 echo ${IMAGE_NAME} >> ${DMAKE_TMP_DIR}/images_to_remove.txt
