@@ -202,6 +202,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
     name                 = FieldSerializer("string", help_text = "Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.")
     variant              = FieldSerializer("string", optional = True, help_text = "When multiple base_image are defined, this names the base_image variant.", example = "tf")
     root_image           = FieldSerializer("string", optional = True, help_text = "The source image to build on. Defaults to docker.root_image", example = "ubuntu:16.04")
+    raw_root_image       = FieldSerializer("bool", default = False, help_text = "If true, don't install anything on the root_image before executing install_scripts")
     version              = FieldSerializer("string", help_text = "Deprecated, not used anymore, will be removed later.", default = 'latest')
     install_scripts      = FieldSerializer("array", default = [], child = FieldSerializer("file", executable = True, child_path_only = True), example = ["some/relative/script/to/run"])
     python_requirements  = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "")
@@ -216,6 +217,13 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             self.root_image.optional = False
         super(DockerBaseSerializer, self).__init__(*args, **kwargs)
 
+    def _validate_(self, file, needed_migrations, data, field_name=''):
+        result = super(DockerBaseSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        if result and self.raw_root_image \
+           and (self.python_requirements or self.python3_requirements):
+            raise ValidationError("Invalid 'base_image': cannot set 'raw_root_image=true' with deprecated 'python_requirements' or 'python3_requirements'.")
+        return result
+
     def _serialize_(self, commands, path_dir):
         # Make the temporary directory
         tmp_dir = common.make_tmp_dir('base_image_{name}'.format(name=common.sanitize_name(self.name)))
@@ -224,10 +232,11 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         files_to_copy = []
         for file in self.copy_files + self.install_scripts:
             files_to_copy.append(file)
-        if self.python_requirements:
-            files_to_copy.append(self.python_requirements)
-        if self.python3_requirements:
-            files_to_copy.append(self.python3_requirements)
+        if not self.raw_root_image:
+            if self.python_requirements:
+                files_to_copy.append(self.python_requirements)
+            if self.python3_requirements:
+                files_to_copy.append(self.python3_requirements)
 
         # Copy file and keep their md5
         md5s = {}
@@ -239,11 +248,12 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         for file in self.install_scripts:
             run_cmd += " && ./%s" % file
 
-        # Install pip if needed
-        if self.python_requirements:
-            run_cmd += " && bash ../install_pip.sh && pip install --process-dependency-links -r " + self.python_requirements
-        if self.python3_requirements:
-            run_cmd += " && bash ../install_pip3.sh && pip3 install --process-dependency-links -r " + self.python3_requirements
+        if not self.raw_root_image:
+            # Install pip if needed
+            if self.python_requirements:
+                run_cmd += " && bash ../install_pip.sh && pip install --process-dependency-links -r " + self.python_requirements
+            if self.python3_requirements:
+                run_cmd += " && bash ../install_pip3.sh && pip3 install --process-dependency-links -r " + self.python3_requirements
 
         # Save the command in a bash file
         file = 'run_cmd.sh'
@@ -259,8 +269,15 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             local_env += ' && '
 
         # Copy templates
-        for file in ["make_base.sh", "config.logrotate", "load_credentials.sh", "install_pip.sh", "install_pip3.sh"]:
-            md5s[file] = common.run_shell_command('%s dmake_copy_template docker-base/%s %s' % (local_env, file, os.path.join(tmp_dir, file)))
+        if self.raw_root_image:
+            template_dir = "docker-base-raw-root-image"
+            template_files = ["make_base.sh"]
+        else:
+            template_dir = "docker-base"
+            template_files = ["make_base.sh", "config.logrotate", "load_credentials.sh", "install_pip.sh", "install_pip3.sh"]
+
+        for template_file in template_files:
+            md5s[template_file] = common.run_shell_command('%s dmake_copy_template %s %s' % (local_env, os.path.join(template_dir, template_file), os.path.join(tmp_dir, template_file)))
 
         # Compute md5 `dmake_digest`
         #  Version 2
@@ -274,9 +291,10 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 f.write('%s %s\n' % md5)
         dmake_digest_v1 = common.run_shell_command('dmake_md5 %s' % (md5_file))
 
-        # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
-        if common.key_file is not None:
-            common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
+        if not self.raw_root_image:
+            # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
+            if common.key_file is not None:
+                common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
 
         # Get root_image digest
         try:
