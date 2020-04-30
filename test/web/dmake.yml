@@ -27,7 +27,7 @@ docker:
     name: dmake-test-web-base
     install_scripts:
       - deploy/dependencies.sh
-    python_requirements: requirements.txt
+    python_requirements: requirements.txt  # deprecated
 
 services:
   - service_name: test-web

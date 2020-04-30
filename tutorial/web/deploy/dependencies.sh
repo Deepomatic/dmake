@@ -3,6 +3,7 @@ set -e
 
 apt-get update
 apt-get --no-install-recommends -y install \
+        ca-certificates \
         curl python python-dev python-pip \
         make \
         iputils-ping

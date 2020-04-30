@@ -5,16 +5,12 @@ export PARALLEL_BUILD=${PARALLEL_BUILD:-8}
 export MAKEFLAGS="${MAKEFLAGS} -j${PARALLEL_BUILD}"
 
 apt-get update
-apt-get --no-install-recommends -y install make cmake g++ wget tar
-
-# RabbitMQ
-apt-get --no-install-recommends -y install librabbitmq-dev
-
-# Boost
-apt-get --no-install-recommends -y install libboost-dev libboost-chrono-dev libboost-system-dev
-
-# Google Logging
-apt-get --no-install-recommends -y install libgoogle-glog-dev
+apt-get --no-install-recommends -y install \
+        ca-certificates \
+        make cmake g++ wget tar \
+        librabbitmq-dev \
+        libboost-dev libboost-chrono-dev libboost-system-dev \
+        libgoogle-glog-dev
 
 cd /tmp
 
