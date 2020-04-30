@@ -573,12 +573,12 @@ def generate_command_pipeline(file, cmds):
             write_line("junit keepLongStdio: true, testResults: '%s'" % host_report)
             write_line('''sh('rm -rf "%s"')''' % host_report)
         elif cmd == "cobertura":
-            # coberturaPublisher plugin only supports one step, so we delay generating it, and make it get all reports
             container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
             host_report = os.path.join(cobertura_tests_results_dir, str(uuid.uuid4()), kwargs['service_name'].replace(':', '-'), kwargs['report'])
             if not host_report.endswith('.xml'):
                 raise DMakeException("`cobertura_report` must end with '.xml' in service '%s'" % kwargs['service_name'])
             write_line('''sh('dmake_test_get_results "%s" "%s" "%s"')''' % (kwargs['service_name'], container_report, host_report))
+            # coberturaPublisher plugin only supports one step, so we delay generating it, and make it get all reports
             emit_cobertura = True
         elif cmd == "publishHTML":
             container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
@@ -591,6 +591,7 @@ def generate_command_pipeline(file, cmds):
 
     if emit_cobertura:
         write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
+        write_line("publishCoverage adapters: [coberturaAdapter(mergeToOneReport: true, path: '%s/**/*.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')" % (cobertura_tests_results_dir))
         write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
 
     indent_level -= 1
