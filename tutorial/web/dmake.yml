@@ -10,6 +10,7 @@ docker:
   base_image:
     name: dmake-tutorial-web-base
     root_image: ubuntu:16.04
+    raw_root_image: true
     copy_files:
       - deploy/requirements.txt
     install_scripts:

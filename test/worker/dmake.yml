@@ -7,6 +7,7 @@ docker:
       name: dmake-test-worker-base
       variant: ubuntu-1604
       root_image: ubuntu:16.04
+      raw_root_image: true
       install_scripts:
         - deploy/dependencies.sh
     - <<: *base
