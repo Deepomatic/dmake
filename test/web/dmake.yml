@@ -81,7 +81,7 @@ services:
           --with-id
       junit_report: nosetests.xml
       html_report:
-        directory: cover
+        directory: cover/
         title: Web HTML coverage report
       cobertura_report: coverage.xml
 
