@@ -128,6 +128,15 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
 
     dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '' : '--standalone'
 
+
+    if (is_pr && dmake_command == 'test') {
+        echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
+        sh "${params.CUSTOM_ENVIRONMENT} DMAKE_SKIP_TESTS=1 python3 \$(which dmake) deploy ${dmake_with_dependencies} '${params.DMAKE_APP}' --branch ${env.CHANGE_TARGET}"
+        // skip execution
+        echo "Kubernetes deploy dry-run finished in success!"
+    }
+
+    echo "Now really running dmake"
     sh "${params.CUSTOM_ENVIRONMENT} python3 \$(which dmake) ${dmake_command} ${dmake_with_dependencies} '${params.DMAKE_APP}'"
     load 'DMakefile'
 }
