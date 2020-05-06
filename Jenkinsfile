@@ -6,6 +6,9 @@ properties([
         string(name: 'BRANCH_TO_TEST',
                defaultValue: env.CHANGE_BRANCH ?: env.BRANCH_NAME,
                description: 'The branch to check out. Only used when testing a directory different from deepomatic/dmake.'),
+        string(name: 'DEPLOY_BRANCH_TO_TEST',
+               defaultValue: env.CHANGE_TARGET ?: 'master',
+               description: 'The target branch to use for kubernetes deployment dry-run test.'),
         string(name: 'DMAKE_APP_TO_TEST',
                defaultValue: '*',
                description: 'Application to test. You can also specify a service name if there is no ambiguity. Use * to force the test of all applications.'),
@@ -93,6 +96,13 @@ node {
         sh ". .venv2/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python2"
         junit keepLongStdio: true, testResults: 'junit.xml'
       }
+      if (params.DMAKE_COMMAND == 'test') {
+        echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
+        sh ". .venv2/bin/activate && ${params.CUSTOM_ENVIRONMENT} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
+        // skip execution
+        echo "kubernetes deploy dry-run finished in success!"
+      }
+      echo "Now really running dmake"
       sh ". .venv2/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
@@ -109,6 +119,13 @@ node {
         sh ". .venv3/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python3"
         junit keepLongStdio: true, testResults: 'junit.xml'
       }
+      if (params.DMAKE_COMMAND == 'test') {
+        echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
+        sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
+        // skip execution
+        echo "Kubernetes deploy dry-run finished in success!"
+      }
+      echo "Now really running dmake"
       sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
