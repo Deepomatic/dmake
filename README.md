@@ -11,8 +11,9 @@ Table of content:
 ## Installation
 
 In order to run **DMake**, you will need:
-- Python 2.7 or 3.5+
+- Python 3.5+
 - Docker 1.12 or newer
+- Git
 
 In order to install **DMake**, use the following:
 

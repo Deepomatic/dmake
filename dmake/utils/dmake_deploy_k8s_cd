@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Usage:
 # dmake_deploy_k8s_cd DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE APP_NAME SERVICE_NAME IMAGE_NAME CONFIGMAP_ENV_FILE SELECTORS

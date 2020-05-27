@@ -88,32 +88,10 @@ node {
         env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
     }
   }
-  stage('Python 2.x') {
-    sh "virtualenv workspace/.venv2"
-    sh ". workspace/.venv2/bin/activate && pip install -r requirements.txt"
-    dir('workspace') {
-      if (self_test) {
-        sh ". .venv2/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python2"
-        junit keepLongStdio: true, testResults: 'junit.xml'
-      }
-      if (params.DMAKE_COMMAND == 'test') {
-        echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
-        sh ". .venv2/bin/activate && ${params.CUSTOM_ENVIRONMENT} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
-        // skip execution
-        echo "kubernetes deploy dry-run finished in success!"
-      }
-      echo "Now really running dmake"
-      sh ". .venv2/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
-      sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
-                  env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
-        load 'DMakefile'
-      }
-    }
-  }
-
   stage('Python 3.x') {
     sh "virtualenv -p python3 workspace/.venv3"
-    sh ". workspace/.venv3/bin/activate && pip install -r requirements.txt"
+    sh ". workspace/.venv3/bin/activate && pip3 install -r requirements.txt"
+    sh "rm workspace/.venv3/bin/python" // remove python to detect illegitime usage of python (which is often python2)
     dir('workspace') {
       if (self_test) {
         sh ". .venv3/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python3"
