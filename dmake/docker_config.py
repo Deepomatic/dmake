@@ -1,9 +1,9 @@
 from dmake.common import DMakeException
 import dmake.common as common
 
+import base64
 import json
 import os
-from requests.auth import HTTPBasicAuth
 
 # python2 support
 try:
@@ -73,19 +73,18 @@ def docker_credentials_store(store, command, input):
     return json.loads(output)
 
 
-def get_auth_kwargs(registry_url):
+def get_auth_username_password(registry_url):
     """Extracts docker registry auth from docker config file.
 
-    Return: authorization headers or auth
+    Return: (username, password)
     """
     credentials_store, registry, data = get_docker_config_auth(registry_url)
     if credentials_store is None:
         # get from config file data
-        # TODO parse value and return a (user,password) tuple instead of a requests kwargs
-        headers = {'Authorization': 'Basic %s' % data['auth']}
-        return {'headers': headers}
+        auth = data['auth']
+        username_password = base64.b64decode(auth).decode("UTF-8")
+        return tuple(username_password.split(':', maxsplit=1))
     else:
         # get from credentials store
         data = docker_credentials_store(credentials_store, 'get', registry)
-        auth = HTTPBasicAuth(data['Username'], data['Secret'])
-        return {'auth': auth}
+        return (data['Username'], data['Secret'])
