@@ -120,7 +120,7 @@ class SharedVolumeSerializer(YAML2PipelineSerializer):
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: the name
-        if common.is_string(data):
+        if isinstance(data, str):
             data = {'name': data}
         result = super(SharedVolumeSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         if not SharedVolumes.allowed_volume_name_pattern.match(self.name):
@@ -151,7 +151,7 @@ class SharedVolumeMountSerializer(YAML2PipelineSerializer):
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: <volume_name>:<container_path>
-        if common.is_string(data):
+        if isinstance(data, str):
             parts = data.split(':')
             if len(parts) != 2:
                 raise ValidationError("Invalid volume mount: '%s': Volumes shoud be in the form vol_name:/absolute/container/path" % (data))
@@ -185,7 +185,7 @@ class VolumeMountSerializer(YAML2PipelineSerializer):
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: <host_path>:<container_path>
-        if common.is_string(data):
+        if isinstance(data, str):
             parts = data.split(':')
             if len(parts) != 2:
                 raise ValidationError("Invalid volume mount: '%s': Volumes shoud be in the form /host/path:/absolute/container/path" % (data))
@@ -705,7 +705,7 @@ class KubernetesManifestSerializer(YAML2PipelineSerializer):
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: file path to the kubernetes manifest template
-        if common.is_string(data):
+        if isinstance(data, str):
             data = {'template': data}
 
         result = super(KubernetesManifestSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
@@ -831,7 +831,7 @@ class DeployConfigPortsSerializer(YAML2PipelineSerializer):
 
 class DeployStageSerializer(YAML2PipelineSerializer):
     description   = FieldSerializer("string", example = "Deployment on AWS and via SSH", help_text = "Deploy stage description.")
-    branches      = FieldSerializer(["string", "array"], child = "string", default = ['stag'], post_validation = lambda x: [x] if common.is_string(x) else x, help_text = "Branch list for which this stag is active, '*' can be used to match any branch. Can also be a simple string.")
+    branches      = FieldSerializer(["string", "array"], child = "string", default = ['stag'], post_validation = lambda x: [x] if isinstance(x, str) else x, help_text = "Branch list for which this stag is active, '*' can be used to match any branch. Can also be a simple string.")
     env           = FieldSerializer("dict", child = "string", default = {}, example = {'AWS_ACCESS_KEY_ID': '1234', 'AWS_SECRET_ACCESS_KEY': 'abcd'}, help_text = "Additionnal environment variables for deployment.")
     aws_beanstalk = AWSBeanStalkDeploySerializer(optional = True, help_text = "Deploy via Elastic Beanstalk")
     ssh           = SSHDeploySerializer(optional = True, help_text = "Deploy via SSH")
@@ -996,8 +996,8 @@ class TestSerializer(YAML2PipelineSerializer):
     data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     timeout            = FieldSerializer(["number", SerializerType("string", deprecated=True)], optional = True, example = "600", help_text = "The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks).")
-    junit_report       = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if common.is_string(x) else x, example = "test-reports/nosetests.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a XUnit test report.")
-    cobertura_report   = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if common.is_string(x) else x, example = "test-reports/coverage.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a Cobertura report.")
+    junit_report       = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if isinstance(x, str) else x, example = "test-reports/nosetests.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a XUnit test report.")
+    cobertura_report   = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if isinstance(x, str) else x, example = "test-reports/coverage.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a Cobertura report.")
     html_report        = HTMLReportSerializer(optional = True, help_text = "Publish an HTML report.")
 
     def get_mounts_opt(self, service_name, path, env):
@@ -1100,7 +1100,7 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
         # also accept simple variant where data is a string: the service_name
-        if common.is_string(data):
+        if isinstance(data, str):
             data = {'service_name': data}
         result = super(NeededServiceSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         if self.link_name and \
@@ -1171,7 +1171,7 @@ class ServicesSerializer(YAML2PipelineSerializer):
 
 class BuildSerializer(YAML2PipelineSerializer):
     env      = FieldSerializer("dict", child = "string", default = {}, help_text = "List of environment variables used when building applications (excluding base_image).", example = {'BUILD': '${BUILD}'})
-    commands = FieldSerializer("array", default = [], child = FieldSerializer(["string", "array"], child = "string", post_validation = lambda x: [x] if common.is_string(x) else x), help_text ="Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.", example = ["cmake .", "make"])
+    commands = FieldSerializer("array", default = [], child = FieldSerializer(["string", "array"], child = "string", post_validation = lambda x: [x] if isinstance(x, str) else x), help_text ="Command list (or list of lists, in which case each list of commands will be executed in paralell) to build.", example = ["cmake .", "make"])
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
         super(BuildSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
@@ -1203,7 +1203,7 @@ class DMakeFileSerializer(YAML2PipelineSerializer):
         services = []
         for service in self.services:
             variant = service.get_base_image_variant()
-            if variant is None or common.is_string(variant):
+            if variant is None or isinstance(variant, str):
                 services.append(service)
                 continue
 

@@ -8,7 +8,7 @@ import dmake.common as common
 def get_env_hash(env):
     """Return a stable hash for the `env` environment."""
     serialized_env = json.dumps(sorted(env.items()))
-    serialized_env_binary = common.to_string(serialized_env).encode('UTF-8')
+    serialized_env_binary = str(serialized_env).encode('UTF-8')
     return hashlib.sha256(serialized_env_binary).hexdigest()[:10]
 
 

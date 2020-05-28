@@ -6,8 +6,10 @@ import argparse
 import re
 from requests.auth import HTTPBasicAuth
 
-from dmake.common import DMakeException, to_string, lru_cache, logger
+from dmake.common import DMakeException, logger
 import dmake.docker_config as docker_config
+
+from functools import lru_cache
 
 
 REGISTRY_URL = 'https://registry-1.docker.io'
@@ -28,7 +30,7 @@ def create_authenticated_requests_session(registry_url, token_url, scope, servic
     client.fetch_token(token_url=token_url,
                        method='GET',
                        auth=HTTPBasicAuth(username, password),
-                       service=service, scope=to_string(scope))
+                       service=service, scope=str(scope))
 
     return client
 

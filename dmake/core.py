@@ -367,14 +367,14 @@ def load_dmake_file(loaded_files, blocklist, service_providers, service_dependen
         add_service_provider(service_providers, 'links/%s/%s' % (dmake_file.get_app_name(), link.link_name), file)
 
     # Unroll docker image references
-    if common.is_string(dmake_file.docker):
+    if isinstance(dmake_file.docker, str):
         ref = dmake_file.docker
         load_dmake_file(loaded_files, blocklist, service_providers, service_dependencies, ref)
-        if common.is_string(loaded_files[ref].docker):
+        if isinstance(loaded_files[ref].docker, str):
             raise DMakeException('Circular references: trying to load %s which is already loaded.' % loaded_files[ref].docker)
         dmake_file.__fields__['docker'] = loaded_files[ref].docker
     else:
-        if common.is_string(dmake_file.docker.root_image):
+        if isinstance(dmake_file.docker.root_image, str):
             ref = dmake_file.docker.root_image
             load_dmake_file(loaded_files, blocklist, service_providers, service_dependencies, ref)
             dmake_file.docker.__fields__['root_image'] = loaded_files[ref].docker.root_image
@@ -400,10 +400,10 @@ def load_dmake_file(loaded_files, blocklist, service_providers, service_dependen
         if len(dmake_file.docker.base_image) == 0 and default_root_image is None:
             raise DMakeException("Missing field 'docker.root_image' in '%s'" % (file))
 
-    if common.is_string(dmake_file.env):
+    if isinstance(dmake_file.env, str):
         ref = dmake_file.env
         load_dmake_file(loaded_files, blocklist, service_providers, service_dependencies, ref)
-        if common.is_string(loaded_files[ref].env):
+        if isinstance(loaded_files[ref].env, str):
             raise DMakeException('Circular references: trying to load %s which is already loaded.' % ref)
         dmake_file.__fields__['env'] = loaded_files[ref].env
 
@@ -518,7 +518,7 @@ def generate_command_pipeline(file, cmds):
             write_line("echo '%s'" % message)
         elif cmd == "sh":
             commands = kwargs['shell']
-            if common.is_string(commands):
+            if isinstance(commands, str):
                 commands = [commands]
             commands = [common.escape_cmd(c) for c in commands]
             if len(commands) == 0:
@@ -633,7 +633,7 @@ def generate_command_bash(file, cmds):
             file.write("echo '%s'\n" % message)
         elif cmd == "sh":
             commands = kwargs['shell']
-            if common.is_string(commands):
+            if isinstance(commands, str):
                 commands = [commands]
             for c in commands:
                 file.write("%s\n" % c)
@@ -953,7 +953,7 @@ def make(options, parse_files_only=False):
     common.logger.info("Commands have been written to %s" % file_to_generate)
 
     if common.command == "deploy" and common.is_local:
-        r = common.read_input("Careful ! Are you sure you want to deploy ? [y/N] ")
+        r = input("Careful ! Are you sure you want to deploy ? [y/N]  ")
         if r.lower() != 'y':
             print('Aborting')
             sys.exit(0)
@@ -966,7 +966,7 @@ def make(options, parse_files_only=False):
         # Do not clean for the 'run' command
         do_clean = common.command not in ['build_docker', 'run']
         if result != 0 and common.command in ['shell', 'test']:
-            r = common.read_input("An error was detected. DMake will stop. The script directory is : %s.\nDo you want to stop all the running containers? [Y/n] " % common.tmp_dir)
+            r = input("An error was detected. DMake will stop. The script directory is : %s.\nDo you want to stop all the running containers? [Y/n]  " % common.tmp_dir)
             if r.lower() != 'y' and r != "":
                 do_clean = False
         if do_clean:

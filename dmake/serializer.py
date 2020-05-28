@@ -1,3 +1,4 @@
+from abc import ABC, ABCMeta
 import os, sys
 import copy
 from collections import OrderedDict
@@ -5,13 +6,25 @@ from numbers import Number
 from dmake.common import DMakeException
 import dmake.common as common
 
-# Define the base class for YAML2PipelineSerializer
-# If using Python3, we can keep track of the order of the field
-# in order to generate a proper doc.
-if sys.version_info >= (3,0):
-    from dmake.python_3x import SerializerMixin
-else:
-    from dmake.python_2x import SerializerMixin
+
+class MetaSerializerMixin(ABCMeta):
+    """Used to keep track of the order of the fields in order to generate a proper doc."""
+    @classmethod
+    def __prepare__(metacls, name, bases, **kwargs):
+        return OrderedDict()
+
+    def __new__(cls, name, bases, namespace, **kwargs):
+        result = ABCMeta.__new__(cls, name, bases, dict(namespace))
+        ns = []
+        for b in bases:
+            if isinstance(b, MetaSerializerMixin):
+                ns += b.__fields_order__
+        result.__fields_order__ = tuple(ns) + tuple(namespace)
+        return result
+
+class SerializerMixin(ABC, metaclass=MetaSerializerMixin):
+    pass
+
 
 # Custom Exceptions
 class ValidationError(Exception):
@@ -30,7 +43,7 @@ class SerializerType(object):
 
     def __eq__(self, other):
         # support comparison to simple string type representation
-        if common.is_string(other):
+        if isinstance(other, str):
             return self.type == other
         return (self.type == other.type and
                 self.deprecated == other.deprecated)
@@ -162,7 +175,7 @@ class FieldSerializer(object):
             if isinstance(data, int) or isinstance(data, float):
                 common.logger.warning("[DEPRECATION WARNING] D002: Field '{field}' in '{file}' should contain a string, it currently contains a {type}: {value}. Add quotes arount the value.".format(field=field_name, file=file, type=type(data), value=data))
                 data = str(data)
-            if not common.is_string(data):
+            if not isinstance(data, str):
                 raise WrongType("Expecting string")
             if not self.blank and data == "":
                 raise WrongType("Expecting non-blank string")
@@ -174,7 +187,7 @@ class FieldSerializer(object):
         elif data_type in ["path", "file", "dir"]:
             dmake_path = os.path.join(os.path.dirname(file), '')  # `dmake.yml` directory, relative to repo root; ending with slash, or empty string
             assert(len(dmake_path) == 0 or dmake_path[-1] == '/')
-            if not common.is_string(data):
+            if not isinstance(data, str):
                 raise WrongType("Expecting string")
             original_data = data
             data = os.path.normpath(data)
@@ -385,7 +398,7 @@ class YAML2PipelineSerializer(SerializerMixin):
             except ValidationError as e:
                 raise ValidationError("Error with field '%s': %s" % (name, str(e)))
         for key in data:
-            if not common.is_string(key):
+            if not isinstance(key, str):
                 raise ValidationError("Expected a field name, got: '%s'" % str(key))
             if key not in self.__fields__:
                 raise ValidationError("Unexpected field '%s'" % key)
