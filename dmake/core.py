@@ -440,8 +440,8 @@ def check_no_circular_dependencies(dependencies):
         if v:
             leaves.append((k, tree_depth[k]))
 
-    sorted(leaves, key = lambda k_depth: k_depth[1], reverse = True)
-    return leaves
+    # TODO not sure the sort is useful: it was ignored until now and everyting was fine...
+    return sorted(leaves, key = lambda k_depth: k_depth[1], reverse = True)
 
 ###############################################################################
 
