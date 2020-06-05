@@ -871,7 +871,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
     readiness_probe    = ReadinessProbeSerializer(optional = True, help_text = "A probe that waits until the container is ready.")
     devices            = FieldSerializer("array", child = "string", default = [],
                                          example = ["/dev/bus/usb/001/002:/dev/bus/usb/001/002"],
-                                         help_text = "Device to expose.")
+                                         help_text = "Device to expose from the host to the container. Support variable substitution in host part, to have a generic dmake.yml with host-specific values configured externally, per machine.")
 
     def full_docker_opts(self, env, mount_host_volumes, use_host_ports=None):
         if not self.has_value():
@@ -915,7 +915,7 @@ class DeployConfigSerializer(YAML2PipelineSerializer):
             opts.append("-v %s:%s" % (common.join_without_slash(host_volume), common.join_without_slash(volume.container_volume)))
 
         for device in self.devices:
-            opts.append("--device=%s" % device)
+            opts.append("--device=%s" % common.eval_str_in_env(device, env))
 
         docker_opts = self.docker_opts
         return docker_opts + " " + (" ".join(opts))
