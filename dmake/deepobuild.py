@@ -790,7 +790,6 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             user_manifest_path = os.path.join(tmp_dir, user_manifest_filename)
             change_cause = "DMake deploy %s from repo %s#%s (%s)" % (deploy_name, common.repo, common.branch, common.commit_id)
             template_default_context = {
-                'SERVICE_NAME': deploy_name,
                 'CHANGE_CAUSE': change_cause,
                 'DOCKER_IMAGE_NAME': image_name,
                 'CONFIGMAP_ENV_NAME': configmap_name
