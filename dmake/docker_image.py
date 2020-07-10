@@ -107,7 +107,7 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
     def get_source_directories_additional_contexts(self):
         return self.source_directories_additional_contexts
 
-    def get_image_name(self, env=None, latest=False):
+    def get_image_name(self, env=None):
         if env is None:
             env = {}
         # name
@@ -118,11 +118,8 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
         # tag
         if self.tag is None:
             tag = common.image_tag_prefix
-            if latest:
-                tag += "-latest"
-            else:
-                if common.build_id is not None:
-                    tag += "-%s" % common.build_id
+            if common.build_id is not None:
+                tag += "-%s" % common.build_id
         else:
             tag = self.tag
         if self.service.is_variant:
@@ -143,8 +140,6 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
 
         check_private_flag = "1" if self.check_private else "0"
         append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
-        image_latest = self.get_image_name(env=env, latest=True)
-        append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
 
 ###############################################################################
 
