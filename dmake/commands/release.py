@@ -25,6 +25,24 @@ def tag_to_version(tag):
         return None
 
 
+def is_valid_bump(prev_version, next_version):
+    if prev_version >= next_version:
+        return False
+
+    # Additional check: ensure no version is skip
+    # Pre releases and builds are not taken in account as their token can change
+    # Example: (1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta)
+    if prev_version.prerelease is None and next_version.prerelease is None and \
+            prev_version.build is None and next_version.build is None:
+        return prev_version.next_version("major") == next_version or \
+               prev_version.next_version("minor") == next_version or \
+               prev_version.next_version("patch") == next_version
+    elif prev_version.prerelease is not None and next_version.prerelease is None:
+        return prev_version.finalize_version() == next_version
+    else:
+        return True
+
+
 def entry_point(options):
     app = getattr(options, 'app')
     release_tag = getattr(options, 'tag')
@@ -44,16 +62,16 @@ def entry_point(options):
     repo = owner.get_repo(app)
 
     # List releases
-    tags_list = {}
+    github_tag_list = {}
     for tag in repo.get_tags():
-        key = tag_to_version(tag.name)
-        if key is not None:
-            tags_list[key] = tag
-    sorted_release_keys = sorted(tags_list.keys(), reverse=True)
+        version = tag_to_version(tag.name)
+        if version is not None:
+            github_tag_list[version] = tag
+    sorted_release_versions = sorted(github_tag_list.keys(), reverse=True)
     latest_per_major_minor = {}
-    for key in sorted_release_keys:
-        if (key.major, key.minor) not in latest_per_major_minor:
-            latest_per_major_minor[(key.major, key.minor)] = key
+    for version in sorted_release_versions:
+        if (version.major, version.minor) not in latest_per_major_minor:
+            latest_per_major_minor[(version.major, version.minor)] = version
 
     # Ask for previous version
     if release_tag is None:
@@ -61,7 +79,9 @@ def entry_point(options):
             inquirer.List(
                 'release_tag',
                 message="Here are only the latest tags per major-minor version. Which tag do you want to release on?",
-                choices=[tags_list[key].name for key in sorted_release_keys if (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[(key.major, key.minor)] == key] + ['Other'],
+                choices=[github_tag_list[key].name for key in sorted_release_versions if
+                         (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[
+                             (key.major, key.minor)] == key] + ['Other'],
             ),
         ]
         answers = inquirer.prompt(questions)
@@ -70,47 +90,39 @@ def entry_point(options):
                 inquirer.List(
                     'release_tag',
                     message="Here are all the tags. Which tag do you want to release on?",
-                    choices=[tags_list[key].name for key in sorted_release_keys],
+                    choices=[github_tag_list[key].name for key in sorted_release_versions],
                     carousel=True
                 ),
             ]
             answers = inquirer.prompt(questions)
         release_tag = answers['release_tag']
 
-    release_key = tag_to_version(release_tag)
-    if release_key not in tags_list:
+    release_version = tag_to_version(release_tag)
+    if release_version not in github_tag_list:
         raise DMakeException("Could not find target tag: {tag}.".format(tag=release_tag))
     else:
-        prerelease = release_key.prerelease is not None
-        release_tag = tags_list[release_key]
+        prerelease = release_version.prerelease is not None
+        release_tag = github_tag_list[release_version]
         target_commit = release_tag.commit
-        tags_index = sorted_release_keys.index(release_key)
+        tags_index = sorted_release_versions.index(release_version)
 
     # Look for previous version
-    if tags_index == len(sorted_release_keys) - 1:
+    if tags_index == len(sorted_release_versions) - 1:
         change_log = "Initial release"
     else:
-        prev_key = sorted_release_keys[tags_index + 1]
-        prev_version = tags_list[prev_key]
-        no_prefix_next = tag_to_version(release_tag.name)
-        no_prefix_prev = tag_to_version(prev_version.name)
-        no_prefix_next_without_prerelease = no_prefix_next.replace(prerelease=None)
-        if semver.bump_major(no_prefix_prev) != no_prefix_next_without_prerelease and \
-                no_prefix_prev.bump_minor() != no_prefix_next_without_prerelease and \
-                no_prefix_prev.bump_patch() != no_prefix_next_without_prerelease and \
-                no_prefix_prev.bump_prerelease() != no_prefix_next_without_prerelease and \
-                (release_key.major != prev_key.major or
-                 release_key.minor != prev_key.minor or
-                 release_key.patch != prev_key.patch or
-                 release_key.prerelease != prev_key.prerelease):
+        prev_version = sorted_release_versions[tags_index + 1]
+        prev_github_tag = github_tag_list[prev_version]
+        next_version = tag_to_version(release_tag.name)
+
+        if not is_valid_bump(prev_version, next_version):
             raise DMakeException(
                 "Could not find any corresponding correct candidate previous version when bumping to {tag}. Previous version candidate: {prev}".format(
-                    tag=release_tag.name, prev=prev_version.name))
+                    tag=release_tag.name, prev=prev_github_tag.name))
 
         # Compute change log
         # TODO: use https://github.com/vaab/gitchangelog
         common.run_shell_command2("git fetch --tags --quiet")
-        change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_version.commit.sha,
+        change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_github_tag.commit.sha,
                                                                         target=target_commit.sha)
         change_log = common.run_shell_command2(change_log_cmd)
 
