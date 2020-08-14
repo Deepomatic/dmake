@@ -8,12 +8,19 @@ from github import Github
 
 
 def remove_tag_prefix(tag):
+    """Returns the tag name without the leading 'v'"""
     return tag[1:] if tag.startswith('v') else tag
 
 
-def tag_to_key(tag):
+def tag_to_version(tag):
+    """
+    Returns a VersionInfo of the provided tag or None if the version is invalid
+
+    Args:
+        tag (str): the string to convert into version
+    """
     try:
-        return semver.parse_version_info(remove_tag_prefix(tag))
+        return semver.VersionInfo.parse(remove_tag_prefix(tag))
     except ValueError:
         return None
 
@@ -39,7 +46,7 @@ def entry_point(options):
     # List releases
     tags_list = {}
     for tag in repo.get_tags():
-        key = tag_to_key(tag.name)
+        key = tag_to_version(tag.name)
         if key is not None:
             tags_list[key] = tag
     sorted_release_keys = sorted(tags_list.keys(), reverse=True)
@@ -70,7 +77,7 @@ def entry_point(options):
             answers = inquirer.prompt(questions)
         release_tag = answers['release_tag']
 
-    release_key = tag_to_key(release_tag)
+    release_key = tag_to_version(release_tag)
     if release_key not in tags_list:
         raise DMakeException("Could not find target tag: {tag}.".format(tag=release_tag))
     else:
@@ -85,13 +92,13 @@ def entry_point(options):
     else:
         prev_key = sorted_release_keys[tags_index + 1]
         prev_version = tags_list[prev_key]
-        no_prefix_next = remove_tag_prefix(release_tag.name)
-        no_prefix_prev = remove_tag_prefix(prev_version.name)
-        no_prefix_next_without_prerelease = no_prefix_next.split('-')[0]
+        no_prefix_next = tag_to_version(release_tag.name)
+        no_prefix_prev = tag_to_version(prev_version.name)
+        no_prefix_next_without_prerelease = no_prefix_next.replace(prerelease=None)
         if semver.bump_major(no_prefix_prev) != no_prefix_next_without_prerelease and \
-                semver.bump_minor(no_prefix_prev) != no_prefix_next_without_prerelease and \
-                semver.bump_patch(no_prefix_prev) != no_prefix_next_without_prerelease and \
-                semver.bump_prerelease(no_prefix_prev) != no_prefix_next_without_prerelease and \
+                no_prefix_prev.bump_minor() != no_prefix_next_without_prerelease and \
+                no_prefix_prev.bump_patch() != no_prefix_next_without_prerelease and \
+                no_prefix_prev.bump_prerelease() != no_prefix_next_without_prerelease and \
                 (release_key.major != prev_key.major or
                  release_key.minor != prev_key.minor or
                  release_key.patch != prev_key.patch or
