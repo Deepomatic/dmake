@@ -1,10 +1,10 @@
 import os
+
 import dmake.common as common
 import inquirer
 import semver
-from github import Github
-
 from dmake.common import DMakeException
+from github import Github
 
 
 def remove_tag_prefix(tag):
@@ -25,11 +25,13 @@ def entry_point(options):
     token = os.getenv('DMAKE_GITHUB_TOKEN', None)
     owner = os.getenv('DMAKE_GITHUB_OWNER', None)
     if token is None:
-        raise DMakeException("Your need to define your Github Access Token by setting the DMAKE_GITHUB_TOKEN environment variable")
+        raise DMakeException(
+            "Your need to define your Github Access Token by setting the DMAKE_GITHUB_TOKEN environment variable")
     if owner is None:
-        raise DMakeException("Your need to define your Github account/organization name by setting the DMAKE_GITHUB_OWNER environment variable")
+        raise DMakeException(
+            "Your need to define your Github account/organization name by setting the DMAKE_GITHUB_OWNER environment variable")
 
-    # Acces Github repo
+    # Access Github repo
     g = Github(token)
     owner = g.get_user(owner)
     repo = owner.get_repo(app)
@@ -87,19 +89,22 @@ def entry_point(options):
         no_prefix_prev = remove_tag_prefix(prev_version.name)
         no_prefix_next_without_prerelease = no_prefix_next.split('-')[0]
         if semver.bump_major(no_prefix_prev) != no_prefix_next_without_prerelease and \
-           semver.bump_minor(no_prefix_prev) != no_prefix_next_without_prerelease and \
-           semver.bump_patch(no_prefix_prev) != no_prefix_next_without_prerelease and \
-           semver.bump_prerelease(no_prefix_prev) != no_prefix_next_without_prerelease and \
-            (release_key.major != prev_key.major or
-             release_key.minor != prev_key.minor or
-             release_key.patch != prev_key.patch or
-             release_key.prerelease != prev_key.prerelease):
-            raise DMakeException("Could not find any corresponding correct candidate previous version when bumping to {tag}. Previous version candidate: {prev}".format(tag=release_tag.name, prev=prev_version.name))
+                semver.bump_minor(no_prefix_prev) != no_prefix_next_without_prerelease and \
+                semver.bump_patch(no_prefix_prev) != no_prefix_next_without_prerelease and \
+                semver.bump_prerelease(no_prefix_prev) != no_prefix_next_without_prerelease and \
+                (release_key.major != prev_key.major or
+                 release_key.minor != prev_key.minor or
+                 release_key.patch != prev_key.patch or
+                 release_key.prerelease != prev_key.prerelease):
+            raise DMakeException(
+                "Could not find any corresponding correct candidate previous version when bumping to {tag}. Previous version candidate: {prev}".format(
+                    tag=release_tag.name, prev=prev_version.name))
 
         # Compute change log
         # TODO: use https://github.com/vaab/gitchangelog
         common.run_shell_command2("git fetch --tags --quiet")
-        change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_version.commit.sha, target=target_commit.sha)
+        change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_version.commit.sha,
+                                                                        target=target_commit.sha)
         change_log = common.run_shell_command2(change_log_cmd)
 
         if change_log == "":
@@ -110,5 +115,8 @@ def entry_point(options):
         change_log = '\n'.join(['- ' + line for line in change_log.split('\n')])
 
     # Creates the release
-    repo.create_git_release(release_tag.name, release_tag.name, change_log, prerelease=prerelease, target_commitish=target_commit)
-    print("Done ! Check it at: https://github.com/{owner}/{repo}/releases/tag/{tag}".format(owner=owner.name, repo=repo.name, tag=release_tag.name))
+    repo.create_git_release(release_tag.name, release_tag.name, change_log, prerelease=prerelease,
+                            target_commitish=target_commit)
+    print("Done ! Check it at: https://github.com/{owner}/{repo}/releases/tag/{tag}".format(owner=owner.name,
+                                                                                            repo=repo.name,
+                                                                                            tag=release_tag.name))
