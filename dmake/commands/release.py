@@ -20,7 +20,7 @@ def tag_to_version(tag):
         tag (str): the string to convert into version
     """
     try:
-        return semver.VersionInfo.parse(remove_tag_prefix(tag))
+        return semver.parse_version_info(remove_tag_prefix(tag))
     except ValueError:
         return None
 
@@ -34,11 +34,12 @@ def is_valid_bump(prev_version, next_version):
     # Example: (1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta)
     if prev_version.prerelease is None and next_version.prerelease is None and \
             prev_version.build is None and next_version.build is None:
-        return prev_version.next_version("major") == next_version or \
-               prev_version.next_version("minor") == next_version or \
-               prev_version.next_version("patch") == next_version
+        return semver.bump_major(str(prev_version)) == str(next_version) or \
+               semver.bump_minor(str(prev_version)) == str(next_version) or \
+               semver.bump_patch(str(prev_version)) == str(next_version)
+
     elif prev_version.prerelease is not None and next_version.prerelease is None:
-        return prev_version.finalize_version() == next_version
+        return tag_to_version(semver.finalize_version(str(prev_version))) == next_version
     else:
         return True
 

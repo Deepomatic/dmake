@@ -1,8 +1,7 @@
 import pytest
 import semver
 
-from dmake.commands.release import is_valid_bump
-
+from dmake.commands.release import is_valid_bump, tag_to_version
 
 @pytest.mark.parametrize("prev_version_str,next_version_str,is_valid", [
     ('0.2.0', '0.3.0-rc1', True),
@@ -18,6 +17,6 @@ from dmake.commands.release import is_valid_bump
     ('1.0.0-beta+0', '1.0.0-alpha.1+45', False)
 ])
 def test_valid_bump(prev_version_str, next_version_str, is_valid):
-    prev_version = semver.VersionInfo.parse(prev_version_str)
-    next_version = semver.VersionInfo.parse(next_version_str)
+    prev_version = tag_to_version(prev_version_str)
+    next_version = tag_to_version(next_version_str)
     assert is_valid_bump(prev_version, next_version) == is_valid
