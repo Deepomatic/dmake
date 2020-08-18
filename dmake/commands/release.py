@@ -75,13 +75,16 @@ def entry_point(options):
 
     # Ask for previous version
     if release_tag is None:
+        choices = []
+        for key in sorted_release_versions:
+            if (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[(key.major, key.minor)] == key:
+                choices.append(github_tag_list[key].name)
+        choices.append('Other')
         questions = [
             inquirer.List(
                 'release_tag',
                 message="Here are only the latest tags per major-minor version. Which tag do you want to release on?",
-                choices=[github_tag_list[key].name for key in sorted_release_versions if
-                         (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[
-                             (key.major, key.minor)] == key] + ['Other'],
+                choices=choices,
             ),
         ]
         answers = inquirer.prompt(questions)
