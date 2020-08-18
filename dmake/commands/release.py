@@ -26,11 +26,27 @@ def tag_to_version(tag):
 
 
 def is_valid_bump(prev_version, next_version):
+    """Returns True if the bump is valid according to Semantic Versionning
+
+    A bump is valid if:
+    -   The release version is strictly higher than the current version, including extensions
+    -   No version is skipped when bumping the major/minor/patch part or
+        finalizing (=removing extensions, i.e. prerelease and build parts).
+
+    Note that a bump is invalid if only the build part differs. This behaviour may
+    be too restrictive and change later.
+
+    More info: https://semver.org or see examples in test/test_release_command.py
+
+    Args:
+        prev_version (VersionInfo): the current version
+        next_version (VersionInfo): the version to release
+    """
     if prev_version >= next_version:
         return False
 
-    # Additional check: ensure no version is skip
-    # Pre releases and builds are not taken in account as their token can change
+    # Ensure no version is skipped
+    # Prereleases and builds are not taken in account as their token can change
     # Example: (1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta)
     if prev_version.prerelease is None and next_version.prerelease is None and \
             prev_version.build is None and next_version.build is None:
@@ -38,6 +54,7 @@ def is_valid_bump(prev_version, next_version):
                semver.bump_minor(str(prev_version)) == str(next_version) or \
                semver.bump_patch(str(prev_version)) == str(next_version)
 
+    # Ensure no version is skipped if finalizing the version
     elif prev_version.prerelease is not None and next_version.prerelease is None:
         return tag_to_version(semver.finalize_version(str(prev_version))) == next_version
     else:
