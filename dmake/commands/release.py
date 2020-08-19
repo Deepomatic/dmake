@@ -1,21 +1,64 @@
 import os
+
 import dmake.common as common
 import inquirer
 import semver
-from github import Github
-
 from dmake.common import DMakeException
+from github import Github
 
 
 def remove_tag_prefix(tag):
+    """Returns the tag name without the leading 'v'"""
     return tag[1:] if tag.startswith('v') else tag
 
 
-def tag_to_key(tag):
+def tag_to_version(tag):
+    """
+    Returns a VersionInfo of the provided tag or None if the version is invalid
+
+    Args:
+        tag (str): the string to convert into version
+    """
     try:
         return semver.parse_version_info(remove_tag_prefix(tag))
     except ValueError:
         return None
+
+
+def is_valid_bump(prev_version, next_version):
+    """Returns True if the bump is valid according to Semantic Versionning
+
+    A bump is valid if:
+    -   The release version is strictly higher than the current version, including extensions
+    -   No version is skipped when bumping the major/minor/patch part or
+        finalizing (=removing extensions, i.e. prerelease and build parts).
+
+    Note that a bump is invalid if only the build part differs. This behaviour may
+    be too restrictive and change later.
+
+    More info: https://semver.org or see examples in test/test_release_command.py
+
+    Args:
+        prev_version (VersionInfo): the current version
+        next_version (VersionInfo): the version to release
+    """
+    if prev_version >= next_version:
+        return False
+
+    # Ensure no version is skipped
+    # Prereleases and builds are not taken in account as their token can change
+    # Example: (1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta)
+    if prev_version.prerelease is None and next_version.prerelease is None and \
+            prev_version.build is None and next_version.build is None:
+        return semver.bump_major(str(prev_version)) == str(next_version) or \
+               semver.bump_minor(str(prev_version)) == str(next_version) or \
+               semver.bump_patch(str(prev_version)) == str(next_version)
+
+    # Ensure no version is skipped if finalizing the version
+    elif prev_version.prerelease is not None and next_version.prerelease is None:
+        return tag_to_version(semver.finalize_version(str(prev_version))) == next_version
+    else:
+        return True
 
 
 def entry_point(options):
@@ -25,34 +68,41 @@ def entry_point(options):
     token = os.getenv('DMAKE_GITHUB_TOKEN', None)
     owner = os.getenv('DMAKE_GITHUB_OWNER', None)
     if token is None:
-        raise DMakeException("Your need to define your Github Access Token by setting the DMAKE_GITHUB_TOKEN environment variable")
+        raise DMakeException(
+            "Your need to define your Github Access Token by setting the DMAKE_GITHUB_TOKEN environment variable")
     if owner is None:
-        raise DMakeException("Your need to define your Github account/organization name by setting the DMAKE_GITHUB_OWNER environment variable")
+        raise DMakeException(
+            "Your need to define your Github account/organization name by setting the DMAKE_GITHUB_OWNER environment variable")
 
-    # Acces Github repo
+    # Access Github repo
     g = Github(token)
     owner = g.get_user(owner)
     repo = owner.get_repo(app)
 
     # List releases
-    tags_list = {}
+    github_tag_list = {}
     for tag in repo.get_tags():
-        key = tag_to_key(tag.name)
-        if key is not None:
-            tags_list[key] = tag
-    sorted_release_keys = sorted(tags_list.keys(), reverse=True)
+        version = tag_to_version(tag.name)
+        if version is not None:
+            github_tag_list[version] = tag
+    sorted_release_versions = sorted(github_tag_list.keys(), reverse=True)
     latest_per_major_minor = {}
-    for key in sorted_release_keys:
-        if (key.major, key.minor) not in latest_per_major_minor:
-            latest_per_major_minor[(key.major, key.minor)] = key
+    for version in sorted_release_versions:
+        if (version.major, version.minor) not in latest_per_major_minor:
+            latest_per_major_minor[(version.major, version.minor)] = version
 
     # Ask for previous version
     if release_tag is None:
+        choices = []
+        for key in sorted_release_versions:
+            if (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[(key.major, key.minor)] == key:
+                choices.append(github_tag_list[key].name)
+        choices.append('Other')
         questions = [
             inquirer.List(
                 'release_tag',
                 message="Here are only the latest tags per major-minor version. Which tag do you want to release on?",
-                choices=[tags_list[key].name for key in sorted_release_keys if (key.major, key.minor) in latest_per_major_minor and latest_per_major_minor[(key.major, key.minor)] == key] + ['Other'],
+                choices=choices,
             ),
         ]
         answers = inquirer.prompt(questions)
@@ -61,45 +111,40 @@ def entry_point(options):
                 inquirer.List(
                     'release_tag',
                     message="Here are all the tags. Which tag do you want to release on?",
-                    choices=[tags_list[key].name for key in sorted_release_keys],
+                    choices=[github_tag_list[key].name for key in sorted_release_versions],
                     carousel=True
                 ),
             ]
             answers = inquirer.prompt(questions)
         release_tag = answers['release_tag']
 
-    release_key = tag_to_key(release_tag)
-    if release_key not in tags_list:
+    release_version = tag_to_version(release_tag)
+    if release_version not in github_tag_list:
         raise DMakeException("Could not find target tag: {tag}.".format(tag=release_tag))
     else:
-        prerelease = release_key.prerelease is not None
-        release_tag = tags_list[release_key]
+        prerelease = release_version.prerelease is not None
+        release_tag = github_tag_list[release_version]
         target_commit = release_tag.commit
-        tags_index = sorted_release_keys.index(release_key)
+        tags_index = sorted_release_versions.index(release_version)
 
     # Look for previous version
-    if tags_index == len(sorted_release_keys) - 1:
+    if tags_index == len(sorted_release_versions) - 1:
         change_log = "Initial release"
     else:
-        prev_key = sorted_release_keys[tags_index + 1]
-        prev_version = tags_list[prev_key]
-        no_prefix_next = remove_tag_prefix(release_tag.name)
-        no_prefix_prev = remove_tag_prefix(prev_version.name)
-        no_prefix_next_without_prerelease = no_prefix_next.split('-')[0]
-        if semver.bump_major(no_prefix_prev) != no_prefix_next_without_prerelease and \
-           semver.bump_minor(no_prefix_prev) != no_prefix_next_without_prerelease and \
-           semver.bump_patch(no_prefix_prev) != no_prefix_next_without_prerelease and \
-           semver.bump_prerelease(no_prefix_prev) != no_prefix_next_without_prerelease and \
-            (release_key.major != prev_key.major or
-             release_key.minor != prev_key.minor or
-             release_key.patch != prev_key.patch or
-             release_key.prerelease != prev_key.prerelease):
-            raise DMakeException("Could not find any corresponding correct candidate previous version when bumping to {tag}. Previous version candidate: {prev}".format(tag=release_tag.name, prev=prev_version.name))
+        prev_version = sorted_release_versions[tags_index + 1]
+        prev_github_tag = github_tag_list[prev_version]
+        next_version = tag_to_version(release_tag.name)
+
+        if not is_valid_bump(prev_version, next_version):
+            raise DMakeException(
+                "Could not find any corresponding correct candidate previous version when bumping to {tag}. Previous version candidate: {prev}".format(
+                    tag=release_tag.name, prev=prev_github_tag.name))
 
         # Compute change log
         # TODO: use https://github.com/vaab/gitchangelog
         common.run_shell_command2("git fetch --tags --quiet")
-        change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_version.commit.sha, target=target_commit.sha)
+        change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_github_tag.commit.sha,
+                                                                        target=target_commit.sha)
         change_log = common.run_shell_command2(change_log_cmd)
 
         if change_log == "":
@@ -110,5 +155,8 @@ def entry_point(options):
         change_log = '\n'.join(['- ' + line for line in change_log.split('\n')])
 
     # Creates the release
-    repo.create_git_release(release_tag.name, release_tag.name, change_log, prerelease=prerelease, target_commitish=target_commit)
-    print("Done ! Check it at: https://github.com/{owner}/{repo}/releases/tag/{tag}".format(owner=owner.name, repo=repo.name, tag=release_tag.name))
+    repo.create_git_release(release_tag.name, release_tag.name, change_log, prerelease=prerelease,
+                            target_commitish=target_commit)
+    print("Done ! Check it at: https://github.com/{owner}/{repo}/releases/tag/{tag}".format(owner=owner.name,
+                                                                                            repo=repo.name,
+                                                                                            tag=release_tag.name))
