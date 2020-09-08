@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 import hashlib
+import io
 import logging
 import subprocess
 import re
@@ -13,13 +14,6 @@ import uuid
 logger = logging.getLogger("dmake")
 logger.setLevel(logging.INFO) #TODO configurable
 logger.addHandler(logging.StreamHandler())
-
-###############################################################################
-
-if sys.version_info >= (3, 0):
-    from dmake.python_3x import StringIO, is_string, to_string, read_input, subprocess_output_to_string, lru_cache
-else:
-    from dmake.python_2x import StringIO, is_string, to_string, read_input, subprocess_output_to_string, lru_cache
 
 ###############################################################################
 
@@ -81,7 +75,7 @@ def yaml_ordered_load(stream, all=False):
     try:
         yaml = YAML(typ='safe', pure=True)
         # kubectl and everyone else uses yaml 1.1
-        yaml.version = '1.1'
+        yaml.version = (1, 1)
         data = list(yaml.load_all(stream)) if all else yaml.load(stream)
         return data
     except Exception as e:
@@ -90,13 +84,13 @@ def yaml_ordered_load(stream, all=False):
 def yaml_ordered_dump(data, stream=None, default_flow_style=False, all=False, normalize_indent=False):
     return_string = False
     if stream is None:
-        stream = StringIO()
+        stream = io.StringIO()
         return_string = True
     yaml = YAML(pure=True)
     # simplify concatenating yaml files
     yaml.explicit_start = True
     # kubernetes reads yaml 1.1, notably interprets `no` as boolean instead of string vs default ruamel which dumps yaml 1.2
-    yaml.version = '1.1'
+    yaml.version = (1, 1)
     # kubectl does not tolerate %YAML 1.1 directive, disabling it
     yaml.Emitter = YAMLEmitterNoVersionDirective
     if normalize_indent:
@@ -183,10 +177,10 @@ def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=N
     stdout, stderr = p.communicate(stdin)
 
     if len(stderr) > 0 and not ignore_error and not raise_on_return_code:
-        raise ShellError(subprocess_output_to_string(stderr))
+        raise ShellError(stderr.decode())
     if raise_on_return_code and p.returncode != 0:
-        raise ShellError("return code: %s; stdout: %sstderr: %s" % (p.returncode, subprocess_output_to_string(stdout), subprocess_output_to_string(stderr)))
-    return subprocess_output_to_string(stdout).strip()
+        raise ShellError("return code: %s; stdout: %sstderr: %s" % (p.returncode, stdout.decode(), stderr.decode()))
+    return stdout.decode().strip()
 
 def run_shell_command2(commands, additional_env=None, stdin=None):
     return run_shell_command(commands, ignore_error=False, additional_env=additional_env, stdin=stdin, raise_on_return_code=True)

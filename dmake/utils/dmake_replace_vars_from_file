@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #
 # Usage:
 # dmake_replace_vars_from_file VAR_NAME var_file input_file [output_file]

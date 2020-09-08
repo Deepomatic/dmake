@@ -1,12 +1,15 @@
-from oauthlib.oauth2 import LegacyApplicationClient
+from oauthlib.oauth2 import BackendApplicationClient
 from requests_oauthlib import OAuth2Session
 import requests
 
 import argparse
 import re
+from requests.auth import HTTPBasicAuth
 
-from dmake.common import DMakeException, to_string, lru_cache, logger
+from dmake.common import DMakeException, logger
 import dmake.docker_config as docker_config
+
+from functools import lru_cache
 
 
 REGISTRY_URL = 'https://registry-1.docker.io'
@@ -19,9 +22,15 @@ def create_authenticated_requests_session(registry_url, token_url, scope, servic
     Return: authenticated requests.Session
     """
     # https://docs.docker.com/registry/spec/auth/oauth/
-    auth_kwargs = docker_config.get_auth_kwargs(registry_url)
-    client = OAuth2Session(client=LegacyApplicationClient(client_id='dmake'))
-    client.fetch_token(token_url=token_url, method='GET', service=service, scope=to_string(scope), **auth_kwargs)
+    # In fact it's using the old authentication mode with a GET request for maximum registry compatiblity:
+    # https://docs.docker.com/registry/spec/auth/token/
+    # TODO: use oauth2 with POST request, then fallback to that GET request if 404.
+    username, password = docker_config.get_auth_username_password(registry_url)
+    client = OAuth2Session(client=BackendApplicationClient(client_id='dmake'))
+    client.fetch_token(token_url=token_url,
+                       method='GET',
+                       auth=HTTPBasicAuth(username, password),
+                       service=service, scope=str(scope))
 
     return client
 

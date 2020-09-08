@@ -218,7 +218,7 @@ class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
 
     def _validate_(self, file, needed_migrations, data, field_name):
         # also accept simple variant where data is a string: the `context` directory
-        if common.is_string(data):
+        if isinstance(data, str):
             data = {'context': data}
         result = super(ServiceDockerBuildSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         return result
@@ -275,7 +275,7 @@ class DockerImageFieldSerializer(FieldSerializer):
     def _validate_(self, *args, **kwargs):
         # We hook the validation method to transform the string value in "ExternalDockerImage"
         value = FieldSerializer._validate_(self, *args, **kwargs)
-        if common.is_string(value):
+        if isinstance(value, str):
             # TODO: normalize this, either we store the value internally, or we return it
             self.value = ExternalDockerImage(value)
         return self.value
