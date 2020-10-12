@@ -67,10 +67,10 @@ def entry_point(options):
 
     token = os.getenv('DMAKE_GITHUB_TOKEN', None)
     owner = os.getenv('DMAKE_GITHUB_OWNER', None)
-    if token is None:
+    if not token:
         raise DMakeException(
             "Your need to define your Github Access Token by setting the DMAKE_GITHUB_TOKEN environment variable")
-    if owner is None:
+    if not owner:
         raise DMakeException(
             "Your need to define your Github account/organization name by setting the DMAKE_GITHUB_OWNER environment variable")
 
