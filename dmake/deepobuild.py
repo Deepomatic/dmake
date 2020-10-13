@@ -734,7 +734,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             raise ValidationError("Invalid `kubernetes` deployment step: `manifest` and `manifests` cannot be specified at the same time: just use `manifests` in such case.")
         return result
 
-    def _serialize_(self, commands, app_name, deploy_name, image_name, env):
+    def _serialize_(self, commands, app_name, deploy_name, image_name, env, kubernetes_stages_deployments):
         if not self.has_value():
             return
 
@@ -780,6 +780,10 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         # copy/render template manifest file
         context = common.eval_str_in_env(self.context, env)
         namespace = common.eval_str_in_env(self.namespace, env) if self.namespace else ""
+        # check if no 2 stage deploy on same context+namespace:
+        if (context, namespace) in kubernetes_stages_deployments:
+            raise DMakeException("%s: Multiple kubernetes deployments found for the same context and namespace (%s, %s); it is not supported." % (deploy_name, context, namespace))
+        kubernetes_stages_deployments.add((context, namespace))
         manifests = []
         if self.manifest:
             manifests.append(self.manifest)
@@ -940,6 +944,7 @@ class DeploySerializer(YAML2PipelineSerializer):
         config.docker_image.generate_push_docker(commands, self.service.service_name, deploy_env)
 
         image_name = config.docker_image.get_image_name(env=deploy_env)
+        kubernetes_stages_deployments = set()
         for stage in self.stages:
             branches = stage.branches
             if common.branch not in branches and '*' not in branches:
@@ -949,7 +954,7 @@ class DeploySerializer(YAML2PipelineSerializer):
             stage.aws_beanstalk._serialize_(commands, app_name, deploy_name, config, image_name, branch_env)
             stage.ssh._serialize_(commands, app_name, deploy_name, config, image_name, branch_env)
             stage.k8s_continuous_deployment._serialize_(commands, app_name, deploy_name, image_name, branch_env)
-            stage.kubernetes._serialize_(commands, app_name, deploy_name, image_name, branch_env)
+            stage.kubernetes._serialize_(commands, app_name, deploy_name, image_name, branch_env, kubernetes_stages_deployments)
 
 class DataVolumeSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")

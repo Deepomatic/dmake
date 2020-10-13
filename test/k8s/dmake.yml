@@ -42,7 +42,7 @@ services:
           branches: [master]
           kubernetes:
             context: main
-            namespace: ${K8S_NAMESPACE}
+            namespace: ${K8S_NAMESPACE}-2
             config_maps:
               - name: dmake-test-k8s-configmap
                 from_files:
