@@ -93,7 +93,8 @@ properties([
                      defaultValue: default_clear_workspace,
                      description: 'Wipe out the workspace when starting the build if checked'),
     ]),
-    pipelineTriggers(default_pipeline_triggers)
+    pipelineTriggers(default_pipeline_triggers),
+    ansiColor('xterm'),
 ])
 
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
