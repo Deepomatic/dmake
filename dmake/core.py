@@ -827,7 +827,7 @@ def make(options, parse_files_only=False):
     # cleanup service_dependencies: remove nodes with no depth: they are not related (directly or by dependency) to dmake-command-created leaves: they are not needed
     service_dependencies = dict(filter(lambda service_deps: service_deps[0] in build_files_order, service_dependencies.items()))
 
-    debug_dot_graph = common.dump_dot_graph(service_dependencies, build_files_order)
+    debug_dot_graph = common.dump_debug_dot_graph(service_dependencies, build_files_order)
     if common.exit_after_generate_dot_graph:
         print('Exiting after debug graph generation')
         return debug_dot_graph

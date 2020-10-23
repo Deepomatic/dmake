@@ -311,7 +311,7 @@ def get_dmake_build_type():
 
 ###############################################################################
 
-def dump_dot_graph(dependencies, nodes_height):
+def dump_debug_dot_graph(dependencies, nodes_height):
     if not generate_dot_graph:
         return
 
