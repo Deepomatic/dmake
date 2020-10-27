@@ -679,10 +679,10 @@ class KubernetesConfigMapSerializer(YAML2PipelineSerializer):
     name       = FieldSerializer("string", example="nginx", help_text="Kubernetes ConfigMap name")
     from_files = FieldSerializer("array", child=KubernetesConfigMapFromFileSerializer(), default=[], help_text="Kubernetes create values from files")
 
-    def generate_manifest(self, env, labels):
+    def generate_manifest(self, env):
         from_file_args = [file_source.get_arg() for file_source in self.from_files]
         data_str = k8s_utils.generate_from_create(args=['configmap'], name=self.name, from_file_args=from_file_args)
-        return k8s_utils.dump_all_str_and_add_labels(data_str, labels=labels)
+        return data_str
 
 
 class KubernetesSecretGenericSerializer(YAML2PipelineSerializer):
@@ -693,10 +693,10 @@ class KubernetesSecretSerializer(YAML2PipelineSerializer):
     name    = FieldSerializer("string", example="ssh-key", help_text="Kubernetes Secret name")
     generic = FieldSerializer(KubernetesSecretGenericSerializer(), help_text="Kubernetes Generic Secret type parameters")
 
-    def generate_manifest(self, env, labels):
+    def generate_manifest(self, env):
         from_file_args = [file_source.get_arg(env) for file_source in self.generic.from_files]
         data_str = k8s_utils.generate_from_create(args=['secret', 'generic'], name=self.name, from_file_args=from_file_args)
-        return k8s_utils.dump_all_str_and_add_labels(data_str, labels=labels)
+        return data_str
 
 
 class KubernetesManifestSerializer(YAML2PipelineSerializer):
@@ -741,9 +741,20 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         tmp_dir = common.make_tmp_dir('deploy_kubernetes_{app_name}_{deploy_name}'.format(app_name=app_name, deploy_name=deploy_name))
 
         # dmake service label used for pruning resources on kubectl apply: dmake automatically adds this label to all (top level) resources, then kubectl apply is limited to these resources by label selection
+        ## injected on all resources
         dmake_generated_labels = {
             'dmake.deepomatic.com/service': deploy_name
         }
+        ## injected on all resources
+        dmake_generated_annotations = {
+            'dmake.deepomatic.com/deploy-timestamp': common.session_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            'dmake.deepomatic.com/service': deploy_name,
+            'dmake.deepomatic.com/app': app_name,
+            'dmake.deepomatic.com/git-repository': common.repo,
+            'dmake.deepomatic.com/git-branch': common.branch,
+            'dmake.deepomatic.com/git-revision': common.commit_id,
+        }
+        ## injected on dmake-generated resources (configmap env, extra configmaps, extra secrets); *NOT* on user-provided resources, it could break things (labelSelectors), too risky
         extra_labels = {
             'app': deploy_name,
             'product': app_name
@@ -758,19 +769,19 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             'dmake.deepomatic.com/prune': 'no-pruning'
         })
         configmap_env_labels.update(extra_labels)
-        configmap_name = k8s_utils.generate_config_map_file(env, deploy_name, os.path.join(tmp_dir, configmap_env_filename), labels = configmap_env_labels)
+        configmap_name = k8s_utils.generate_config_map_file(env, deploy_name, os.path.join(tmp_dir, configmap_env_filename), labels=configmap_env_labels, annotations=dmake_generated_annotations)
 
         # additional resources
+        additional_resources_labels = dmake_generated_labels.copy()
+        additional_resources_labels.update(extra_labels)
         def generate_and_write_additional_resources(sources, filename):
             if not sources:
                 return
             manifest_files.append(filename)
-            data = [source.generate_manifest(env=env, labels=extra_labels) for source in sources]
-            # concat manifests, no need for `---\n` because explicit_start are added when dumping yaml in k8s_utils.generate_from_create() in source.generate_manifest().
-            data_str = '%s\n' % ('\n\n'.join(data))
+            data = [source.generate_manifest(env=env) for source in sources]
             # write manifests to file
             with open(os.path.join(tmp_dir, filename), 'w') as f:
-                k8s_utils.dump_all_str_and_add_labels(data_str, dmake_generated_labels, f)
+                k8s_utils.dump_all_str_and_add_metadata(data, additional_resources_labels, dmake_generated_annotations, f)
 
         user_configmaps_filename = 'kubernetes-user-configmaps.yaml'
         generate_and_write_additional_resources(self.config_maps, user_configmaps_filename)
@@ -805,7 +816,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 user_manifest_template = Template(f.read())
             user_manifest_data_str = user_manifest_template.substitute(**template_context)
             with open(user_manifest_path, 'w') as f:
-                k8s_utils.dump_all_str_and_add_labels(user_manifest_data_str, dmake_generated_labels, f)
+                k8s_utils.dump_all_str_and_add_metadata(user_manifest_data_str, dmake_generated_labels, dmake_generated_annotations, f)
             # verify the manifest file
             program = 'kubectl'
             args = ['--context=%s' % context, 'apply', '--dry-run=true', '--validate=true', '--filename=%s' % user_manifest_path]
@@ -820,10 +831,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         args = [tmp_dir,
                 context,
                 namespace,
-                deploy_name,
-                common.repo,
-                common.branch,
-                common.commit_id]
+                deploy_name]
         args += manifest_files
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)

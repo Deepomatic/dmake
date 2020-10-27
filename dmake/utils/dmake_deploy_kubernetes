@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Usage:
-# dmake_deploy_kubernetes DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME REPO BRANCH COMMIT_ID ARGS...
+# dmake_deploy_kubernetes DMAKE_TMP_DIR KUBE_CONTEXT NAMESPACE SERVICE_NAME ARGS...
 #
 # Result:
 # Deploy resources on kubernetes, using ARGS as kubernetes manifest yaml files.
@@ -21,9 +21,6 @@ TMP_DIR=$1; shift
 CONTEXT=$1; shift
 NAMESPACE=$1; shift
 SERVICE=$1; shift
-REPO=$1; shift
-BRANCH="$1"; shift
-COMMIT=$1; shift
 
 BASE_ARGS=( --context=${CONTEXT} ${NAMESPACE:+--namespace=${NAMESPACE}} )
 
@@ -42,8 +39,6 @@ function echo_title() {
   echo
   echo [DMake] "$@"
 }
-
-deploy_timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 echo_title Apply ${SERVICE} to kubernetes cluster ${CONTEXT}:
 
@@ -74,20 +69,6 @@ if [[ "${DMAKE_K8S_DRY_RUN}" == "1" ]]; then
   echo "dry-run, exiting"
   exit
 fi
-
-echo_title Annotate ${SERVICE} on kubernetes cluster ${CONTEXT}:
-# TODO currently not atomic: multiple apply can work in parallel, and this command may annotate the wrong version
-prefix="dmake.deepomatic.com"
-ANNOTATE_ARGS=( "${BASE_ARGS[@]}" annotate "${FILES_ARGS[@]}" "${FILES_NO_PRUNING_ARGS[@]}"
-                --overwrite=true --record=false
-                ${prefix}/deploy-timestamp="${deploy_timestamp}"
-                ${prefix}/service=${SERVICE}
-                ${prefix}/git-repository=${REPO}
-                ${prefix}/git-branch="${BRANCH}"
-                ${prefix}/git-revision=${COMMIT}
-              )
-echo kubectl "${ANNOTATE_ARGS[@]}"
-kubectl "${ANNOTATE_ARGS[@]}"
 
 echo_title Rollout status for ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
 

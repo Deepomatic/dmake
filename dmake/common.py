@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+from datetime import datetime
 import hashlib
 import io
 import logging
@@ -366,6 +367,7 @@ def init(_options, early_exit=False):
     global do_pull_config_dir
     global use_host_ports
     global session_id
+    global session_timestamp
     global change_detection
 
     options = _options
@@ -392,6 +394,7 @@ def init(_options, early_exit=False):
     root_dir = os.path.join(root_dir, '')  # make sure it is suffixed by /
 
     session_id = uuid.uuid4()
+    session_timestamp = datetime.utcnow()
 
     config_dir = os.getenv('DMAKE_CONFIG_DIR', None)
     if config_dir is None:
