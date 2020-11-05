@@ -222,6 +222,8 @@ def activate_needed_services(loaded_files, service_providers, service_dependenci
 
 def activate_service(loaded_files, service_providers, service_dependencies, command, service, service_customization=None):
     common.logger.debug("activate_service: command: %s,\tservice: %s,\tservice_customization: %s" % (command, service, service_customization))
+    if command != 'run':
+        assert service_customization == None
     node = (command, service, service_customization)
     if command == 'test' and common.skip_tests:
         return []
@@ -249,8 +251,21 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children += activate_base(base_variant)
         elif command == 'run':
             children += activate_service_shared_volumes(loaded_files, service_providers, service)
+            # ~hackish: run service depends on test service if we are doing tests
             if common.command in ['test', 'deploy']:
-                children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
+                if common.change_detection:
+                    # in change detection mode, don't add "test service" node: only create the link between run and test if the test node exists.
+                    # the services to be tested are either:
+                    # - created directly via graph construction starting on the target services: the ones that changed
+                    # - independently created from "test child service" to "test parent service"
+                    # we can reach here in the middle of the DAG construction (e.g. when multiple services have changed: we fully work one by one sequentially),
+                    # so we don't know yet if the test node will exist at the end or not.
+                    # the link will be created later, in a second global pass in make(), see "second pass" there
+                    pass
+                else:
+                    # normal mode, activate "test service" as dependance of "run service"
+                    # REMARK: if we wanted, we could change the semantic of `dmake test foo` to only test foo (while still running its dependencies needed for tests or run, recursively), instead of also testing all children services too: just use the second pass
+                    children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if common.options.with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, command='run', needed_for='run')
@@ -818,6 +833,20 @@ def make(options, parse_files_only=False):
                 activate_file(loaded_files, service_providers, service_dependencies, common.command, file)
         else:
             activate_service(loaded_files, service_providers, service_dependencies, common.command, auto_completed_app)
+
+    # second pass
+    for node in service_dependencies:
+        command, service, service_customization = node
+        if command == 'run' and common.change_detection:
+            # guarantee "always test a service before running it" when change detection mode: run doesn't trigger test, but if test exists for other reasons, we still want to order it after run, see activate_service() command=='run' comments
+            # remark: it's OK to assume the 3rd element of the test_node tuple is None: its the runtime service_customization: it's only set via needed_services for the command==run nodes only
+            test_node = ('test', service, None)
+            if test_node in service_dependencies:
+                common.logger.debug('activate_service: second pass: change detection mode, adding link: run->test\tfor service: {}'.format(service))
+                service_dependencies[node].append(test_node)
+            else:
+                common.logger.debug('activate_service: second pass: change detection mode, *not* adding link: run->test\tfor service: {}'.format(service))
+
 
     # (warning: tree vocabulary is reversed here: `leaves` are the nodes with no parent dependency, and depth is the number of levels of child dependencies)
     # check services circularity, and compute node depth
