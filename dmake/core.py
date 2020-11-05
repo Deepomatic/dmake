@@ -220,6 +220,7 @@ def activate_needed_services(loaded_files, service_providers, service_dependenci
 
 ###############################################################################
 
+test_backlink_nodes = set() # TODO proper reset in dmake unittests, ideally avoid global variable
 def activate_service(loaded_files, service_providers, service_dependencies, command, service, service_customization=None):
     common.logger.debug("activate_service: command: %s,\tservice: %s,\tservice_customization: %s" % (command, service, service_customization))
     if command != 'run':
@@ -275,8 +276,11 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children += activate_link_shared_volumes(loaded_files, service_providers, service)
         elif command == 'deploy':
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
+            # TODO later: maybe in change detection mode only activate test service for changed services (need to explicitly construct and pass that list down to here). For now 'dmake deploy +' is not really supported.
             children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
             if common.options.with_dependencies and needs is not None:
+                # TODO later: maybe in change detection mode only activate deploy for changed services?
+
                 # enforce deployment order by re-using needed_services dependency graph
                 # but we don't want to create extra deployments because of customization
                 # => deploy recursively using needs dependency, but ignore service customization
@@ -295,6 +299,11 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
                 for parent_service in trigger_test_parents:
                     common.logger.debug("activate_service: parent test: service: %s,\tparent service: %s" % (service, parent_service))
                     parent_node = activate_service(loaded_files, service_providers, service_dependencies, 'test', parent_service)[0]
+
+                    #TODO construct test backlink full dag here, not just a set of nodes
+                    test_backlink_nodes.add(parent_node)
+                    # cannot set correct order (node dependes on parent_node) as it would create circular dependencies
+                    # also, create dependency of parent_node on node as done here helps test execution order in the human expected way
                     if node not in service_dependencies[parent_node]:
                         service_dependencies[parent_node].append(node)
 
@@ -851,9 +860,11 @@ def make(options, parse_files_only=False):
     # (warning: tree vocabulary is reversed here: `leaves` are the nodes with no parent dependency, and depth is the number of levels of child dependencies)
     # check services circularity, and compute node depth
     sorted_leaves = check_no_circular_dependencies(service_dependencies)
-    # get nodes leaves related to the dmake command (exclude notably `base` and `shared_volumes` which are created independently from the command)
-    dmake_command_sorted_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, sorted_leaves)
-    # prepare reorder by computing shortest node depth starting from the dmake-command-created leaves
+    # get nodes leaves related to the dmake command (exclude notably `base` and `shared_volumes` which are created independently from the command), a.k.a. cli targets
+    dmake_command_sorted_leaves = set(filter(lambda a_b__c: a_b__c[0][0] == common.command, sorted_leaves))
+    # hack: also add services from change detection mode tests backlinks, they are additional sorted leaves to target (without that they would be lost in order_dependencies(): as backlinks they are *not* a dependency of dmake commands leaves (a.k.a. cli targets))
+    dmake_command_sorted_leaves.update(filter(lambda a_b__c: a_b__c[0] in test_backlink_nodes, sorted_leaves))
+    # prepare reorder by computing shortest node depth starting from the dmake-command-created leaves, a.k.a. cli targets
     build_files_order = order_dependencies(service_dependencies, dmake_command_sorted_leaves)
 
     # cleanup service_dependencies for debug dot graph: remove nodes with no depth: they are not related (directly or by dependency) to dmake-command-created leaves: they are not needed
