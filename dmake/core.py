@@ -30,6 +30,11 @@ def look_for_changed_directories():
     if common.force_full_deploy:
         return None
 
+    if common.change_detection_override_dirs is not None:
+        changed_dirs = common.change_detection_override_dirs
+        common.logger.info("Changed directories (forced via DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS): %s", set(changed_dirs))
+        return changed_dirs
+
     if not common.target:
         tag = get_tag_name()
         common.logger.info("Looking for changes between HEAD and %s" % tag)

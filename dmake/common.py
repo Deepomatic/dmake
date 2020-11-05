@@ -370,7 +370,7 @@ def init(_options, early_exit=False):
     global use_host_ports
     global session_id
     global session_timestamp
-    global change_detection
+    global change_detection, change_detection_override_dirs
 
     options = _options
     command = _options.cmd
@@ -387,6 +387,9 @@ def init(_options, early_exit=False):
     dot_graph_format = options.debug_graph_output_format
 
     change_detection = False  # set in core.make()
+    change_detection_override_dirs = os.getenv('DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS', None)
+    if change_detection_override_dirs is not None:
+        change_detection_override_dirs = os.getenv('DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS').split(',')
 
     try:
         root_dir, sub_dir = find_repo_root()
