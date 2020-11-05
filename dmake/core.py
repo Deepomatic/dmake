@@ -27,9 +27,6 @@ def find_symlinked_directories():
     return symlinks
 
 def look_for_changed_directories():
-    if common.force_full_deploy:
-        return None
-
     if common.change_detection_override_dirs is not None:
         changed_dirs = common.change_detection_override_dirs
         common.logger.info("Changed directories (forced via DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS): %s", set(changed_dirs))
@@ -298,13 +295,14 @@ def display_command_node(node):
 ###############################################################################
 
 def find_active_files(loaded_files, service_providers, service_dependencies, sub_dir, command):
-    changed_dirs = look_for_changed_directories()
-    if changed_dirs is None:
+    """Find file where changes have happened, and activate them; or activate all when common.force_full_deploy"""
+    if common.force_full_deploy:
         common.logger.info("Forcing full re-build")
+    else:
+        # TODO warn if command == deploy: not really supported? or fatal error? or nothing?
+        changed_dirs = look_for_changed_directories()
 
     def has_changed(root):
-        if changed_dirs is None:
-            return True
         for d in changed_dirs:
             if d.startswith(root):
                 return True
@@ -314,7 +312,7 @@ def find_active_files(loaded_files, service_providers, service_dependencies, sub
         if not file_name.startswith(sub_dir):
             continue
         root = os.path.dirname(file_name)
-        if has_changed(root):
+        if common.force_full_deploy or has_changed(root):
             activate_file(loaded_files, service_providers, service_dependencies, command, file_name)
             continue
         # still, maybe activate some services in this file with extended build context
@@ -805,7 +803,6 @@ def make(options, parse_files_only=False):
     is_app_only = auto_completed_app is None or auto_completed_app.find('/') < 0
 
     if auto_completed_app is None:
-        # Find file where changes have happened
         find_active_files(loaded_files, service_providers, service_dependencies, common.sub_dir, common.command)
     else:
         if is_app_only: # app only
