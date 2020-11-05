@@ -154,6 +154,8 @@ def append_command(commands, cmd, prepend = False, **args):
 
 def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=None, raise_on_return_code=False):
     """Deprecated, use run_shell_command2 instead."""
+    logger_ = logger.getChild('run_shell_command')
+    logger_.debug('running commands: %s' % (commands,))
     if not isinstance(commands, list):
         commands = [commands]
     if additional_env is None:
