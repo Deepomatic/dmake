@@ -426,7 +426,7 @@ def check_no_circular_dependencies(dependencies):
         for dep in dependencies[key]:
             is_leaf[dep] = False
             if dep in walked_nodes:
-                raise DMakeException("Circular dependencies: %s" % ' -> '.join(reversed([dep] + walked_nodes)))
+                raise DMakeException("Circular dependencies: %s" % ' -> '.join(map(str, reversed([dep] + walked_nodes))))
             depth = max(depth, 1 + sub_check(dep, walked_nodes))
 
         tree_depth[key] = depth
