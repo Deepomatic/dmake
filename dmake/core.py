@@ -221,7 +221,7 @@ def activate_needed_services(loaded_files, service_providers, service_dependenci
 ###############################################################################
 
 def activate_service(loaded_files, service_providers, service_dependencies, command, service, service_customization=None):
-    common.logger.debug("activate_service: command: %s, service: %s, service_customization: %s" % (command, service, service_customization))
+    common.logger.debug("activate_service: command: %s,\tservice: %s,\tservice_customization: %s" % (command, service, service_customization))
     node = (command, service, service_customization)
     if command == 'test' and common.skip_tests:
         return []
@@ -278,7 +278,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         if command == 'test':
             if common.options.with_dependencies and common.change_detection:
                 for parent_service in trigger_test_parents:
-                    common.logger.debug("activate_service: parent test: service: %s, parent service: %s" % (service, parent_service))
+                    common.logger.debug("activate_service: parent test: service: %s,\tparent service: %s" % (service, parent_service))
                     parent_node = activate_service(loaded_files, service_providers, service_dependencies, 'test', parent_service)[0]
                     if node not in service_dependencies[parent_node]:
                         service_dependencies[parent_node].append(node)
