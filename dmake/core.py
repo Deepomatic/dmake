@@ -482,6 +482,7 @@ def generate_command_pipeline(file, cmds):
 
     if common.build_description is not None:
         write_line("currentBuild.description = '%s'" % common.build_description.replace("'", "\\'"))
+    write_line("def dmake_echo(message) { sh(script: \"echo $message\", label: message) }")
     write_line('try {')
     indent_level += 1
 
@@ -515,7 +516,7 @@ def generate_command_pipeline(file, cmds):
             write_line("}")
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
-            write_line("echo '%s'" % message)
+            write_line("dmake_echo '%s'" % message)
         elif cmd == "sh":
             commands = kwargs['shell']
             if isinstance(commands, str):
