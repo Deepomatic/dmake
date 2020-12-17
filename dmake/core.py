@@ -27,8 +27,10 @@ def find_symlinked_directories():
     return symlinks
 
 def look_for_changed_directories():
-    if common.force_full_deploy:
-        return None
+    if common.change_detection_override_dirs is not None:
+        changed_dirs = common.change_detection_override_dirs
+        common.logger.info("Changed directories (forced via DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS): %s", set(changed_dirs))
+        return changed_dirs
 
     if not common.target:
         tag = get_tag_name()
@@ -219,7 +221,9 @@ def activate_needed_services(loaded_files, service_providers, service_dependenci
 ###############################################################################
 
 def activate_service(loaded_files, service_providers, service_dependencies, command, service, service_customization=None):
-    common.logger.debug("activate_service: command: %s, service: %s, service_customization: %s" % (command, service, service_customization))
+    common.logger.debug("activate_service: command: %s,\tservice: %s,\tservice_customization: %s" % (command, service, service_customization))
+    if command != 'run':
+        assert service_customization == None
     node = (command, service, service_customization)
     if command == 'test' and common.skip_tests:
         return []
@@ -247,8 +251,21 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
             children += activate_base(base_variant)
         elif command == 'run':
             children += activate_service_shared_volumes(loaded_files, service_providers, service)
+            # ~hackish: run service depends on test service if we are doing tests
             if common.command in ['test', 'deploy']:
-                children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
+                if common.change_detection:
+                    # in change detection mode, don't add "test service" node: only create the link between run and test if the test node exists.
+                    # the services to be tested are either:
+                    # - created directly via graph construction starting on the target services: the ones that changed
+                    # - independently created from "test child service" to "test parent service"
+                    # we can reach here in the middle of the DAG construction (e.g. when multiple services have changed: we fully work one by one sequentially),
+                    # so we don't know yet if the test node will exist at the end or not.
+                    # the link will be created later, in a second global pass in make(), see "second pass" there
+                    pass
+                else:
+                    # normal mode, activate "test service" as dependance of "run service"
+                    # REMARK: if we wanted, we could change the semantic of `dmake test foo` to only test foo (while still running its dependencies needed for tests or run, recursively), instead of also testing all children services too: just use the second pass
+                    children += activate_service(loaded_files, service_providers, service_dependencies, 'test', service)
             children += activate_service(loaded_files, service_providers, service_dependencies, 'build_docker', service)
             if common.options.with_dependencies and needs is not None:
                 children += activate_needed_services(loaded_files, service_providers, service_dependencies, needs, command='run', needed_for='run')
@@ -276,7 +293,7 @@ def activate_service(loaded_files, service_providers, service_dependencies, comm
         if command == 'test':
             if common.options.with_dependencies and common.change_detection:
                 for parent_service in trigger_test_parents:
-                    common.logger.debug("activate_service: parent test: service: %s, parent service: %s" % (service, parent_service))
+                    common.logger.debug("activate_service: parent test: service: %s,\tparent service: %s" % (service, parent_service))
                     parent_node = activate_service(loaded_files, service_providers, service_dependencies, 'test', parent_service)[0]
                     if node not in service_dependencies[parent_node]:
                         service_dependencies[parent_node].append(node)
@@ -293,13 +310,14 @@ def display_command_node(node):
 ###############################################################################
 
 def find_active_files(loaded_files, service_providers, service_dependencies, sub_dir, command):
-    changed_dirs = look_for_changed_directories()
-    if changed_dirs is None:
+    """Find file where changes have happened, and activate them; or activate all when common.force_full_deploy"""
+    if common.force_full_deploy:
         common.logger.info("Forcing full re-build")
+    else:
+        # TODO warn if command == deploy: not really supported? or fatal error? or nothing?
+        changed_dirs = look_for_changed_directories()
 
     def has_changed(root):
-        if changed_dirs is None:
-            return True
         for d in changed_dirs:
             if d.startswith(root):
                 return True
@@ -309,7 +327,7 @@ def find_active_files(loaded_files, service_providers, service_dependencies, sub
         if not file_name.startswith(sub_dir):
             continue
         root = os.path.dirname(file_name)
-        if has_changed(root):
+        if common.force_full_deploy or has_changed(root):
             activate_file(loaded_files, service_providers, service_dependencies, command, file_name)
             continue
         # still, maybe activate some services in this file with extended build context
@@ -426,7 +444,7 @@ def check_no_circular_dependencies(dependencies):
         for dep in dependencies[key]:
             is_leaf[dep] = False
             if dep in walked_nodes:
-                raise DMakeException("Circular dependencies: %s" % ' -> '.join(reversed([dep] + walked_nodes)))
+                raise DMakeException("Circular dependencies: %s" % ' -> '.join(map(str, reversed([dep] + walked_nodes))))
             depth = max(depth, 1 + sub_check(dep, walked_nodes))
 
         tree_depth[key] = depth
@@ -801,7 +819,6 @@ def make(options, parse_files_only=False):
     is_app_only = auto_completed_app is None or auto_completed_app.find('/') < 0
 
     if auto_completed_app is None:
-        # Find file where changes have happened
         find_active_files(loaded_files, service_providers, service_dependencies, common.sub_dir, common.command)
     else:
         if is_app_only: # app only
@@ -818,17 +835,32 @@ def make(options, parse_files_only=False):
         else:
             activate_service(loaded_files, service_providers, service_dependencies, common.command, auto_completed_app)
 
-    # (warninig: tree vocabulary is reversed here: `leaves` are the nodes with no parent dependency, and depth is the number of levels of child dependencies)
+    # second pass
+    for node in service_dependencies:
+        command, service, service_customization = node
+        if command == 'run' and common.change_detection:
+            # guarantee "always test a service before running it" when change detection mode: run doesn't trigger test, but if test exists for other reasons, we still want to order it after run, see activate_service() command=='run' comments
+            # remark: it's OK to assume the 3rd element of the test_node tuple is None: its the runtime service_customization: it's only set via needed_services for the command==run nodes only
+            test_node = ('test', service, None)
+            if test_node in service_dependencies:
+                common.logger.debug('activate_service: second pass: change detection mode, adding link: run->test\tfor service: {}'.format(service))
+                service_dependencies[node].append(test_node)
+            else:
+                common.logger.debug('activate_service: second pass: change detection mode, *not* adding link: run->test\tfor service: {}'.format(service))
+
+
+    # (warning: tree vocabulary is reversed here: `leaves` are the nodes with no parent dependency, and depth is the number of levels of child dependencies)
     # check services circularity, and compute node depth
     sorted_leaves = check_no_circular_dependencies(service_dependencies)
     # get nodes leaves related to the dmake command (exclude notably `base` and `shared_volumes` which are created independently from the command)
     dmake_command_sorted_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, sorted_leaves)
     # prepare reorder by computing shortest node depth starting from the dmake-command-created leaves
     build_files_order = order_dependencies(service_dependencies, dmake_command_sorted_leaves)
-    # cleanup service_dependencies: remove nodes with no depth: they are not related (directly or by dependency) to dmake-command-created leaves: they are not needed
-    service_dependencies = dict(filter(lambda service_deps: service_deps[0] in build_files_order, service_dependencies.items()))
 
-    debug_dot_graph = common.dump_debug_dot_graph(service_dependencies, build_files_order)
+    # cleanup service_dependencies for debug dot graph: remove nodes with no depth: they are not related (directly or by dependency) to dmake-command-created leaves: they are not needed
+    service_dependencies_pruned = dict(filter(lambda service_deps: service_deps[0] in build_files_order, service_dependencies.items()))
+
+    debug_dot_graph = common.dump_debug_dot_graph(service_dependencies_pruned, build_files_order)
     if common.exit_after_generate_dot_graph:
         print('Exiting after debug graph generation')
         return debug_dot_graph

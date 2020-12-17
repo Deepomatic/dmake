@@ -154,6 +154,8 @@ def append_command(commands, cmd, prepend = False, **args):
 
 def run_shell_command(commands, ignore_error=False, additional_env=None, stdin=None, raise_on_return_code=False):
     """Deprecated, use run_shell_command2 instead."""
+    logger_ = logger.getChild('run_shell_command')
+    logger_.debug('running commands: %s' % (commands,))
     if not isinstance(commands, list):
         commands = [commands]
     if additional_env is None:
@@ -368,7 +370,7 @@ def init(_options, early_exit=False):
     global use_host_ports
     global session_id
     global session_timestamp
-    global change_detection
+    global change_detection, change_detection_override_dirs
 
     options = _options
     command = _options.cmd
@@ -385,6 +387,9 @@ def init(_options, early_exit=False):
     dot_graph_format = options.debug_graph_output_format
 
     change_detection = False  # set in core.make()
+    change_detection_override_dirs = os.getenv('DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS', None)
+    if change_detection_override_dirs is not None:
+        change_detection_override_dirs = os.getenv('DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS').split(',')
 
     try:
         root_dir, sub_dir = find_repo_root()
