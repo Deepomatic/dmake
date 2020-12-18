@@ -40,6 +40,12 @@ function echo_title() {
   echo [DMake] "$@"
 }
 
+# use kubecolor if it exists, in replacement of kubectl
+KUBECTL=( kubectl )
+if [ -x "$(command -v kubecolor)" ]; then
+  KUBECTL=( kubecolor --force-colors )
+fi
+
 echo_title Apply ${SERVICE} to kubernetes cluster ${CONTEXT}:
 
 # --record=false allows to specify `kubernetes.io/change-cause` annotation from the manifest files
@@ -53,7 +59,7 @@ if [ ${#FILES_NO_PRUNING_ARGS[@]} -ne 0 ]; then
   APPLY_NO_PRUNING_ARGS=( "${APPLY_BASE_ARGS[@]}" "${FILES_NO_PRUNING_ARGS[@]}" )
 
   echo kubectl "${APPLY_NO_PRUNING_ARGS[@]}"
-  kubectl "${APPLY_NO_PRUNING_ARGS[@]}"
+  ${KUBECTL[@]} "${APPLY_NO_PRUNING_ARGS[@]}"
 fi
 
 # second, normal resources (we prune them)
@@ -62,7 +68,7 @@ if [ ${#FILES_ARGS[@]} -ne 0 ]; then
   APPLY_ARGS=( "${APPLY_BASE_ARGS[@]}" --prune=true --cascade=true --selector="${SELECTOR}" "${FILES_ARGS[@]}" )
 
   echo kubectl "${APPLY_ARGS[@]}"
-  kubectl "${APPLY_ARGS[@]}"
+  ${KUBECTL[@]} "${APPLY_ARGS[@]}"
 fi
 
 if [[ "${DMAKE_K8S_DRY_RUN}" == "1" ]]; then
@@ -76,10 +82,10 @@ DEPLOYMENTS=( $(kubectl "${BASE_ARGS[@]}" get deployment --selector=dmake.deepom
 for DEPLOYMENT in ${DEPLOYMENTS[@]}; do
   ROLLOUT_STATUS_ARGS=( "${BASE_ARGS[@]}" rollout status --watch=true deployment/${DEPLOYMENT} )
   echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
-  kubectl "${ROLLOUT_STATUS_ARGS[@]}"
+  ${KUBECTL[@]} "${ROLLOUT_STATUS_ARGS[@]}"
 done
 
 echo_title New state of ${SERVICE} on kubernetes cluster ${CONTEXT}:
 GET_ARGS=( "${BASE_ARGS[@]}" get --output=wide "${FILES_NO_PRUNING_ARGS[@]}" "${FILES_ARGS[@]}" )
 echo kubectl "${GET_ARGS[@]}"
-kubectl "${GET_ARGS[@]}"
+${KUBECTL[@]} "${GET_ARGS[@]}"
