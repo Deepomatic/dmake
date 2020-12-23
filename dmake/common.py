@@ -116,6 +116,14 @@ def append_command(commands, cmd, prepend = False, **args):
         check_cmd(args, ['name'])
     elif cmd == "stage_end":
         check_cmd(args, [])
+    elif cmd == "parallel":
+        check_cmd(args, [])
+    elif cmd == "parallel_end":
+        check_cmd(args, [])
+    elif cmd == "parallel_branch":
+        check_cmd(args, ['name'])
+    elif cmd == "parallel_branch_end":
+        check_cmd(args, [])
     elif cmd == "lock":
         check_cmd(args, ['label'], optional = ['quantity', 'variable'])
     elif cmd == "lock_end":

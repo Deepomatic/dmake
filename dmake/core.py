@@ -516,6 +516,19 @@ def generate_command_pipeline(file, cmds):
         elif cmd == "stage_end":
             indent_level -= 1
             write_line("}")
+        elif cmd == "parallel":
+            write_line("parallel(")
+            indent_level += 1
+        elif cmd == "parallel_end":
+            indent_level -= 1
+            write_line(")")
+        elif cmd == "parallel_branch":
+            name = kwargs['name'].replace("'", "\\'")
+            write_line("'%s': {" % name)
+            indent_level += 1
+        elif cmd == "parallel_branch_end":
+            indent_level -= 1
+            write_line("},")
         elif cmd == "lock":
             if 'quantity' not in kwargs:
                 kwargs['quantity'] = 1
@@ -638,13 +651,23 @@ def generate_command_bash(file, cmds):
             file.write("echo -e '\n## %s ##'\n" % kwargs['name'])
         elif cmd == "stage_end":
             pass
+        elif cmd == "parallel":
+            # parallel not supported with bash, fallback to running sequentially
+            pass
+        elif cmd == "parallel_end":
+            pass
+        elif cmd == "parallel_branch":
+            # parallel_branch not supported with bash, fallback to running sequentially
+            pass
+        elif cmd == "parallel_branch_end":
+            pass
         elif cmd == "lock":
-            # lock not supported with bash
+            # lock not supported with bash, fallback to ignoring locks
             pass
         elif cmd == "lock_end":
             pass
         elif cmd == "timeout":
-            # timeout not supported with bash
+            # timeout not supported with bash, fallback to ignoring timeouts
             pass
         elif cmd == "timeout_end":
             pass
