@@ -517,8 +517,11 @@ def generate_command_pipeline(file, cmds):
             indent_level -= 1
             write_line("}")
         elif cmd == "lock":
-            assert(kwargs['label'] == 'GPUS')
-            write_line("lock(label: 'GPUS', quantity: 1, variable: 'DMAKE_GPU') {")
+            if 'quantity' not in kwargs:
+                kwargs['quantity'] = 1
+            if 'variable' not in kwargs:
+                kwargs['variable'] = ""  # empty variable is accepted by the lock step as "'variable' not set"
+            write_line("lock(label: '{label}', quantity: {quantity}, variable: '{variable}') {{".format(**kwargs))
             indent_level += 1
         elif cmd == "lock_end":
             indent_level -= 1
@@ -952,7 +955,7 @@ def make(options, parse_files_only=False):
         # `common.need_gpu` is set during Testing commands generations: need to delay adding commands to all_commands to create the gpu lock if needed around the Testing stage
         lock_gpu = (stage == "Running App") and common.need_gpu
         if lock_gpu:
-            append_command(all_commands, 'lock', label='GPUS')
+            append_command(all_commands, 'lock', label='GPUS', variable='DMAKE_GPU')
 
         all_commands += stage_commands
 

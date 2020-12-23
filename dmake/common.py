@@ -117,7 +117,7 @@ def append_command(commands, cmd, prepend = False, **args):
     elif cmd == "stage_end":
         check_cmd(args, [])
     elif cmd == "lock":
-        check_cmd(args, ['label'])
+        check_cmd(args, ['label'], optional = ['quantity', 'variable'])
     elif cmd == "lock_end":
         check_cmd(args, [])
     elif cmd == "timeout":
