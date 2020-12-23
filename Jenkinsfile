@@ -93,10 +93,10 @@ node {
     sh ". workspace/.venv3/bin/activate && pip3 install -r requirements.txt"
     sh "rm workspace/.venv3/bin/python" // remove python to detect illegitime usage of python (which is often python2)
     dir('workspace') {
-      if (self_test) {
-        sh ". .venv3/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python3"
-        junit keepLongStdio: true, testResults: 'junit.xml'
-      }
+      // if (self_test) {
+      //   sh ". .venv3/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python3"
+      //   junit keepLongStdio: true, testResults: 'junit.xml'
+      // }
       if (params.DMAKE_COMMAND == 'test') {
         echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
         sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
