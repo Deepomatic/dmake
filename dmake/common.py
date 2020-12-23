@@ -113,7 +113,7 @@ def append_command(commands, cmd, prepend = False, **args):
             if a not in required and a not in optional:
                 raise DMakeException("Unexpected argument %s for command %s" % (a, cmd))
     if cmd == "stage":
-        check_cmd(args, ['name', 'concurrency'])
+        check_cmd(args, ['name'])
     elif cmd == "stage_end":
         check_cmd(args, [])
     elif cmd == "lock":

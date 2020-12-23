@@ -511,8 +511,6 @@ def generate_command_pipeline(file, cmds):
         if cmd == "stage":
             name = kwargs['name'].replace("'", "\\'")
             write_line('')
-            if kwargs['concurrency'] is not None and kwargs['concurrency'] > 1:
-                raise DMakeException("Unsupported stage concurrency: %s > 1" % kwargs['concurrency'])
             write_line("stage('%s') {" % name)
             indent_level += 1
         elif cmd == "stage_end":
@@ -905,7 +903,7 @@ def make(options, parse_files_only=False):
             continue
         common.logger.info("## %s ##" % (stage))
 
-        append_command(all_commands, 'stage', name = stage, concurrency = 1 if stage == "Deploying" else None)
+        append_command(all_commands, 'stage', name = stage)
 
         stage_commands = []
         for node, order in commands:
