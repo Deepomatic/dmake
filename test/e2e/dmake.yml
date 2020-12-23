@@ -32,8 +32,8 @@ services:
        link_name: nginx
        env_exports:
          NGINX_URL: http://nginx/
-     - service_name: test-external-dependency-nginx
-       link_name: nginx2
+     # - service_name: test-external-dependency-nginx
+     #   link_name: nginx2
     config:
       docker_image:
         build:
