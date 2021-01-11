@@ -658,6 +658,8 @@ def generate_command_pipeline(file, cmds):
 ###############################################################################
 
 def generate_command_bash(file, cmds):
+    assert not common.parallel_execution, "parallel execution not supported with bash runtime"
+
     file.write('test "${DMAKE_DEBUG}" = "1" && set -x\n')
     file.write('set -e\n')
     for cmd, kwargs in cmds:
@@ -906,6 +908,9 @@ def make(options, parse_files_only=False):
         print('Exiting after debug graph generation')
         return debug_dot_graph
 
+
+    # Even with parallel execution we start with display (and thus compute) the execution plan the classic way: per stage and order.
+
     # Sort by order
     ordered_build_files = sorted(build_files_order.items(), key = lambda file_order: file_order[1])
 
@@ -932,15 +937,20 @@ def make(options, parse_files_only=False):
     # Generate the list of command to run
     common.logger.info("Generating commands...")
     all_commands = []
-    append_command(all_commands, 'env', var = "REPO", value = common.repo)
-    append_command(all_commands, 'env', var = "COMMIT", value = common.commit_id)
-    append_command(all_commands, 'env', var = "BUILD", value = common.build_id)
-    append_command(all_commands, 'env', var = "BRANCH", value = common.branch)
-    append_command(all_commands, 'env', var = "NAME_PREFIX", value = common.name_prefix)
-    append_command(all_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
-    # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
-    append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
+    nodes_commands = {}
+    nodes_need_gpu = {}
 
+    init_commands = []
+    append_command(init_commands, 'env', var = "REPO", value = common.repo)
+    append_command(init_commands, 'env', var = "COMMIT", value = common.commit_id)
+    append_command(init_commands, 'env', var = "BUILD", value = common.build_id)
+    append_command(init_commands, 'env', var = "BRANCH", value = common.branch)
+    append_command(init_commands, 'env', var = "NAME_PREFIX", value = common.name_prefix)
+    append_command(init_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
+    # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
+    append_command(init_commands, 'sh', shell = 'dmake_check_tmp_dir')
+
+    all_commands += init_commands
     for stage, commands in ordered_build_files:
         if len(commands) == 0:
             continue
@@ -962,6 +972,9 @@ def make(options, parse_files_only=False):
             links = docker_links[app_name]
 
             step_commands = []
+            # temporarily reset need_gpu to isolate which step triggers it, for potential later parallel execution
+            restore_need_gpu = common.need_gpu
+            common.need_gpu = False
             try:
                 if command == "base":
                     dmake_file.generate_base(step_commands, service)
@@ -985,6 +998,10 @@ def make(options, parse_files_only=False):
                 print(('ERROR in file %s:\n' % file) + str(e))
                 sys.exit(1)
 
+            nodes_commands[node] = step_commands
+            nodes_need_gpu[node] = common.need_gpu
+            common.need_gpu = restore_need_gpu
+
             if len(step_commands) > 0:
                 node_display_str = display_command_node(node)
                 common.logger.info("- {}".format(node_display_str))
@@ -1003,6 +1020,91 @@ def make(options, parse_files_only=False):
             append_command(all_commands, 'lock_end')
 
         append_command(all_commands, 'stage_end')
+
+
+    # Parallel execution?
+    if common.parallel_execution:
+        common.logger.info("===============")
+        common.logger.info("New plan: parallel execution, by height:")
+        # Parallel execution: drop all_commands, start again (but reuse already computed nodes_commands)
+        all_commands = []
+        all_commands += init_commands
+
+        # group nodes by height
+        #   iterate on ordered_build_files instead of directly build_files_order to reuse common.is_pr filtering
+        #   use nodes_depth instead of build_files_order/ordered_build_files order for ASAP execution instead of ALAP (As Late As Possible)
+        nodes_by_height = {}
+        deploy_nodes = []
+        max_height = 0
+        for stage, commands in ordered_build_files:
+            for node, _ in commands:
+                command = node[0]
+                if command == 'deploy':
+                    # isolate deploy to run them all in parallel at the end
+                    deploy_nodes.append(node)
+                    continue
+                height = nodes_depth[node]
+                max_height = max(max_height, height)
+                if height not in nodes_by_height:
+                    nodes_by_height[height] = []
+                nodes_by_height[height].append(node)
+
+        # inject back the deploy nodes as an extra height
+        deploy_height = max_height + 1
+        if deploy_nodes:
+            nodes_by_height[deploy_height] = deploy_nodes
+
+        # generate parallel by height
+        gpu_locked = False
+        for height, nodes in sorted(nodes_by_height.items()):
+            common.logger.info("## height: %s ##" % (height))
+
+            height_commands = []
+            height_need_gpu = False
+            for node in nodes:
+                step_commands = nodes_commands[node]
+
+                if len(step_commands) == 0:
+                    continue
+
+                height_need_gpu |= nodes_need_gpu[node]
+
+                node_display_str = display_command_node(node)
+                common.logger.info("- {}".format(node_display_str))
+
+                append_command(height_commands, 'parallel_branch', name=node_display_str)
+                if height != deploy_height:
+                    # don't lock PARALLEL_BUILDERS on deploy height, it could lead to deployment deadlock if there is a deployment runtime dependancy between services
+                    append_command(height_commands, 'lock', label='PARALLEL_BUILDERS')
+
+                append_command(height_commands, 'echo', message = '- Running {}'.format(node_display_str))
+                height_commands += step_commands
+
+                if height != deploy_height:
+                    # don't lock PARALLEL_BUILDERS on deploy height, it could lead to deployment deadlock if there is a deployment runtime dependancy between services
+                    append_command(height_commands, 'lock_end')
+                append_command(height_commands, 'parallel_branch_end')
+
+            if len(height_commands) == 0:
+                continue
+
+            if height_need_gpu and not gpu_locked:
+                append_command(all_commands, 'lock', label='GPUS', variable='DMAKE_GPU')
+                gpu_locked = True
+
+            append_command(all_commands, 'stage', name = "height {}".format(height))
+            append_command(all_commands, 'parallel')
+
+            all_commands += height_commands
+
+            append_command(all_commands, 'parallel_end')
+            append_command(all_commands, 'stage_end')
+
+        if gpu_locked:
+            append_command(all_commands, 'lock_end')
+
+    # end parallel_execution
+
 
 
     # If not on Pull Request, tag the commit as deployed

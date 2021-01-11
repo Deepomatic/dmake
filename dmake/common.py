@@ -402,6 +402,7 @@ def init(_options, early_exit=False):
     global session_id
     global session_timestamp
     global change_detection, change_detection_override_dirs
+    global parallel_execution
 
     options = _options
     command = _options.cmd
@@ -423,6 +424,8 @@ def init(_options, early_exit=False):
     change_detection_override_dirs = os.getenv('DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS', None)
     if change_detection_override_dirs is not None:
         change_detection_override_dirs = os.getenv('DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS').split(',')
+
+    parallel_execution = os.getenv('DMAKE_PARALLEL_EXECUTION', '0') != '0'
 
     try:
         root_dir, sub_dir = find_repo_root()
