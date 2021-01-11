@@ -87,6 +87,9 @@ node {
     if (params.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP) {
         env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
     }
+
+    // test parallel execution
+    env.DMAKE_PARALLEL_EXECUTION = 1
   }
   stage('Python 3.x') {
     sh "virtualenv -p python3 workspace/.venv3"
