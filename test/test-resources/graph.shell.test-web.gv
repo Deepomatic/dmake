@@ -6,7 +6,7 @@ digraph {
 		"('base', 'dmake-test-web-base__base', None)" [label="base
 dmake-test-web-base::base
 None
-height=2"]
+height=0"]
 		"('base', 'dmake-test-worker-base_ubuntu-1604__base', None)" [label="base
 dmake-test-worker-base:ubuntu-1604::base
 None
@@ -65,7 +65,7 @@ height=0"]
 		"('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)" [label="shared_volume
 shared_volume_web_and_workers::shared_volume
 None
-height=1"]
+height=0"]
 	}
 	"('shell', 'dmake-test/test-web', None)" -> "('base', 'dmake-test-web-base__base', None)"
 	"('shell', 'dmake-test/test-web', None)" -> "('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))"

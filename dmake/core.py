@@ -458,12 +458,11 @@ def check_no_circular_dependencies(dependencies):
         if v:
             leaves.append((k, tree_depth[k]))
 
-    # TODO not sure the sort is useful: it was ignored until now and everyting was fine...
-    return sorted(leaves, key = lambda k_depth: k_depth[1], reverse = True)
+    return leaves, tree_depth
 
 ###############################################################################
 
-def order_dependencies(dependencies, sorted_leaves):
+def order_dependencies(dependencies, leaves):
     ordered_build_files = {}
     def sub_order(key, depth):
         if key in ordered_build_files and depth >= ordered_build_files[key]:
@@ -473,7 +472,7 @@ def order_dependencies(dependencies, sorted_leaves):
             for f in dependencies[key]:
                 sub_order(f, depth - 1)
 
-    for file, depth in sorted_leaves:
+    for file, depth in leaves:
         sub_order(file, depth)
     return ordered_build_files
 
@@ -874,17 +873,19 @@ def make(options, parse_files_only=False):
 
 
     # (warning: tree vocabulary is reversed here: `leaves` are the nodes with no parent dependency, and depth is the number of levels of child dependencies)
-    # check services circularity, and compute node depth
-    sorted_leaves = check_no_circular_dependencies(service_dependencies)
+    # check services circularity, and compute leaves, nodes_depth
+    leaves, nodes_depth = check_no_circular_dependencies(service_dependencies)
     # get nodes leaves related to the dmake command (exclude notably `base` and `shared_volumes` which are created independently from the command)
-    dmake_command_sorted_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, sorted_leaves)
+    dmake_command_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, leaves)
     # prepare reorder by computing shortest node depth starting from the dmake-command-created leaves
-    build_files_order = order_dependencies(service_dependencies, dmake_command_sorted_leaves)
+    #   WARNING: it seems to return different values than nodes_depth: seems to be min(child height)-1 here, vs max(parent height)+1 for nodes_depth (e.g. some run_links have >0 height, but no dependency)
+    #   this effectively runs nodes as late as possible with build_files_order, and as soon as possible with nodes_depth
+    build_files_order = order_dependencies(service_dependencies, dmake_command_leaves)
 
     # cleanup service_dependencies for debug dot graph: remove nodes with no depth: they are not related (directly or by dependency) to dmake-command-created leaves: they are not needed
     service_dependencies_pruned = dict(filter(lambda service_deps: service_deps[0] in build_files_order, service_dependencies.items()))
 
-    debug_dot_graph = common.dump_debug_dot_graph(service_dependencies_pruned, build_files_order)
+    debug_dot_graph = common.dump_debug_dot_graph(service_dependencies_pruned, nodes_depth)
     if common.exit_after_generate_dot_graph:
         print('Exiting after debug graph generation')
         return debug_dot_graph
