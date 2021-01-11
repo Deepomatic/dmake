@@ -341,15 +341,22 @@ def dump_debug_dot_graph(dependencies, nodes_height):
     dot = Digraph(comment='DMake Services', filename=dot_graph_filename, format=dot_graph_format)
     dot.attr('node', shape='box')
 
-    # group nodes by commands
-    commands = {}
+    # group nodes
+    groups = {}
     for node, deps in sorted(dependencies.items()):
-        command = node[0]
-        if command not in commands:
-            commands[command] = []
-        commands[command].append((node, deps))
-    for command, nodes_deps in sorted(commands.items()):
-        # sub graph with same rank: horizontal node alignment per command
+        if dot_graph_group_by == 'command':
+            group = node[0]
+        elif dot_graph_group_by == 'height':
+            group = nodes_height[node]
+        else:
+            raise DMakeException("Invalid group_by for debug graph group by: {}".format(str(group_by)))
+
+        if group not in groups:
+            groups[group] = []
+        groups[group].append((node, deps))
+
+    for group, nodes_deps in sorted(groups.items()):
+        # sub graph with same rank: horizontal node alignment per group
         with dot.subgraph() as s:
             s.attr(rank='same')
             for node, deps in sorted(nodes_deps):
@@ -367,7 +374,7 @@ def dump_debug_dot_graph(dependencies, nodes_height):
 ###############################################################################
 
 def init(_options, early_exit=False):
-    global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_filename, dot_graph_format
+    global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_group_by, dot_graph_filename, dot_graph_format
     global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, name_prefix, image_tag_prefix, force_full_deploy
     global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
@@ -391,7 +398,8 @@ def init(_options, early_exit=False):
 
     generate_dot_graph = options.debug_graph or options.debug_graph_and_exit
     exit_after_generate_dot_graph = options.debug_graph_and_exit
-    dot_graph_filename = options.debug_graph_output_filename
+    dot_graph_group_by = options.debug_graph_group_by
+    dot_graph_filename = options.debug_graph_output_filename or 'dmake-services.debug.{}.gv'.format(dot_graph_group_by)
     dot_graph_format = options.debug_graph_output_format
 
     change_detection = False  # set in core.make()

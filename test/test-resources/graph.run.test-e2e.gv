@@ -6,7 +6,7 @@ digraph {
 		"('base', 'dmake-test-web-base__base', None)" [label="base
 dmake-test-web-base::base
 None
-height=1"]
+height=0"]
 		"('base', 'dmake-test-worker-base_ubuntu-1604__base', None)" [label="base
 dmake-test-worker-base:ubuntu-1604::base
 None
@@ -25,19 +25,19 @@ height=0"]
 		"('build_docker', 'dmake-test/test-e2e', None)" [label="build_docker
 dmake-test/test-e2e
 None
-height=3"]
+height=0"]
 		"('build_docker', 'dmake-test/test-external-dependency-nginx', None)" [label="build_docker
 dmake-test/test-external-dependency-nginx
 None
-height=2"]
+height=0"]
 		"('build_docker', 'dmake-test/test-web', None)" [label="build_docker
 dmake-test/test-web
 None
-height=2"]
+height=1"]
 		"('build_docker', 'dmake-test/test-web2', None)" [label="build_docker
 dmake-test/test-web2
 None
-height=2"]
+height=1"]
 		"('build_docker', 'dmake-test/test-worker_ubuntu-1604', None)" [label="build_docker
 dmake-test/test-worker:ubuntu-1604
 None
@@ -79,11 +79,11 @@ height=4"]
 		"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx', env=[], env_exports=['NGINX_URL']))" [label="run
 dmake-test/test-external-dependency-nginx
 test-external-dependency-nginx (nginx)
-height=3"]
+height=1"]
 		"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx2', env=[], env_exports=[]))" [label="run
 dmake-test/test-external-dependency-nginx
 test-external-dependency-nginx (nginx2)
-height=3"]
+height=1"]
 		"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='web', env=[], env_exports=['WEB_URL']))" [label="run
 dmake-test/test-web
 test-web (web)
@@ -118,6 +118,6 @@ height=0"]
 		"('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)" [label="shared_volume
 shared_volume_web_and_workers::shared_volume
 None
-height=1"]
+height=0"]
 	}
 }

@@ -38,6 +38,7 @@ def test_graph(command, service):
     common.sub_dir = 'test'  # to test '*' for only 'test/'
     common.generate_dot_graph = True
     common.exit_after_generate_dot_graph = True
+    common.dot_graph_group_by = 'command'
     common.dot_graph_filename = None
     dot = core.make(args)
 
