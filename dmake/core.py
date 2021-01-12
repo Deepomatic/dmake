@@ -506,8 +506,16 @@ def generate_command_pipeline(file, cmds):
     cobertura_tests_results_dir = os.path.join(common.relative_cache_dir, 'cobertura_tests_results')
     emit_cobertura = False
 
+    # checks to generate valid Jenkinsfiles
+    check_no_duplicate_stage_names = set()
+    check_no_duplicate_parallel_branch_names_stack = []
+
     for cmd, kwargs in cmds:
         if cmd == "stage":
+            assert kwargs['name'] not in check_no_duplicate_stage_names, \
+                'Duplicate stage name: {}'.format(kwargs['name'])
+            check_no_duplicate_stage_names.add(kwargs['name'])
+
             name = kwargs['name'].replace("'", "\\'")
             write_line('')
             write_line("stage('%s') {" % name)
@@ -516,12 +524,20 @@ def generate_command_pipeline(file, cmds):
             indent_level -= 1
             write_line("}")
         elif cmd == "parallel":
+            # new scope on check_no_duplicate_parallel_branch_names stack
+            check_no_duplicate_parallel_branch_names_stack.append(set())
             write_line("parallel(")
             indent_level += 1
         elif cmd == "parallel_end":
             indent_level -= 1
             write_line(")")
+            # end scope on check_no_duplicate_parallel_branch_names stack
+            check_no_duplicate_parallel_branch_names_stack.pop()
         elif cmd == "parallel_branch":
+            assert kwargs['name'] not in check_no_duplicate_parallel_branch_names_stack[-1], \
+                'Duplicate parallel_branch name: {}'.format(kwargs['name'])
+            check_no_duplicate_parallel_branch_names_stack[-1].add(kwargs['name'])
+
             name = kwargs['name'].replace("'", "\\'")
             write_line("'%s': {" % name)
             indent_level += 1
@@ -988,15 +1004,6 @@ def make(options, parse_files_only=False):
 
         append_command(all_commands, 'stage_end')
 
-    # Check stages do not appear twice (otherwise it may block Jenkins)
-    stage_names = set()
-    for cmd, kwargs in all_commands:
-        if cmd == "stage":
-            name = kwargs['name']
-            if name in stage_names:
-                raise DMakeException('Duplicate stage name: %s' % name)
-            else:
-                stage_names.add(name)
 
     # If not on Pull Request, tag the commit as deployed
     if common.command == "deploy" and not common.is_pr:
