@@ -1048,13 +1048,18 @@ def make(options, parse_files_only=False):
 
             height_commands = []
             height_need_gpu = False
+            height_parallel_branch_count = 0
+            height_last_node = None
             for node in nodes:
                 step_commands = nodes_commands[node]
 
                 if len(step_commands) == 0:
                     continue
 
+                height_last_node = node
+
                 height_need_gpu |= nodes_need_gpu[node]
+                height_parallel_branch_count += 1
 
                 node_display_str = display_command_node(node)
                 common.logger.info("- {}".format(node_display_str))
@@ -1074,6 +1079,21 @@ def make(options, parse_files_only=False):
             if height_need_gpu and not gpu_locked:
                 append_command(all_commands, 'lock', label='GPUS', variable='DMAKE_GPU')
                 gpu_locked = True
+
+            if height_parallel_branch_count == 1:
+                # special case to avoid generating parallel() with 1 branch only, which breaks the blue ocean jenkins UI: emit a stage instead, using height_last_node which is the only node
+                node = height_last_node
+                node_display_str = display_command_node(node)
+
+                append_command(all_commands, 'stage', name = "height {}: {}".format(height, node_display_str))
+                append_command(all_commands, 'lock', label='PARALLEL_BUILDERS')
+
+                append_command(all_commands, 'echo', message = '- Running {}'.format(node_display_str))
+                all_commands += nodes_commands[node]
+
+                append_command(all_commands, 'lock_end')
+                append_command(all_commands, 'stage_end')
+                continue
 
             append_command(all_commands, 'stage', name = "height {}".format(height))
             append_command(all_commands, 'parallel')
