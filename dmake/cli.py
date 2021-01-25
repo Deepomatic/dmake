@@ -22,7 +22,7 @@ def add_argument(parsers, *args, **kwargs):
 
 
 def completion_action(args):
-    print(argcomplete.shellcode('dmake', shell=args.shell))
+    print(argcomplete.shellcode(['dmake'], shell=args.shell))
 
 
 # Find root
