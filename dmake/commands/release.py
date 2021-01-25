@@ -1,10 +1,8 @@
 import os
 
 import dmake.common as common
-import inquirer
 import semver
 from dmake.common import DMakeException
-from github import Github
 
 
 def remove_tag_prefix(tag):
@@ -62,6 +60,10 @@ def is_valid_bump(prev_version, next_version):
 
 
 def entry_point(options):
+    # lazy import for faster cli
+    from github import Github
+    import inquirer
+
     app = getattr(options, 'app')
     release_tag = getattr(options, 'tag')
 

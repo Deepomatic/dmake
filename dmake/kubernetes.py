@@ -1,6 +1,5 @@
 import hashlib
 import json
-import yaml
 
 import dmake.common as common
 
@@ -14,7 +13,7 @@ def get_env_hash(env):
 
 def generate_config_map(env, name, labels = None, annotations = None):
     """Return a kubernetes manifest defining a ConfigMap storing `env`."""
-    data = yaml.safe_load("""
+    data = common.yaml_ordered_load("""
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -38,7 +37,7 @@ def generate_config_map_file(env, name_prefix, output_filepath, labels = None, a
     name = "%s-env-%s" % (name_prefix, env_hash)
     data = generate_config_map(env, name, labels, annotations)
     with open(output_filepath, 'w') as configmap_file:
-        yaml.dump(data, configmap_file, default_flow_style=False)
+        common.yaml_ordered_dump(data, configmap_file, default_flow_style=False)
     return name
 
 

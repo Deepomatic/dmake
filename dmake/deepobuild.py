@@ -5,13 +5,11 @@ import json
 import uuid
 import importlib
 import re
-import requests.exceptions
 from string import Template
 from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer, SerializerType
 import dmake.common as common
 from dmake.common import DMakeException, SharedVolumeNotFoundException, append_command
 import dmake.kubernetes as k8s_utils
-import dmake.docker_registry as docker_registry
 from dmake.docker_image import DockerImageFieldSerializer
 
 ###############################################################################
@@ -225,6 +223,10 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         return result
 
     def _serialize_(self, commands, path_dir):
+        # lazy import for faster cli
+        import requests.exceptions
+        import dmake.docker_registry as docker_registry
+
         # Make the temporary directory
         tmp_dir = common.make_tmp_dir('base_image_{name}'.format(name=common.sanitize_name(self.name)))
 
