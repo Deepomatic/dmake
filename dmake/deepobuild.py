@@ -274,7 +274,11 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             template_files = ["make_base.sh"]
         else:
             template_dir = "docker-base"
-            template_files = ["make_base.sh", "config.logrotate", "load_credentials.sh", "install_pip.sh", "install_pip3.sh"]
+            template_files = ["make_base.sh", "config.logrotate", "load_credentials.sh"]
+            if self.python_requirements:
+                template_files.append("install_pip.sh")
+            if self.python3_requirements:
+                template_files.append("install_pip3.sh")
 
         for template_file in template_files:
             md5s[template_file] = common.run_shell_command('%s dmake_copy_template %s %s' % (local_env, os.path.join(template_dir, template_file), os.path.join(tmp_dir, template_file)))
