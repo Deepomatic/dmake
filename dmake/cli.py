@@ -39,6 +39,7 @@ argparser = argparse.ArgumentParser(prog='dmake')
 argparser.add_argument('--debug-graph', default=False, action='store_true', help="Generate dmake steps DOT graph for debug purposes.")
 argparser.add_argument('--debug-graph-and-exit', default=False, action='store_true', help="Generate dmake steps DOT graph for debug purposes then exit.")
 argparser.add_argument('--debug-graph-group-by', default='command', choices=['command', 'height'], help="Group nodes by <> in generated DOT graph.")
+argparser.add_argument('--debug-graph-pretty', '--no-debug-graph-pretty', default=True, action=common.FlagBooleanAction, help="Pretty or raw output for debug graph.")
 argparser.add_argument('--debug-graph-output-filename', help="The generated DOT graph filename. Defaults to 'dmake-services.debug.{group_by}.gv'")
 argparser.add_argument('--debug-graph-output-format', default='png', help="The generated DOT graph format (`png`, `svg`, `pdf`, ...).")
 

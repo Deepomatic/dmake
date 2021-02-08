@@ -15,6 +15,8 @@ def entry_point(options):
         return "<{}<br/><i><font point-size='10'>{}</font></i>>".format(name, file)
 
     dot = Digraph(comment='DMake Services', filename=options.output, format=options.format)
+    dot.attr('node', shape='box', style='filled', fillcolor='grey95')
+    dot.attr('edge', color='grey50')
     services_graph = Digraph()
     links_graph = Digraph()
     links_graph.attr(rank='same')
@@ -27,8 +29,7 @@ def entry_point(options):
 
             service_node_id = sanitize_id(service_full_name)
             services_graph.node(service_node_id,
-                                label=label(service_full_name, file),
-                                shape='box')
+                                label=label(service_full_name, file))
 
             for dep in service.needed_services:
                 dep_full_name = "%s/%s" % (app_name, dep.service_name)
@@ -43,7 +44,7 @@ def entry_point(options):
             link_name = "%s/%s" % (app_name, link.link_name)
             links_graph.node(sanitize_id(link_full_name),
                              label=label(link_name, file),
-                             shape='')
+                             style='dashed,filled', color='grey50', fillcolor='grey98')
 
     dot.subgraph(services_graph)
     dot.subgraph(links_graph)

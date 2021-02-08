@@ -1,7 +1,6 @@
 // DMake Services
 digraph {
-	node [shape=box]
-	{
+	subgraph "group base" {
 		rank=same
 		"('base', 'dmake-test-web-base__base', None)" [label="base
 dmake-test-web-base::base
@@ -21,7 +20,7 @@ height=0"]
 	"('build_docker', 'dmake-test/test-worker2', None)" -> "('base', 'dmake-test-worker-base_ubuntu-1604__base', None)"
 	"('build_docker', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('base', 'dmake-test-worker-base_ubuntu-1604__base', None)"
 	"('build_docker', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('base', 'dmake-test-worker-base_ubuntu-1804__base', None)"
-	{
+	subgraph "group build_docker" {
 		rank=same
 		"('build_docker', 'dmake-test/test-e2e', None)" [label="build_docker
 dmake-test/test-e2e
@@ -85,7 +84,7 @@ height=1"]
 	"('deploy', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('test', 'dmake-test/test-worker_ubuntu-1604', None)"
 	"('deploy', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1804', None)"
 	"('deploy', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('test', 'dmake-test/test-worker_ubuntu-1804', None)"
-	{
+	subgraph "group deploy" {
 		rank=same
 		"('deploy', 'dmake-test/test-e2e', None)" [label="deploy
 dmake-test/test-e2e
@@ -148,7 +147,7 @@ height=3"]
 	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
 	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
 	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('test', 'dmake-test/test-worker_ubuntu-1804', None)"
-	{
+	subgraph "group run" {
 		rank=same
 		"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx', env=[], env_exports=['NGINX_URL']))" [label="run
 dmake-test/test-external-dependency-nginx
@@ -176,14 +175,14 @@ test-worker:ubuntu-1804 (worker-ubuntu-1804) -- env: ['TEST_SHARED_VOLUME'] -- e
 height=3"]
 	}
 	"('run_link', 'links/dmake-test/rabbitmq', None)" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
-	{
+	subgraph "group run_link" {
 		rank=same
 		"('run_link', 'links/dmake-test/rabbitmq', None)" [label="run_link
 links/dmake-test/rabbitmq
 None
 height=1"]
 	}
-	{
+	subgraph "group shared_volume" {
 		rank=same
 		"('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)" [label="shared_volume
 shared_rabbitmq_var_lib::shared_volume
@@ -218,7 +217,7 @@ height=0"]
 	"('test', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
-	{
+	subgraph "group test" {
 		rank=same
 		"('test', 'dmake-test/test-e2e', None)" [label="test
 dmake-test/test-e2e

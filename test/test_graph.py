@@ -24,6 +24,7 @@ def generate_resources_graph(test_list = graph_test_list):
         subprocess.call([
             'dmake',
             '--debug-graph-and-exit',
+            '--no-debug-graph-pretty',
             '--debug-graph-output-filename={}'.format(expected_dot_path),
             command, service
         ], cwd=path)
@@ -39,6 +40,7 @@ def test_graph(command, service):
     common.generate_dot_graph = True
     common.exit_after_generate_dot_graph = True
     common.dot_graph_group_by = 'command'
+    common.dot_graph_pretty = False
     common.dot_graph_filename = None
     dot = core.make(args)
 

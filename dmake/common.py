@@ -333,13 +333,27 @@ def dump_debug_dot_graph(dependencies, nodes_height):
         return str(node).replace(':', '_')
 
     def node2label(node):
+        if dot_graph_pretty:
+            command, service, service_customization = node
+            label = '<'
+            label += '{}'.format(command)
+            label += '<br/><b>{}</b>'.format(service)
+            if service_customization:
+                label += "<br/><i><font point-size='10'>{}</font></i>".format(service_customization)
+            if node in nodes_height:
+                label += "<br/><i><font point-size='10'>height={}</font></i>".format(nodes_height[node])
+            label += '>'
+            return label
+
         label = '{}\n{}\n{}'.format(*node)
         if node in nodes_height:
             label += '\nheight={}'.format(nodes_height[node])
         return label
 
     dot = Digraph(comment='DMake Services', filename=dot_graph_filename, format=dot_graph_format)
-    dot.attr('node', shape='box')
+    if dot_graph_pretty:
+        dot.attr('node', shape='box', style='filled', fillcolor='grey95')
+        dot.attr('edge', color='grey')
 
     # group nodes
     groups = {}
@@ -357,8 +371,10 @@ def dump_debug_dot_graph(dependencies, nodes_height):
 
     for group, nodes_deps in sorted(groups.items()):
         # sub graph with same rank: horizontal node alignment per group
-        with dot.subgraph() as s:
+        with dot.subgraph(name="group {}".format(group)) as s:
             s.attr(rank='same')
+            if dot_graph_pretty:
+                s.attr(style='filled', color='lightgray', label=str(group))
             for node, deps in sorted(nodes_deps):
                 # create nodes
                 s.node(node2node_id(node), label=node2label(node))
@@ -374,7 +390,7 @@ def dump_debug_dot_graph(dependencies, nodes_height):
 ###############################################################################
 
 def init(_options, early_exit=False):
-    global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_group_by, dot_graph_filename, dot_graph_format
+    global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_group_by, dot_graph_pretty, dot_graph_filename, dot_graph_format
     global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, name_prefix, image_tag_prefix, force_full_deploy
     global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
@@ -399,6 +415,7 @@ def init(_options, early_exit=False):
     generate_dot_graph = options.debug_graph or options.debug_graph_and_exit
     exit_after_generate_dot_graph = options.debug_graph_and_exit
     dot_graph_group_by = options.debug_graph_group_by
+    dot_graph_pretty = options.debug_graph_pretty
     dot_graph_filename = options.debug_graph_output_filename or 'dmake-services.debug.{}.gv'.format(dot_graph_group_by)
     dot_graph_format = options.debug_graph_output_format
 
