@@ -1,3 +1,4 @@
 all:
-	python3 -c "import dmake.docs as docs; docs.generate()" > FORMAT.md
-	python3 -c "import dmake.docs as docs; docs.example()" > EXAMPLE.md
+	dmake generate-doc usage > USAGE.md
+	dmake generate-doc format > FORMAT.md
+	dmake generate-doc example > EXAMPLE.md

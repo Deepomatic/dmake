@@ -291,4 +291,4 @@ Or:
 
 See auto-generated [format documentation](docs/FORMAT.md) and [`dmake.yml` example](docs/EXAMPLE.md).
 
-See also `dmake help` for command-line interface.
+See also [`dmake --help`](docs/USAGE.md) for command-line interface.

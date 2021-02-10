@@ -1,12 +1,17 @@
 import yaml
 from collections import OrderedDict
 from dmake.deepobuild import DMakeFileSerializer
+from dmake import cli
 
 class IndentDumper(yaml.Dumper):
     """Indent arrays '-'."""
     def increase_indent(self, flow=False, indentless=False):
         return super(IndentDumper, self).increase_indent(flow, False)
 
+def usage():
+    print("```")
+    cli.argparser.print_help()
+    print("```")
 
 def generate():
     doc_root = DMakeFileSerializer()

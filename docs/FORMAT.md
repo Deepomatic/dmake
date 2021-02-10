@@ -1,6 +1,9 @@
-- **dmake_version** *(string)*: The dmake version.
+- **dmake_version** *(mixed)*: The dmake version. It can be one of the followings:
+    - a number
+    - a string
 - **app_name** *(string)*: The application name.
 - **blocklist** *(array\<file path\>, default = `[]`)*: List of dmake files to ignore.
+- **blacklist** *(array\<file path\>, default = `[]`)*: Deprecated. Prefer use of 'blocklist'.
 - **env** *(mixed)*: Environment variables to embed in built docker images. It can be one of the followings:
     - a file path
     - an object with the following fields:
@@ -25,6 +28,7 @@
                 - **name** *(string)*: Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.
                 - **variant** *(string)*: When multiple base_image are defined, this names the base_image variant.
                 - **root_image** *(string)*: The source image to build on. Defaults to docker.root_image.
+                - **raw_root_image** *(boolean, default = `False`)*: If true, don't install anything on the root_image before executing install_scripts.
                 - **version** *(string, default = `latest`)*: Deprecated, not used anymore, will be removed later.
                 - **install_scripts** *(array\<file path\>, default = `[]`)*: 
                 - **python_requirements** *(file path, default = ``)*: Path to python requirements.txt.
@@ -34,6 +38,7 @@
                 - **name** *(string)*: Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.
                 - **variant** *(string)*: When multiple base_image are defined, this names the base_image variant.
                 - **root_image** *(string)*: The source image to build on. Defaults to docker.root_image.
+                - **raw_root_image** *(boolean, default = `False`)*: If true, don't install anything on the root_image before executing install_scripts.
                 - **version** *(string, default = `latest`)*: Deprecated, not used anymore, will be removed later.
                 - **install_scripts** *(array\<file path\>, default = `[]`)*: 
                 - **python_requirements** *(file path, default = ``)*: Path to python requirements.txt.
@@ -42,9 +47,6 @@
         - **mount_point** *(string, default = `/app`)*: Mount point of the app in the built docker image. Needs to be an absolute path.
         - **command** *(string, default = `bash`)*: Only used when running 'dmake shell': command passed to `docker run`.
 - **docker_links** *(array\<object\>, default = `[]`)*: List of link to create, they are shared across the whole application, so potentially across multiple dmake files.
-    - **probe_ports** *(mixed, default = `auto`)*: Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp. It can be one of the followings:
-        - a string
-        - an array of strings
     - **image_name** *(string)*: Name and tag of the image to launch.
     - **link_name** *(string)*: Link name.
     - **volumes** *(array\<object\>, default = `[]`)*: Either shared volumes to mount. Or: for the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.
@@ -56,6 +58,9 @@
             - **host_volume** *(string)*: Path of the volume from the host.
     - **need_gpu** *(boolean, default = `False`)*: Whether the docker link needs to be run on a GPU node.
     - **testing_options** *(string, default = ``)*: Additional Docker options when testing on Jenkins.
+    - **probe_ports** *(mixed, default = `auto`)*: Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp. It can be one of the followings:
+        - a string
+        - an array of strings
     - **env** *(free style object, default = `{}`)*: Additional environment variables defined when running this image.
     - **env_exports** *(free style object, default = `{}`)*: A set of environment variables that will be exported in services that use this link when testing.
 - **build** *(object)*: Commands to run for building the application. It must be an object with the following fields:
@@ -72,6 +77,10 @@
         - **link_name** *(string)*: Link name.
         - **env** *(free style object, default = `{}`)*: List of environment variables that will be set when executing the needed service.
         - **env_exports** *(free style object, default = `{}`)*: A set of environment variables that will be exported in services that use this service when testing.
+        - **needed_for** *(object)*: When is this dependency service needed for?. It must be an object with the following fields:
+            - **run** *(boolean, default = `True`)*: Parent service `run` needs this dependency service.
+            - **test** *(boolean, default = `True`)*: Parent service `test` needs this dependency service.
+            - **trigger_test** *(boolean, default = `True`)*: Parent service `test` is triggered by this dependency service change.
     - **needed_links** *(array\<string\>, default = `[]`)*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
     - **sources** *(array\<object\>)*: If specified, this service will be considered as updated only when the content of those directories or files have changed.
         - a file path
@@ -79,9 +88,6 @@
     - **dev** *(object)*: Development runtime configuration. It must be an object with the following fields:
         - **entrypoint** *(file path)*: Set the entrypoint used with `dmake shell`.
     - **config** *(object)*: Deployment configuration. It must be an object with the following fields:
-        - **probe_ports** *(mixed, default = `auto`)*: Either 'none', 'auto' or a list of ports in the form 1234/tcp or 1234/udp. It can be one of the followings:
-            - a string
-            - an array of strings
         - **docker_image** *(mixed)*: Docker image to use for running and deploying. It can be one of the followings:
             - a string
             - an object with the following fields:
@@ -89,8 +95,9 @@
                 - **base_image_variant** *(mixed)*: Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'. It can be one of the followings:
                     - a string
                     - an array of strings
+                - **source_directories_additional_contexts** *(array\<string\>, default = `[]`)*: NOT RECOMMENDED. Additional source directories contexts for changed services auto detection in case of build context going outside of the dmake.yml directory.
                 - **check_private** *(boolean, default = `True`)*: Check that the docker repository is private before pushing the image.
-                - **tag** *(string)*: Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}'.
+                - **tag** *(string)*: Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}', sanitized and made unique with a hash suffix if needed.
                 - **workdir** *(directory path)*: Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.
                 - **copy_directories** *(array\<directory path\>, default = `[]`)*: Directories to copy in the docker image.
                 - **install_script** *(file path)*: The install script (will be run in the docker). It has to be executable.
@@ -101,8 +108,9 @@
                 - **base_image_variant** *(mixed)*: Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'. It can be one of the followings:
                     - a string
                     - an array of strings
+                - **source_directories_additional_contexts** *(array\<string\>, default = `[]`)*: NOT RECOMMENDED. Additional source directories contexts for changed services auto detection in case of build context going outside of the dmake.yml directory.
                 - **check_private** *(boolean, default = `True`)*: Check that the docker repository is private before pushing the image.
-                - **tag** *(string)*: Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}'.
+                - **tag** *(string)*: Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}', sanitized and made unique with a hash suffix if needed.
                 - **build** *(object)*: Docker build options for service built using user-provided Dockerfile (ignore `.build.commands`), like in Docker Compose files.`. It must be an object with the following fields:
                     - **context** *(directory path)*: Docker build context directory.
                     - **dockerfile** *(string)*: Alternate Dockerfile, relative path to `context` directory.
@@ -127,6 +135,7 @@
             - **initial_delay_seconds** *(int, default = `0`)*: The delay before the first probe is launched.
             - **period_seconds** *(int, default = `5`)*: The delay between two first probes.
             - **max_seconds** *(int, default = `0`)*: The maximum delay after failure.
+        - **devices** *(array\<string\>, default = `[]`)*: Device to expose from the host to the container. Support variable substitution in host part, to have a generic dmake.yml with host-specific values configured externally, per machine.
     - **tests** *(object, optional)*: Unit tests list. It must be an object with the following fields:
         - **docker_links_names** *(array\<string\>, default = `[]`)*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
         - **data_volumes** *(array\<object\>, default = `[]`)*: The read only data volumes to mount. Only S3 is supported for now.
@@ -134,7 +143,9 @@
             - **source** *(string)*: Only host path and s3 URLs are supported for now.
             - **read_only** *(boolean, default = `False`)*: Flag to set the volume as read-only.
         - **commands** *(array\<string\>)*: The commands to run for integration tests.
-        - **timeout** *(string)*: The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks).
+        - **timeout** *(mixed)*: The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks). It can be one of the followings:
+            - a number
+            - a string
         - **junit_report** *(mixed, default = `[]`)*: Filepath or array of file paths of xml xunit test reports. Publish a XUnit test report. It can be one of the followings:
             - a string
             - an array of strings
