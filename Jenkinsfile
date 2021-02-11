@@ -98,7 +98,7 @@ node {
     dir('workspace') {
       if (self_test) {
         try {
-          sh ". .venv3/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python3"
+          sh ". .venv3/bin/activate && pytest -vv --color=yes --junit-xml=junit.xml --junit-prefix=python3"
         } finally {
           junit keepLongStdio: true, testResults: 'junit.xml'
         }
