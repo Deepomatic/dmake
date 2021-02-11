@@ -132,6 +132,14 @@ def append_command(commands, cmd, prepend = False, **args):
         check_cmd(args, ['time'])
     elif cmd == "timeout_end":
         check_cmd(args, [])
+    elif cmd == "try":
+        check_cmd(args, [])
+    elif cmd == "catch":
+        check_cmd(args, ['what'])
+    elif cmd == "throw":
+        check_cmd(args, ['what'])
+    elif cmd == "catch_end":
+        check_cmd(args, [])
     elif cmd == "echo":
         check_cmd(args, ['message'])
     elif cmd == "sh":

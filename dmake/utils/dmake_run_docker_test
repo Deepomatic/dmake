@@ -27,7 +27,12 @@ shift 2
 
 TMP_DIR=$(dmake_make_tmp_dir "${SERVICE_NAME/\//-}")
 
+set +e
 dmake_run_docker "" "${NAME}" --cidfile ${TMP_DIR}/cid.txt "$@"
+# always store container id in txt files, even if tests failed
+ret=$?
+set -e
+
 CONTAINER_ID=$(cat ${TMP_DIR}/cid.txt)
 
 if [ ! -z "${SERVICE_NAME}" ]; then
@@ -35,3 +40,5 @@ if [ ! -z "${SERVICE_NAME}" ]; then
 fi
 
 echo ${CONTAINER_ID} >> ${DMAKE_TMP_DIR}/containers_to_remove.txt
+
+exit $ret

@@ -561,6 +561,20 @@ def generate_command_pipeline(file, cmds):
         elif cmd == "timeout_end":
             indent_level -= 1
             write_line("}")
+        elif cmd == "try":
+            write_line("try {")
+            indent_level += 1
+        elif cmd == "catch":
+            what = kwargs['what']
+            indent_level -= 1
+            write_line("} catch(%s) {" % what)
+            indent_level += 1
+        elif cmd == "throw":
+            what = kwargs['what']
+            write_line("throw %s" % what)
+        elif cmd == "catch_end":
+            indent_level -= 1
+            write_line("}")
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
             write_line("dmake_echo '%s'" % message)
@@ -637,11 +651,6 @@ def generate_command_pipeline(file, cmds):
         else:
             raise DMakeException("Unknown command %s" % cmd)
 
-    if emit_cobertura:
-        write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
-        write_line("publishCoverage adapters: [coberturaAdapter(mergeToOneReport: true, path: '%s/**/*.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')" % (cobertura_tests_results_dir))
-        write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
-
     indent_level -= 1
     write_line('}')
     write_line('catch (error) {')
@@ -652,7 +661,15 @@ def generate_command_pipeline(file, cmds):
     write_line('  throw error')
     write_line('}')
     write_line('finally {')
-    write_line('  sh("dmake_clean")')
+    indent_level += 1
+
+    if emit_cobertura:
+        write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
+        write_line("publishCoverage adapters: [coberturaAdapter(mergeToOneReport: true, path: '%s/**/*.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')" % (cobertura_tests_results_dir))
+        write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
+
+    write_line('sh("dmake_clean")')
+    indent_level -= 1
     write_line('}')
 
 ###############################################################################
@@ -668,6 +685,39 @@ def generate_command_bash(file, cmds):
             file.write(data + '\n')
 
     write_line('test "${DMAKE_DEBUG}" = "1" && set -x')
+
+    write_line("""
+# from https://stackoverflow.com/a/25180186/15151442 for try/catch
+function try()
+{
+    [[ $- = *e* ]]; SAVED_OPT_E=$?
+    set +e
+}
+
+function throw()
+{
+    exit $1
+}
+
+function catch()
+{
+    export ex_code=$?
+    (( $SAVED_OPT_E )) && set +e
+    return $ex_code
+}
+
+function throwErrors()
+{
+    set -e
+}
+
+function ignoreErrors()
+{
+    set +e
+}
+
+""")
+
     write_line('set -e')
     for cmd, kwargs in cmds:
         if cmd == "stage":
@@ -698,6 +748,22 @@ def generate_command_bash(file, cmds):
             pass
         elif cmd == "timeout_end":
             pass
+        elif cmd == "try":
+            write_line("try")
+            write_line("(")
+            indent_level += 1
+        elif cmd == "catch":
+            what = kwargs['what']
+            indent_level -= 1
+            write_line(")")
+            write_line("catch || { %s=$ex_code;" % what)
+            indent_level += 1
+        elif cmd == "throw":
+            what = kwargs['what']
+            write_line("throw $%s" % what)
+        elif cmd == "catch_end":
+            indent_level -= 1
+            write_line("}")
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
             write_line("echo '%s'" % message)

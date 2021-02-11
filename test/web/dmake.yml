@@ -79,7 +79,16 @@ services:
           --with-xunit --xunit-file nosetests.xml
           --nologcapture
           --with-id
-      junit_report: nosetests.xml
+        #- lets_fail_here
+        - >-
+          ./manage.py test
+          --verbosity=2 --noinput
+          --with-xunit --xunit-file nosetests2.xml
+          --nologcapture
+          --with-id
+      junit_report:
+        - nosetests.xml
+        - nosetests2.xml
       html_report:
         directory: cover/
         title: Web HTML coverage report
