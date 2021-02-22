@@ -155,12 +155,10 @@ echo "Installing python dependencies with: pip3 install --user -r requirements.t
 pip3 install --user -r $(dirname $0)/requirements.txt
 echo ""
 
-if [ ! -f "${DMAKE_CONFIG_DIR}/completion.bash.inc" ]; then
-  echo "Installing shell completion"
-  # eval and generate shell completion
-  eval "${LINE}"
-  dmake completion > "${DMAKE_CONFIG_DIR}/completion.bash.inc"
-fi
+echo "Installing shell completion"
+# eval and generate shell completion
+eval "${LINE}"
+dmake completion > "${DMAKE_CONFIG_DIR}/completion.bash.inc"
 
 echo "You should be good to go !"
 echo "IMPORTANT: restart your shell session before testing the 'dmake' command !"
