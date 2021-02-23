@@ -660,14 +660,24 @@ def generate_command_pipeline(file, cmds):
 def generate_command_bash(file, cmds):
     assert not common.parallel_execution, "parallel execution not supported with bash runtime"
 
-    file.write('test "${DMAKE_DEBUG}" = "1" && set -x\n')
-    file.write('set -e\n')
+    indent_level = 0
+
+    def write_line(data):
+        if len(data) > 0:
+            file.write('  ' * indent_level)
+            file.write(data + '\n')
+
+    write_line('test "${DMAKE_DEBUG}" = "1" && set -x')
+    write_line('set -e')
     for cmd, kwargs in cmds:
         if cmd == "stage":
-            file.write("\n")
-            file.write("echo -e '\n## %s ##'\n" % kwargs['name'])
+            write_line("")
+            write_line("echo -e '\n## %s ##'" % kwargs['name'])
+            write_line("{")
+            indent_level += 1
         elif cmd == "stage_end":
-            pass
+            indent_level -= 1
+            write_line("}")
         elif cmd == "parallel":
             # parallel not supported with bash, fallback to running sequentially
             pass
@@ -690,31 +700,31 @@ def generate_command_bash(file, cmds):
             pass
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
-            file.write("echo '%s'\n" % message)
+            write_line("echo '%s'" % message)
         elif cmd == "sh":
             commands = kwargs['shell']
             if isinstance(commands, str):
                 commands = [commands]
             for c in commands:
-                file.write("%s\n" % c)
+                write_line("%s" % c)
         elif cmd == "read_sh":
-            file.write("%s=`%s`\n" % (kwargs['var'], kwargs['shell']))
+            write_line("%s=`%s`" % (kwargs['var'], kwargs['shell']))
             if kwargs['fail_if_empty']:
-                file.write("if [ -z \"${%s}\" ]; then exit 1; fi\n" % kwargs['var'])
+                write_line("if [ -z \"${%s}\" ]; then exit 1; fi" % kwargs['var'])
         elif cmd == "env":
-            file.write('%s="%s"\n' % (kwargs['var'], kwargs['value'].replace('"', '\\"')))
-            file.write('export %s\n' % kwargs['var'])
+            write_line('%s="%s"' % (kwargs['var'], kwargs['value'].replace('"', '\\"')))
+            write_line('export %s' % kwargs['var'])
         elif cmd == "git_tag":
-            file.write('git tag --force %s\n' % kwargs['tag'])
-            file.write('git push --force %s refs/tags/%s || echo %s\n' % (common.remote, kwargs['tag'], tag_push_error_msg))
+            write_line('git tag --force %s' % kwargs['tag'])
+            write_line('git push --force %s refs/tags/%s || echo %s' % (common.remote, kwargs['tag'], tag_push_error_msg))
         elif cmd == "junit" or cmd == "cobertura":
             container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
             host_report = make_path_unique_per_variant(kwargs['report'], kwargs['service_name'])
-            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_report, host_report))
+            write_line('dmake_test_get_results "%s" "%s" "%s"' % (kwargs['service_name'], container_report, host_report))
         elif cmd == "publishHTML":
             container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
             host_html_directory = make_path_unique_per_variant(kwargs['directory'], kwargs['service_name'])
-            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_html_directory, host_html_directory))
+            write_line('dmake_test_get_results "%s" "%s" "%s"' % (kwargs['service_name'], container_html_directory, host_html_directory))
         else:
             raise DMakeException("Unknown command %s" % cmd)
 
