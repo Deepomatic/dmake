@@ -40,6 +40,7 @@ services:
           TEST_ENV_OVERRIDE: "1"
           ENV_OVERRIDE_TEST3: from_needed_service_env
           ENV_OVERRIDE_TEST5: from_needed_service_env
+        use_host_ports: false
       - service_name: test-worker:ubuntu-1804
         link_name: worker-ubuntu-1804
         env:
