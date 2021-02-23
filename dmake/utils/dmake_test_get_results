@@ -34,5 +34,6 @@ if [ -z "${LINE}" ]; then
 fi
 CONTAINER_ID=`echo ${LINE} | cut -d\  -f 1`
 
-mkdir -p $(dirname ${DEST_PATH})
-docker cp ${CONTAINER_ID}:${SRC_PATH} ${DEST_PATH}
+PARENT_DEST_PATH=$(dirname ${DEST_PATH})
+mkdir -p ${PARENT_DEST_PATH}
+docker cp ${CONTAINER_ID}:${SRC_PATH} ${PARENT_DEST_PATH}
