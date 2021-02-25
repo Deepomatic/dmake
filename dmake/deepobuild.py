@@ -1077,13 +1077,12 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
 
     def __init__(self, **kwargs):
         super(NeededServiceSerializer, self).__init__(**kwargs)
-        self._specialized = True
 
     def __str__(self):
         s = "%s" % (self.service_name)
         if self.link_name:
             s += " (%s)" % (self.link_name)
-        if self._specialized:
+        if self.env:
             s += " -- env: %s" % (sorted(self.env))
             s += " -- env_exports: %s" % (sorted(self.env_exports))
         return s
@@ -1124,14 +1123,17 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         if self.link_name and \
            not allowed_link_name_pattern.match(self.link_name):
             raise ValidationError("Invalid link name '%s': only '[a-z0-9-]{1,63}' is allowed. " % (self.link_name))
-        self._specialized = len(self.env) > 0
         # a unique identifier that is the same for all equivalent NeededServices
         self._id = hash(self)
         common.logger.debug("NeededService _id: %s for %r" % (self._id, self))
         return result
 
     def get_service_name_unique_suffix(self):
-        return "--%s" % (self._id) if self._specialized else ""
+        # what we really want to know if it's a non-default/specialized NeededService in the sense that: is_specialized == (hash(self) != hash(NeededService(service_name=self.service_name, link_name=self.service_name, env={})))
+        # but it's too complex to construct, with mandatory validation() and such, so we re-implement the hash comparison by pushing down the comparison to the hash inputs instead.
+        if self.env or self.service_name != self.link_name:
+            return "--%s" % (self._id)
+        return ""
 
 class DevConfigSerializer(YAML2PipelineSerializer):
     entrypoint       = FieldSerializer("file", child_path_only = True, executable = True, optional = True, help_text = "Set the entrypoint used with `dmake shell`.")

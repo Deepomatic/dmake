@@ -1,7 +1,6 @@
 // DMake Services
 digraph {
-	node [shape=box]
-	{
+	subgraph "group build_docker" {
 		rank=same
 		"('build_docker', 'dmake-test/test-k8s', None)" [label="build_docker
 dmake-test/test-k8s
@@ -10,7 +9,7 @@ height=0"]
 	}
 	"('deploy', 'dmake-test/test-k8s', None)" -> "('build_docker', 'dmake-test/test-k8s', None)"
 	"('deploy', 'dmake-test/test-k8s', None)" -> "('test', 'dmake-test/test-k8s', None)"
-	{
+	subgraph "group deploy" {
 		rank=same
 		"('deploy', 'dmake-test/test-k8s', None)" [label="deploy
 dmake-test/test-k8s
@@ -18,7 +17,7 @@ None
 height=2"]
 	}
 	"('test', 'dmake-test/test-k8s', None)" -> "('build_docker', 'dmake-test/test-k8s', None)"
-	{
+	subgraph "group test" {
 		rank=same
 		"('test', 'dmake-test/test-k8s', None)" [label="test
 dmake-test/test-k8s

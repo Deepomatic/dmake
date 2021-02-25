@@ -333,25 +333,48 @@ def dump_debug_dot_graph(dependencies, nodes_height):
         return str(node).replace(':', '_')
 
     def node2label(node):
+        if dot_graph_pretty:
+            command, service, service_customization = node
+            label = '<'
+            label += '{}'.format(command)
+            label += '<br/><b>{}</b>'.format(service)
+            if service_customization:
+                label += "<br/><i><font point-size='10'>{}</font></i>".format(service_customization)
+            if node in nodes_height:
+                label += "<br/><i><font point-size='10'>height={}</font></i>".format(nodes_height[node])
+            label += '>'
+            return label
+
         label = '{}\n{}\n{}'.format(*node)
         if node in nodes_height:
             label += '\nheight={}'.format(nodes_height[node])
         return label
 
     dot = Digraph(comment='DMake Services', filename=dot_graph_filename, format=dot_graph_format)
-    dot.attr('node', shape='box')
+    if dot_graph_pretty:
+        dot.attr('node', shape='box', style='filled', fillcolor='grey95')
+        dot.attr('edge', color='grey')
 
-    # group nodes by commands
-    commands = {}
+    # group nodes
+    groups = {}
     for node, deps in sorted(dependencies.items()):
-        command = node[0]
-        if command not in commands:
-            commands[command] = []
-        commands[command].append((node, deps))
-    for command, nodes_deps in sorted(commands.items()):
-        # sub graph with same rank: horizontal node alignment per command
-        with dot.subgraph() as s:
+        if dot_graph_group_by == 'command':
+            group = node[0]
+        elif dot_graph_group_by == 'height':
+            group = nodes_height[node]
+        else:
+            raise DMakeException("Invalid group_by for debug graph group by: {}".format(str(group_by)))
+
+        if group not in groups:
+            groups[group] = []
+        groups[group].append((node, deps))
+
+    for group, nodes_deps in sorted(groups.items()):
+        # sub graph with same rank: horizontal node alignment per group
+        with dot.subgraph(name="group {}".format(group)) as s:
             s.attr(rank='same')
+            if dot_graph_pretty:
+                s.attr(style='filled', color='lightgray', label=str(group))
             for node, deps in sorted(nodes_deps):
                 # create nodes
                 s.node(node2node_id(node), label=node2label(node))
@@ -367,7 +390,7 @@ def dump_debug_dot_graph(dependencies, nodes_height):
 ###############################################################################
 
 def init(_options, early_exit=False):
-    global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_filename, dot_graph_format
+    global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_group_by, dot_graph_pretty, dot_graph_filename, dot_graph_format
     global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
     global branch, target, is_pr, pr_id, build_id, commit_id, name_prefix, image_tag_prefix, force_full_deploy
     global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
@@ -379,6 +402,7 @@ def init(_options, early_exit=False):
     global session_id
     global session_timestamp
     global change_detection, change_detection_override_dirs
+    global parallel_execution
 
     options = _options
     command = _options.cmd
@@ -391,13 +415,17 @@ def init(_options, early_exit=False):
 
     generate_dot_graph = options.debug_graph or options.debug_graph_and_exit
     exit_after_generate_dot_graph = options.debug_graph_and_exit
-    dot_graph_filename = options.debug_graph_output_filename
+    dot_graph_group_by = options.debug_graph_group_by
+    dot_graph_pretty = options.debug_graph_pretty
+    dot_graph_filename = options.debug_graph_output_filename or 'dmake-services.debug.{}.gv'.format(dot_graph_group_by)
     dot_graph_format = options.debug_graph_output_format
 
     change_detection = False  # set in core.make()
     change_detection_override_dirs = os.getenv('DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS', None)
     if change_detection_override_dirs is not None:
         change_detection_override_dirs = os.getenv('DMAKE_CHANGE_DETECTION_OVERRIDE_DIRS').split(',')
+
+    parallel_execution = os.getenv('DMAKE_PARALLEL_EXECUTION', '0') != '0'
 
     try:
         root_dir, sub_dir = find_repo_root()

@@ -458,12 +458,11 @@ def check_no_circular_dependencies(dependencies):
         if v:
             leaves.append((k, tree_depth[k]))
 
-    # TODO not sure the sort is useful: it was ignored until now and everyting was fine...
-    return sorted(leaves, key = lambda k_depth: k_depth[1], reverse = True)
+    return leaves, tree_depth
 
 ###############################################################################
 
-def order_dependencies(dependencies, sorted_leaves):
+def order_dependencies(dependencies, leaves):
     ordered_build_files = {}
     def sub_order(key, depth):
         if key in ordered_build_files and depth >= ordered_build_files[key]:
@@ -473,7 +472,7 @@ def order_dependencies(dependencies, sorted_leaves):
             for f in dependencies[key]:
                 sub_order(f, depth - 1)
 
-    for file, depth in sorted_leaves:
+    for file, depth in leaves:
         sub_order(file, depth)
     return ordered_build_files
 
@@ -507,8 +506,16 @@ def generate_command_pipeline(file, cmds):
     cobertura_tests_results_dir = os.path.join(common.relative_cache_dir, 'cobertura_tests_results')
     emit_cobertura = False
 
+    # checks to generate valid Jenkinsfiles
+    check_no_duplicate_stage_names = set()
+    check_no_duplicate_parallel_branch_names_stack = []
+
     for cmd, kwargs in cmds:
         if cmd == "stage":
+            assert kwargs['name'] not in check_no_duplicate_stage_names, \
+                'Duplicate stage name: {}'.format(kwargs['name'])
+            check_no_duplicate_stage_names.add(kwargs['name'])
+
             name = kwargs['name'].replace("'", "\\'")
             write_line('')
             write_line("stage('%s') {" % name)
@@ -517,12 +524,20 @@ def generate_command_pipeline(file, cmds):
             indent_level -= 1
             write_line("}")
         elif cmd == "parallel":
+            # new scope on check_no_duplicate_parallel_branch_names stack
+            check_no_duplicate_parallel_branch_names_stack.append(set())
             write_line("parallel(")
             indent_level += 1
         elif cmd == "parallel_end":
             indent_level -= 1
             write_line(")")
+            # end scope on check_no_duplicate_parallel_branch_names stack
+            check_no_duplicate_parallel_branch_names_stack.pop()
         elif cmd == "parallel_branch":
+            assert kwargs['name'] not in check_no_duplicate_parallel_branch_names_stack[-1], \
+                'Duplicate parallel_branch name: {}'.format(kwargs['name'])
+            check_no_duplicate_parallel_branch_names_stack[-1].add(kwargs['name'])
+
             name = kwargs['name'].replace("'", "\\'")
             write_line("'%s': {" % name)
             indent_level += 1
@@ -643,6 +658,8 @@ def generate_command_pipeline(file, cmds):
 ###############################################################################
 
 def generate_command_bash(file, cmds):
+    assert not common.parallel_execution, "parallel execution not supported with bash runtime"
+
     file.write('test "${DMAKE_DEBUG}" = "1" && set -x\n')
     file.write('set -e\n')
     for cmd, kwargs in cmds:
@@ -874,20 +891,25 @@ def make(options, parse_files_only=False):
 
 
     # (warning: tree vocabulary is reversed here: `leaves` are the nodes with no parent dependency, and depth is the number of levels of child dependencies)
-    # check services circularity, and compute node depth
-    sorted_leaves = check_no_circular_dependencies(service_dependencies)
+    # check services circularity, and compute leaves, nodes_depth
+    leaves, nodes_depth = check_no_circular_dependencies(service_dependencies)
     # get nodes leaves related to the dmake command (exclude notably `base` and `shared_volumes` which are created independently from the command)
-    dmake_command_sorted_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, sorted_leaves)
+    dmake_command_leaves = filter(lambda a_b__c: a_b__c[0][0] == common.command, leaves)
     # prepare reorder by computing shortest node depth starting from the dmake-command-created leaves
-    build_files_order = order_dependencies(service_dependencies, dmake_command_sorted_leaves)
+    #   WARNING: it seems to return different values than nodes_depth: seems to be min(child height)-1 here, vs max(parent height)+1 for nodes_depth (e.g. some run_links have >0 height, but no dependency)
+    #   this effectively runs nodes as late as possible with build_files_order, and as soon as possible with nodes_depth
+    build_files_order = order_dependencies(service_dependencies, dmake_command_leaves)
 
     # cleanup service_dependencies for debug dot graph: remove nodes with no depth: they are not related (directly or by dependency) to dmake-command-created leaves: they are not needed
     service_dependencies_pruned = dict(filter(lambda service_deps: service_deps[0] in build_files_order, service_dependencies.items()))
 
-    debug_dot_graph = common.dump_debug_dot_graph(service_dependencies_pruned, build_files_order)
+    debug_dot_graph = common.dump_debug_dot_graph(service_dependencies_pruned, nodes_depth)
     if common.exit_after_generate_dot_graph:
         print('Exiting after debug graph generation')
         return debug_dot_graph
+
+
+    # Even with parallel execution we start with display (and thus compute) the execution plan the classic way: per stage and order.
 
     # Sort by order
     ordered_build_files = sorted(build_files_order.items(), key = lambda file_order: file_order[1])
@@ -915,15 +937,20 @@ def make(options, parse_files_only=False):
     # Generate the list of command to run
     common.logger.info("Generating commands...")
     all_commands = []
-    append_command(all_commands, 'env', var = "REPO", value = common.repo)
-    append_command(all_commands, 'env', var = "COMMIT", value = common.commit_id)
-    append_command(all_commands, 'env', var = "BUILD", value = common.build_id)
-    append_command(all_commands, 'env', var = "BRANCH", value = common.branch)
-    append_command(all_commands, 'env', var = "NAME_PREFIX", value = common.name_prefix)
-    append_command(all_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
-    # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
-    append_command(all_commands, 'sh', shell = 'dmake_check_tmp_dir')
+    nodes_commands = {}
+    nodes_need_gpu = {}
 
+    init_commands = []
+    append_command(init_commands, 'env', var = "REPO", value = common.repo)
+    append_command(init_commands, 'env', var = "COMMIT", value = common.commit_id)
+    append_command(init_commands, 'env', var = "BUILD", value = common.build_id)
+    append_command(init_commands, 'env', var = "BRANCH", value = common.branch)
+    append_command(init_commands, 'env', var = "NAME_PREFIX", value = common.name_prefix)
+    append_command(init_commands, 'env', var = "DMAKE_TMP_DIR", value = common.tmp_dir)
+    # check DMAKE_TMP_DIR still exists: detects unsupported jenkins reruns: clear error
+    append_command(init_commands, 'sh', shell = 'dmake_check_tmp_dir')
+
+    all_commands += init_commands
     for stage, commands in ordered_build_files:
         if len(commands) == 0:
             continue
@@ -945,6 +972,9 @@ def make(options, parse_files_only=False):
             links = docker_links[app_name]
 
             step_commands = []
+            # temporarily reset need_gpu to isolate which step triggers it, for potential later parallel execution
+            restore_need_gpu = common.need_gpu
+            common.need_gpu = False
             try:
                 if command == "base":
                     dmake_file.generate_base(step_commands, service)
@@ -968,6 +998,10 @@ def make(options, parse_files_only=False):
                 print(('ERROR in file %s:\n' % file) + str(e))
                 sys.exit(1)
 
+            nodes_commands[node] = step_commands
+            nodes_need_gpu[node] = common.need_gpu
+            common.need_gpu = restore_need_gpu
+
             if len(step_commands) > 0:
                 node_display_str = display_command_node(node)
                 common.logger.info("- {}".format(node_display_str))
@@ -987,15 +1021,91 @@ def make(options, parse_files_only=False):
 
         append_command(all_commands, 'stage_end')
 
-    # Check stages do not appear twice (otherwise it may block Jenkins)
-    stage_names = set()
-    for cmd, kwargs in all_commands:
-        if cmd == "stage":
-            name = kwargs['name']
-            if name in stage_names:
-                raise DMakeException('Duplicate stage name: %s' % name)
-            else:
-                stage_names.add(name)
+
+    # Parallel execution?
+    if common.parallel_execution:
+        common.logger.info("===============")
+        common.logger.info("New plan: parallel execution, by height:")
+        # Parallel execution: drop all_commands, start again (but reuse already computed nodes_commands)
+        all_commands = []
+        all_commands += init_commands
+
+        # group nodes by height
+        #   iterate on ordered_build_files instead of directly build_files_order to reuse common.is_pr filtering
+        #   use nodes_depth instead of build_files_order/ordered_build_files order for ASAP execution instead of ALAP (As Late As Possible)
+        nodes_by_height = {}
+        deploy_nodes = []
+        max_height = 0
+        for stage, commands in ordered_build_files:
+            for node, _ in commands:
+                command = node[0]
+                if command == 'deploy':
+                    # isolate deploy to run them all in parallel at the end
+                    deploy_nodes.append(node)
+                    continue
+                height = nodes_depth[node]
+                max_height = max(max_height, height)
+                if height not in nodes_by_height:
+                    nodes_by_height[height] = []
+                nodes_by_height[height].append(node)
+
+        # inject back the deploy nodes as an extra height
+        deploy_height = max_height + 1
+        if deploy_nodes:
+            nodes_by_height[deploy_height] = deploy_nodes
+
+        # generate parallel by height
+        gpu_locked = False
+        for height, nodes in sorted(nodes_by_height.items()):
+            common.logger.info("## height: %s ##" % (height))
+
+            height_commands = []
+            height_need_gpu = False
+            for node in nodes:
+                step_commands = nodes_commands[node]
+
+                if len(step_commands) == 0:
+                    continue
+
+                height_need_gpu |= nodes_need_gpu[node]
+
+                node_display_str = display_command_node(node)
+                common.logger.info("- {}".format(node_display_str))
+
+                append_command(height_commands, 'parallel_branch', name=node_display_str)
+                if height != deploy_height:
+                    # don't lock PARALLEL_BUILDERS on deploy height, it could lead to deployment deadlock if there is a deployment runtime dependancy between services
+                    append_command(height_commands, 'lock', label='PARALLEL_BUILDERS')
+
+                append_command(height_commands, 'echo', message = '- Running {}'.format(node_display_str))
+                height_commands += step_commands
+
+                if height != deploy_height:
+                    # don't lock PARALLEL_BUILDERS on deploy height, it could lead to deployment deadlock if there is a deployment runtime dependancy between services
+                    append_command(height_commands, 'lock_end')
+                append_command(height_commands, 'parallel_branch_end')
+
+            if len(height_commands) == 0:
+                continue
+
+            if height_need_gpu and not gpu_locked:
+                append_command(all_commands, 'lock', label='GPUS', variable='DMAKE_GPU')
+                gpu_locked = True
+
+            append_command(all_commands, 'stage', name = "height {}".format(height))
+            append_command(all_commands, 'parallel')
+
+            all_commands += height_commands
+
+            append_command(all_commands, 'parallel_end')
+            append_command(all_commands, 'stage_end')
+
+        if gpu_locked:
+            append_command(all_commands, 'lock_end')
+
+    # end parallel_execution
+
+
 
     # If not on Pull Request, tag the commit as deployed
     if common.command == "deploy" and not common.is_pr:
