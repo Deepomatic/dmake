@@ -54,6 +54,7 @@ parser_shell   = subparsers.add_parser('shell', help="Run a shell session within
 parser_deploy  = subparsers.add_parser('deploy', help="Deploy specified apps and services.")
 parser_release = subparsers.add_parser('release', help="Create a release of the app on Github.")
 parser_graph   = subparsers.add_parser('graph', help="Generate a visual graph of the app services dependencies (dot/graphviz format).")
+parser_generate_doc = subparsers.add_parser('generate-doc', help="Generate DMake documentation.")
 
 
 # "service" argument
@@ -79,6 +80,8 @@ parser_run.add_argument("--docker-links-volumes-persistence", "--no-docker-links
 parser_release.add_argument("app", help="Create the release for the given app.")
 parser_release.add_argument('-t', '--tag', nargs='?', help="The release tag from which the release will be created.")
 
+parser_generate_doc.add_argument("kind", choices=['usage', 'format', 'example'])
+
 parser_graph.add_argument('--output', default='dmake-services.gv', help="The generated DOT graph filename.")
 parser_graph.add_argument('--format', default='png', help="The generated DOT graph format (`png`, `svg`, `pdf`, ...).")
 
@@ -90,6 +93,8 @@ parser_shell.set_defaults(func=core.make)
 parser_deploy.set_defaults(func=core.make)
 parser_release.set_defaults(func=commands.release.entry_point)
 parser_graph.set_defaults(func=commands.graph.entry_point)
+parser_generate_doc.set_defaults(func=commands.generate_doc.entry_point)
+
 
 
 # Shell completion

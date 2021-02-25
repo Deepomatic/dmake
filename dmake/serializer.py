@@ -276,6 +276,9 @@ class FieldSerializer(object):
         elif obj == "int":
             type_str = 'int'
             help_text = 'integers' if is_plural else 'an integer'
+        elif obj == "number":
+            type_str = 'number'
+            help_text = 'numbers' if is_plural else 'a number'
         elif obj == "path":
             type_str = 'file or directory path'
             help_text = 'file or directory paths' if is_plural else 'a file or directory path'
@@ -298,6 +301,9 @@ class FieldSerializer(object):
 
     # Returns a tuple (infos, help_text, doc_string)
     def generate_doc(self, padding):
+        # lazy import for faster cli
+        import yaml
+
         infos = []
 
         help_text = self.help_text
@@ -327,7 +333,8 @@ class FieldSerializer(object):
                 default_str = str(self.default)
             else:
                 # complex type: yaml dump
-                default_str = common.yaml_ordered_dump(self.default, normalize_indent=True, default_flow_style=True).strip()
+                # don't use common.yaml_ordered_dump because explicit_start=False doesn't work with version set somehow
+                default_str = yaml.dump(self.default, default_flow_style=True).strip()
             infos.append('default = `%s`' % default_str)
 
         return infos, help_text, doc_string

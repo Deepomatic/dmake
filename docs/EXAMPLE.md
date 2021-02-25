@@ -3,6 +3,8 @@ dmake_version: '0.1'
 app_name: my_app
 blocklist:
   - some/sub/dmake.yml
+blacklist:
+  - some/sub/dmake.yml
 env:
   default:
     source: Some string
@@ -15,14 +17,14 @@ volumes:
   - datasets
 docker: some/file/example
 docker_links:
-  - probe_ports: auto
-    image_name: mongo:3.2
+  - image_name: mongo:3.2
     link_name: mongo
     volumes:
       - datasets:/datasets
       - /mnt:/mnt
     need_gpu: true
     testing_options: -v /mnt:/data
+    probe_ports: auto
     env:
       REDIS_URL: ${REDIS_URL}
     env_exports:
@@ -46,17 +48,22 @@ services:
           CNN_ID: '2'
         env_exports:
           any_key: Some string
+        needed_for:
+          run: true
+          test: true
+          trigger_test: true
     needed_links:
       - mongo
     sources: path/to/app
     dev:
       entrypoint: some/relative/file/example
     config:
-      probe_ports: auto
       docker_image:
         name: Some string
         base_image_variant:
           - Some string
+        source_directories_additional_contexts:
+          - ../web
         check_private: true
         tag: Some string
         workdir: some/dir/example
@@ -81,6 +88,8 @@ services:
         initial_delay_seconds: 1
         period_seconds: 5
         max_seconds: 40
+      devices:
+        - /dev/bus/usb/001/002:/dev/bus/usb/001/002
     tests:
       docker_links_names:
         - mongo
