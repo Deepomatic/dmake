@@ -32,15 +32,24 @@ properties([
                      description: 'Force base image build (don\'t use base image cache)'),
         string(name: 'CUSTOM_ENVIRONMENT',
                defaultValue: '',
-               description: '(optional) Custom environment variables, for custom build. Example: \'FOO=1 BAR=2\'')
+               description: '(optional) Custom environment variables, for custom build. Example: \'FOO=1 BAR=2\''),
+        booleanParam(name: 'ABORT_OLD_BUILDS_ON_PR',
+                     defaultValue: true,
+                     description: 'Abort old builds when job is for a PR.'),
     ]),
     pipelineTriggers([])
 ])
 
+// Abort old builds for PRs
+// from https://issues.jenkins.io/browse/JENKINS-43353?focusedCommentId=395851&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-395851
+def is_pr = !!env.CHANGE_BRANCH  // For PRs Jenkins will give the source branch name
+if (is_pr && params.ABORT_OLD_BUILDS_ON_PR) {
+  def buildNumber = env.BUILD_NUMBER as int
+  if (buildNumber > 1) milestone(buildNumber - 1)
+  milestone ordinal: buildNumber, label: 'Abort old builds'
+}
 
 node {
-  // This displays colors using the 'xterm' ansi color map.
-
   def self_test = (params.REPO_TO_TEST == 'deepomatic/dmake')
 
   def dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '--dependencies' : '--standalone'
