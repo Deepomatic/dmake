@@ -3,6 +3,15 @@
 !worker/
 !web/
 
+**/*~
+**/.#*
+
+# web/ ignores
+web/cover/
+web/coverage.xml
+web/nosetests.xml
+
+
 # worker/ ignores
 worker/dmake.yml
 worker/.dmake/

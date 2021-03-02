@@ -1099,6 +1099,7 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
     env             = FieldSerializer("dict", child = "string", optional = True, default = {}, help_text = "List of environment variables that will be set when executing the needed service.", example = {'CNN_ID': '2'})
     env_exports     = FieldSerializer("dict", child = "string", default = {}, help_text = "A set of environment variables that will be exported in services that use this service when testing.")
     needed_for      = NeededForSerializer(help_text = "When is this dependency service needed for?")
+    use_host_ports  = FieldSerializer("bool", optional = True, help_text = "Set to false to disable exposing internal dependency service ports on host, without impacting his feature when that service is directly started.")
 
     def __init__(self, **kwargs):
         super(NeededServiceSerializer, self).__init__(**kwargs)
@@ -1421,6 +1422,7 @@ class DMakeFile(DMakeFileSerializer):
         unique_service_name = service_name
         additional_customization_env_variables = {}
         link_name = None
+        use_host_ports = None
         if service_customization:
             # customization variables will be evaluated later:
             #   by `env.get_replaced_variables()` in the wrong dmake file runtime `.env`, but sometimes OK thanks to needed_links env_exports
@@ -1429,8 +1431,9 @@ class DMakeFile(DMakeFileSerializer):
             # daemon name: <app_name>/<service_name><optional_unique_suffix>; service_name already contains "<app_name>/"
             unique_service_name += service_customization.get_service_name_unique_suffix()
             link_name = service_customization.link_name
+            use_host_ports = service_customization.use_host_ports
 
-        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, dependencies_needed_for='run', additional_env_variables=additional_customization_env_variables)
+        docker_opts, image_name, env = self._generate_run_docker_opts_(commands, service, docker_links, dependencies_needed_for='run', additional_env_variables=additional_customization_env_variables, use_host_ports=use_host_ports)
         docker_opts += service.tests.get_mounts_opt(service_name, self.__path__, env)
         docker_cmd = 'dmake_run_docker_daemon "%s" "%s" "%s" "" %s -i %s' % (self.app_name, unique_service_name, link_name or "", docker_opts, image_name)
         docker_cmd = service.get_docker_run_gpu_cmd_prefix() + docker_cmd

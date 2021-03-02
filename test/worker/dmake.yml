@@ -68,6 +68,9 @@ services:
             com.deepomatic.version.is-on-premises: "false"
             build-host: "${HOSTNAME}"
           target: runtime
+      ports:
+        - container_port: 8001
+          host_port: 9001
       env_override:
         ENV_OVERRIDE_TEST2: from_env_override
         ENV_OVERRIDE_TEST3: from_env_override
