@@ -52,6 +52,7 @@ services:
           run: true
           test: true
           trigger_test: true
+        use_host_ports: true
     needed_links:
       - mongo
     sources: path/to/app

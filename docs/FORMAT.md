@@ -81,6 +81,7 @@
             - **run** *(boolean, default = `True`)*: Parent service `run` needs this dependency service.
             - **test** *(boolean, default = `True`)*: Parent service `test` needs this dependency service.
             - **trigger_test** *(boolean, default = `True`)*: Parent service `test` is triggered by this dependency service change.
+        - **use_host_ports** *(boolean)*: Set to false to disable exposing internal dependency service ports on host, without impacting his feature when that service is directly started.
     - **needed_links** *(array\<string\>, default = `[]`)*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
     - **sources** *(array\<object\>)*: If specified, this service will be considered as updated only when the content of those directories or files have changed.
         - a file path
