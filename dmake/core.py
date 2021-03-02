@@ -499,7 +499,7 @@ def generate_command_pipeline(file, cmds):
 
     if common.build_description is not None:
         write_line("currentBuild.description = '%s'" % common.build_description.replace("'", "\\'"))
-    write_line("def dmake_echo(message) { sh(script: \"echo $message\", label: message) }")
+    write_line("def dmake_echo(message) { sh(script: \"echo '${message}'\", label: message) }")
     write_line('try {')
     indent_level += 1
 
@@ -559,6 +559,20 @@ def generate_command_pipeline(file, cmds):
             write_line("timeout(time: %s, unit: 'SECONDS') {" % time)
             indent_level += 1
         elif cmd == "timeout_end":
+            indent_level -= 1
+            write_line("}")
+        elif cmd == "try":
+            write_line("try {")
+            indent_level += 1
+        elif cmd == "catch":
+            what = kwargs['what']
+            indent_level -= 1
+            write_line("} catch(%s) {" % what)
+            indent_level += 1
+        elif cmd == "throw":
+            what = kwargs['what']
+            write_line("throw %s" % what)
+        elif cmd == "catch_end":
             indent_level -= 1
             write_line("}")
         elif cmd == "echo":
@@ -637,11 +651,6 @@ def generate_command_pipeline(file, cmds):
         else:
             raise DMakeException("Unknown command %s" % cmd)
 
-    if emit_cobertura:
-        write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
-        write_line("publishCoverage adapters: [coberturaAdapter(mergeToOneReport: true, path: '%s/**/*.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')" % (cobertura_tests_results_dir))
-        write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
-
     indent_level -= 1
     write_line('}')
     write_line('catch (error) {')
@@ -652,7 +661,15 @@ def generate_command_pipeline(file, cmds):
     write_line('  throw error')
     write_line('}')
     write_line('finally {')
-    write_line('  sh("dmake_clean")')
+    indent_level += 1
+
+    if emit_cobertura:
+        write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
+        write_line("publishCoverage adapters: [coberturaAdapter(mergeToOneReport: true, path: '%s/**/*.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')" % (cobertura_tests_results_dir))
+        write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
+
+    write_line('sh("dmake_clean")')
+    indent_level -= 1
     write_line('}')
 
 ###############################################################################
@@ -660,14 +677,57 @@ def generate_command_pipeline(file, cmds):
 def generate_command_bash(file, cmds):
     assert not common.parallel_execution, "parallel execution not supported with bash runtime"
 
-    file.write('test "${DMAKE_DEBUG}" = "1" && set -x\n')
-    file.write('set -e\n')
+    indent_level = 0
+
+    def write_line(data):
+        if len(data) > 0:
+            file.write('  ' * indent_level)
+            file.write(data + '\n')
+
+    write_line('test "${DMAKE_DEBUG}" = "1" && set -x')
+
+    write_line("""
+# from https://stackoverflow.com/a/25180186/15151442 for try/catch
+function try()
+{
+    [[ $- = *e* ]]; SAVED_OPT_E=$?
+    set +e
+}
+
+function throw()
+{
+    exit $1
+}
+
+function catch()
+{
+    export ex_code=$?
+    (( $SAVED_OPT_E )) && set +e
+    return $ex_code
+}
+
+function throwErrors()
+{
+    set -e
+}
+
+function ignoreErrors()
+{
+    set +e
+}
+
+""")
+
+    write_line('set -e')
     for cmd, kwargs in cmds:
         if cmd == "stage":
-            file.write("\n")
-            file.write("echo -e '\n## %s ##'\n" % kwargs['name'])
+            write_line("")
+            write_line("echo -e '\n## %s ##'" % kwargs['name'])
+            write_line("{")
+            indent_level += 1
         elif cmd == "stage_end":
-            pass
+            indent_level -= 1
+            write_line("}")
         elif cmd == "parallel":
             # parallel not supported with bash, fallback to running sequentially
             pass
@@ -688,33 +748,49 @@ def generate_command_bash(file, cmds):
             pass
         elif cmd == "timeout_end":
             pass
+        elif cmd == "try":
+            write_line("try")
+            write_line("(")
+            indent_level += 1
+        elif cmd == "catch":
+            what = kwargs['what']
+            indent_level -= 1
+            write_line(")")
+            write_line("catch || { %s=$ex_code;" % what)
+            indent_level += 1
+        elif cmd == "throw":
+            what = kwargs['what']
+            write_line("throw $%s" % what)
+        elif cmd == "catch_end":
+            indent_level -= 1
+            write_line("}")
         elif cmd == "echo":
             message = kwargs['message'].replace("'", "\\'")
-            file.write("echo '%s'\n" % message)
+            write_line("echo '%s'" % message)
         elif cmd == "sh":
             commands = kwargs['shell']
             if isinstance(commands, str):
                 commands = [commands]
             for c in commands:
-                file.write("%s\n" % c)
+                write_line("%s" % c)
         elif cmd == "read_sh":
-            file.write("%s=`%s`\n" % (kwargs['var'], kwargs['shell']))
+            write_line("%s=`%s`" % (kwargs['var'], kwargs['shell']))
             if kwargs['fail_if_empty']:
-                file.write("if [ -z \"${%s}\" ]; then exit 1; fi\n" % kwargs['var'])
+                write_line("if [ -z \"${%s}\" ]; then exit 1; fi" % kwargs['var'])
         elif cmd == "env":
-            file.write('%s="%s"\n' % (kwargs['var'], kwargs['value'].replace('"', '\\"')))
-            file.write('export %s\n' % kwargs['var'])
+            write_line('%s="%s"' % (kwargs['var'], kwargs['value'].replace('"', '\\"')))
+            write_line('export %s' % kwargs['var'])
         elif cmd == "git_tag":
-            file.write('git tag --force %s\n' % kwargs['tag'])
-            file.write('git push --force %s refs/tags/%s || echo %s\n' % (common.remote, kwargs['tag'], tag_push_error_msg))
+            write_line('git tag --force %s' % kwargs['tag'])
+            write_line('git push --force %s refs/tags/%s || echo %s' % (common.remote, kwargs['tag'], tag_push_error_msg))
         elif cmd == "junit" or cmd == "cobertura":
             container_report = os.path.join(kwargs['mount_point'], kwargs['report'])
             host_report = make_path_unique_per_variant(kwargs['report'], kwargs['service_name'])
-            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_report, host_report))
+            write_line('dmake_test_get_results "%s" "%s" "%s"' % (kwargs['service_name'], container_report, host_report))
         elif cmd == "publishHTML":
             container_html_directory = os.path.join(kwargs['mount_point'], kwargs['directory'])
             host_html_directory = make_path_unique_per_variant(kwargs['directory'], kwargs['service_name'])
-            file.write('dmake_test_get_results "%s" "%s" "%s"\n' % (kwargs['service_name'], container_html_directory, host_html_directory))
+            write_line('dmake_test_get_results "%s" "%s" "%s"' % (kwargs['service_name'], container_html_directory, host_html_directory))
         else:
             raise DMakeException("Unknown command %s" % cmd)
 

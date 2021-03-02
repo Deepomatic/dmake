@@ -97,8 +97,11 @@ node {
     sh "rm workspace/.venv3/bin/python" // remove python to detect illegitime usage of python (which is often python2)
     dir('workspace') {
       if (self_test) {
-        sh ". .venv3/bin/activate && pytest -vv --junit-xml=junit.xml --junit-prefix=python3"
-        junit keepLongStdio: true, testResults: 'junit.xml'
+        try {
+          sh ". .venv3/bin/activate && pytest -vv --color=yes --junit-xml=junit.xml --junit-prefix=python3"
+        } finally {
+          junit keepLongStdio: true, testResults: 'junit.xml'
+        }
       }
       if (params.DMAKE_COMMAND == 'test') {
         echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"

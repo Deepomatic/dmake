@@ -1030,29 +1030,54 @@ class TestSerializer(YAML2PipelineSerializer):
         if not self.has_value() or len(self.commands) == 0:
             return
 
-        tests_cmd = '/bin/bash -x -c %s' % common.wrap_cmd_simple_quotes(' && '.join(self.commands))
+        # we want to collect tests results even when tests fail; and support partially executed tests, so partially existing files to collect, but still get test results collection error when the tests succeeded: need to duplicate the collection, and wrap them in try/except to ignore collection error when needed
+
+        tests_results_collection_commands = []
+
+        for junit_report in self.junit_report:
+            append_command(tests_results_collection_commands, 'junit', report = os.path.join(path, junit_report), service_name = service_name, mount_point = mount_point)
+
+        for cobertura_report in self.cobertura_report:
+            append_command(tests_results_collection_commands, 'cobertura', report = os.path.join(path, cobertura_report), service_name = service_name, mount_point = mount_point)
+
+        html = self.html_report._value_()
+        if html is not None:
+            append_command(tests_results_collection_commands, 'publishHTML', service_name = service_name, mount_point = mount_point,
+                           directory = os.path.join(path, html['directory']),
+                           index     = html['index'],
+                           title     = html['title'],)
+
+
+        if tests_results_collection_commands:
+            append_command(commands, 'try')
 
         has_timeout = self.timeout is not None
         if has_timeout:
             append_command(commands, 'timeout', time = self.timeout)
 
+        tests_cmd = '/bin/bash -x -c %s' % common.wrap_cmd_simple_quotes(' && '.join(self.commands))
         append_command(commands, 'sh', shell = docker_cmd + tests_cmd)
 
         if has_timeout:
             append_command(commands, 'timeout_end')
 
-        for junit_report in self.junit_report:
-            append_command(commands, 'junit', report = os.path.join(path, junit_report), service_name = service_name, mount_point = mount_point)
+        if tests_results_collection_commands:
+            append_command(commands, 'catch', what='error_tests')
+            # if anything bad happened, try to collect what's there; ignore any error (file not found) and try to collect as much as possible
+            append_command(commands, 'echo', message = 'Some tests for this service failed: trying now to collect existing test results.')
+            for command in tests_results_collection_commands:
+                append_command(commands, 'try')
+                commands.append(command)
+                append_command(commands, 'catch', what='errors_tests_results_collection_to_ignore')
+                append_command(commands, 'echo', message = 'Ignoring test result collection error after tests execution failure: some tests may have been skipped because of a previous test failed, not generating the expected tests results, all is fine.')
+                append_command(commands, 'catch_end')
 
-        for cobertura_report in self.cobertura_report:
-            append_command(commands, 'cobertura', report = os.path.join(path, cobertura_report), service_name = service_name, mount_point = mount_point)
+            append_command(commands, 'echo', message = 'Some tests for this service failed: finished trying to collect existing test results, re-throwing the error now.')
+            append_command(commands, 'throw', what='error_tests')
+            append_command(commands, 'catch_end')
 
-        html = self.html_report._value_()
-        if html is not None:
-            append_command(commands, 'publishHTML', service_name = service_name, mount_point = mount_point,
-                           directory = os.path.join(path, html['directory']),
-                           index     = html['index'],
-                           title     = html['title'],)
+            # emit normal tests results collection commands after the tests: if they fail they should raise an error
+            commands.extend(tests_results_collection_commands)
 
 
 allowed_link_name_pattern = re.compile("^[a-z0-9-]{1,63}$")  # too laxist, but easy to read
