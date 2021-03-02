@@ -55,6 +55,12 @@ try {
     default_clear_workspace=false
 }
 
+try {
+    default_abort_old_builds_on_pr=DEFAULT_ABORT_OLD_BUILDS_ON_PR
+} catch (e) {
+    default_abort_old_builds_on_pr=true
+}
+
 
 try {
     default_pipeline_triggers=DEFAULT_PIPELINE_TRIGGERS
@@ -92,9 +98,23 @@ properties([
         booleanParam(name: 'CLEAR_WORKSPACE',
                      defaultValue: default_clear_workspace,
                      description: 'Wipe out the workspace when starting the build if checked'),
+        booleanParam(name: 'ABORT_OLD_BUILDS_ON_PR',
+                     defaultValue: default_abort_old_builds_on_pr,
+                     description: 'Abort old builds when job is for a PR.'),
     ]),
     pipelineTriggers(default_pipeline_triggers)
 ])
+
+
+// Abort old builds for PRs
+// from https://issues.jenkins.io/browse/JENKINS-43353?focusedCommentId=395851&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-395851
+def is_pr = !!env.CHANGE_BRANCH  // For PRs Jenkins will give the source branch name
+if (is_pr && params.ABORT_OLD_BUILDS_ON_PR) {
+  def buildNumber = env.BUILD_NUMBER as int
+  if (buildNumber > 1) milestone(buildNumber - 1)
+  milestone ordinal: buildNumber, label: 'Abort old builds'
+}
+
 
 sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                         env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
@@ -113,9 +133,6 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
     if (params.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP) {
         env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
     }
-
-    // For PRs Jenkins will give the source branch name
-    def is_pr = !!env.CHANGE_BRANCH
 
     def dmake_command = params.DMAKE_COMMAND
     try {
