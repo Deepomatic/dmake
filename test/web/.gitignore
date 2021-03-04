@@ -1,3 +1,4 @@
 cover/
 coverage.xml
 nosetests.xml
+nosetests2.xml

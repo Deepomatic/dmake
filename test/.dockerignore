@@ -10,7 +10,7 @@
 web/cover/
 web/coverage.xml
 web/nosetests.xml
-
+web/nosetests2.xml
 
 # worker/ ignores
 worker/dmake.yml

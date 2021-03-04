@@ -3,6 +3,11 @@
 *.pyc
 .venv
 
+**/__pycache__/
+**/.cache/
+**/.pytest_cache/
+**/.mypy_cache/
+DMakefile
 
 /jenkins/jenkins_home
 /jenkins/jenkins_home.zip
