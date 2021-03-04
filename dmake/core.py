@@ -722,8 +722,7 @@ function ignoreErrors()
     for cmd, kwargs in cmds:
         if cmd == "stage":
             write_line("")
-            write_line("echo -e '\n## %s ##'" % kwargs['name'])
-            write_line("{")
+            write_line("{ echo -e '\n## %s ##'" % kwargs['name'])
             indent_level += 1
         elif cmd == "stage_end":
             indent_level -= 1
