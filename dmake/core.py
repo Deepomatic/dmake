@@ -664,9 +664,15 @@ def generate_command_pipeline(file, cmds):
     indent_level += 1
 
     if emit_cobertura:
+        write_line("try {")
+        indent_level += 1
         write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
         write_line("publishCoverage adapters: [coberturaAdapter(mergeToOneReport: true, path: '%s/**/*.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')" % (cobertura_tests_results_dir))
         write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
+        indent_level -= 1
+        write_line("} catch (error) {")
+        write_line("  dmake_echo 'Late cobertura_report test result collection failed, it may be because the test steps were not reached (earlier error: check logs/steps above/before), or because the cobertura_report is misconfigured (check the path config).'")
+        write_line("}")
 
     write_line('sh("dmake_clean")')
     indent_level -= 1
