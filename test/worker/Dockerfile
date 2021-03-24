@@ -20,4 +20,3 @@ COPY --from=builder /usr/local/worker .
 COPY --from=builder /web/requirements.txt /web-requirements.txt
 
 CMD ["deploy/start.sh"]
-ENTRYPOINT ["/app/test/worker/deploy/entrypoint.sh"]

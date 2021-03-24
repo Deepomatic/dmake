@@ -4,7 +4,7 @@ app_name: dmake-tutorial
 env:
   default:
     variables:
-      AMQP_URL: amqp://rabbitmq/dev
+      AMQP_URL: amqp://user:password@rabbitmq/dev
 
 docker:
   base_image:
@@ -24,7 +24,6 @@ services:
       - worker
     config:
       docker_image:
-        entrypoint: deploy/entrypoint.sh
         start_script: deploy/start.sh
       ports:
         - container_port: 8000

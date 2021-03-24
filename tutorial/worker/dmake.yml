@@ -4,7 +4,7 @@ app_name: dmake-tutorial
 env:
   default:
     variables:
-      AMQP_URL: amqp://rabbitmq/dev
+      AMQP_URL: amqp://user:password@rabbitmq/dev
 
 docker:
   base_image:
@@ -29,7 +29,7 @@ services:
     needed_links:
       - rabbitmq
     dev:
-      entrypoint: deploy/entrypoint.sh
+      entrypoint: deploy/dev-entrypoint.sh
     config:
       docker_image:
         build:
