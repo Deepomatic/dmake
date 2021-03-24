@@ -431,6 +431,13 @@ class DockerLinkSerializer(YAML2PipelineSerializer):
     env              = FieldSerializer("dict", child = "string", default = {}, example = {'REDIS_URL': '${REDIS_URL}'}, help_text = "Additional environment variables defined when running this image.")
     env_exports      = FieldSerializer("dict", child = "string", default = {}, help_text = "A set of environment variables that will be exported in services that use this link when testing.")
 
+    def _validate_(self, file, needed_migrations, data, field_name=''):
+        result = super(DockerLinkSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        if not allowed_link_name_pattern.match(self.link_name):
+            raise ValidationError("Invalid link name '%s': only '[a-z0-9-]{1,63}' is allowed. " % (self.link_name))
+        LinkNames.check_duplicate_link_name('docker_link', self, file)
+        return result
+
     def get_options(self, path, env):
         options = common.eval_str_in_env(self.testing_options, env)
 
@@ -1092,6 +1099,36 @@ class NeededForSerializer(YAML2PipelineSerializer):
         return getattr(self, kind)
 
 
+class LinkNames(object):
+    # link_name to (kind[needed_link|needed_service], object, file)
+    link_names = dict()
+
+    @staticmethod
+    def reset():
+        LinkNames.link_names = dict()
+
+    @staticmethod
+    def check_duplicate_link_name(kind, link, file):
+        """
+        Goal: guarantee that each different docker container has a unique link name, while allowing multiple services linking to the same docker container (thus without ambiguity)
+        Rules:
+        - docker_links: no duplicate link_name
+        - needed_services: can duplicate link_name iff NeededServices are equivalent (same service_name, same env_exports, but env_exports and other attributes can be different)
+        - same link_name cannot be reused between docker_links and needed_services
+        How: compare kind and object:
+        - NeededServices has a specialized __eq__() testing the previously defined equivalence
+        - DockerLink has the standard __eq__() testing object instance equality
+        """
+        # TODO isolate by app name
+        link_name = link.link_name
+        if not link_name:
+            return
+        if link_name in LinkNames.link_names:
+            other_kind, other_link, other_file = LinkNames.link_names[link_name]
+            if not (kind == other_kind and link == other_link):
+                raise ValidationError("Duplicate link name '{link_name}' with different definitions: '{kind}' in '{file}', was previously defined as '{other_kind}' in '{other_file}'".format(link_name=link_name, kind=kind, file=file, other_kind=other_kind, other_file=other_file))
+        LinkNames.link_names[link_name] = (kind, link, file)
+
 @functools.total_ordering
 class NeededServiceSerializer(YAML2PipelineSerializer):
     service_name    = FieldSerializer("string", help_text = "The name of the needed application part.", example = "worker-nn", no_slash_no_space = True)
@@ -1149,6 +1186,7 @@ class NeededServiceSerializer(YAML2PipelineSerializer):
         if self.link_name and \
            not allowed_link_name_pattern.match(self.link_name):
             raise ValidationError("Invalid link name '%s': only '[a-z0-9-]{1,63}' is allowed. " % (self.link_name))
+        LinkNames.check_duplicate_link_name('needed_link', self, file)
         # a unique identifier that is the same for all equivalent NeededServices
         self._id = hash(self)
         common.logger.debug("NeededService _id: %s for %r" % (self._id, self))
@@ -1545,3 +1583,4 @@ class DMakeFile(DMakeFileSerializer):
 
 def reset():
     SharedVolumes.reset()
+    LinkNames.reset()

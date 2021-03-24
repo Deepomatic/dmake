@@ -17,7 +17,7 @@ docker:
 env:
   default:
     variables:
-      AMQP_URL: amqp://rabbitmq/dev
+      AMQP_URL: amqp://test-rabbitmq/dev
       ENV_OVERRIDE_TEST1: from_root_env
       ENV_OVERRIDE_TEST2: from_root_env
       ENV_OVERRIDE_TEST3: from_root_env
@@ -28,7 +28,7 @@ env:
 
 docker_links:
   - image_name: rabbitmq:3.7
-    link_name: rabbitmq
+    link_name: test-rabbitmq
     probe_ports:
       - 5672/tcp
     volumes:
@@ -47,7 +47,7 @@ services:
         - echo 'OK'
   - service_name: test-worker
     needed_links:
-      - rabbitmq
+      - test-rabbitmq
     dev:
       entrypoint: deploy/entrypoint.sh
     config:
