@@ -12,7 +12,7 @@ env:
   branches:
     master:
       variables:
-        AMQP_URL: amqp://1.2.3.4/prod
+        AMQP_URL: amqp://user:password@test-rabbitmq/dev
 
 volumes:
   - shared_rabbitmq_var_lib

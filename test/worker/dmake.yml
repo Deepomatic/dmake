@@ -24,7 +24,7 @@ env:
   branches:
     master:
       variables:
-        AMQP_URL: amqp://1.2.3.4/prod
+        AMQP_URL: amqp://user:password@test-rabbitmq/dev
 
 docker_links:
   - image_name: rabbitmq:3.8
