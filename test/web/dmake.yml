@@ -4,7 +4,7 @@ app_name: dmake-test
 env:
   default:
     variables:
-      AMQP_URL: amqp://rabbitmq/dev
+      AMQP_URL: amqp://test-rabbitmq/dev
       SHARED_VOLUME_ROOT: /shared_volume_root_value
       ENV_EVALUATION_TEST: foobar
       ENV_OVERRIDE_TEST: "1"
@@ -32,7 +32,7 @@ docker:
 services:
   - service_name: test-web
     needed_links:
-      - rabbitmq
+      - test-rabbitmq
     needed_services:
       - service_name: test-worker:ubuntu-1604
         env:
@@ -42,7 +42,7 @@ services:
           ENV_OVERRIDE_TEST5: from_needed_service_env
         use_host_ports: false
       - service_name: test-worker:ubuntu-1804
-        link_name: worker-ubuntu-1804
+        link_name: test-worker-ubuntu-1804
         env:
           TEST_SHARED_VOLUME: "1"
     config:
@@ -72,7 +72,7 @@ services:
         - touch 'tag' # test shared environment for multiple commands test
         - test -f "tag"  # test command escaping
         - deploy/test-shared-volumes.sh /shared_volume_root_value/shared_volume_with_workers
-        - deploy/test-needed-service-link.sh worker-ubuntu-1804
+        - deploy/test-needed-service-link.sh test-worker-ubuntu-1804
         - >-
           ./manage.py test
           --verbosity=2 --noinput
@@ -98,13 +98,13 @@ services:
   - service_name: test-web2
     needed_services:
       - service_name: test-worker:ubuntu-1804
-        link_name: worker-ubuntu-1804
+        link_name: test-worker-ubuntu-1804
         env:
           TEST_SHARED_VOLUME: "1"
         needed_for:
           test: false
     needed_links:
-      - rabbitmq
+      - test-rabbitmq
     config:
       docker_image:
         entrypoint: deploy/entrypoint.sh

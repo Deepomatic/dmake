@@ -92,62 +92,62 @@ dmake-test/test-worker:ubuntu-1804
 None
 height=3"]
 	}
-	"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx', env=[], env_exports=['NGINX_URL']))" -> "('build_docker', 'dmake-test/test-external-dependency-nginx', None)"
-	"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx', env=[], env_exports=['NGINX_URL']))" -> "('test', 'dmake-test/test-external-dependency-nginx', None)"
-	"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx2', env=[], env_exports=[]))" -> "('build_docker', 'dmake-test/test-external-dependency-nginx', None)"
-	"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx2', env=[], env_exports=[]))" -> "('test', 'dmake-test/test-external-dependency-nginx', None)"
-	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='web', env=[], env_exports=['WEB_URL']))" -> "('build_docker', 'dmake-test/test-web', None)"
-	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='web', env=[], env_exports=['WEB_URL']))" -> "('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))"
-	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='web', env=[], env_exports=['WEB_URL']))" -> "('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))"
-	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='web', env=[], env_exports=['WEB_URL']))" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
-	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='web', env=[], env_exports=['WEB_URL']))" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
-	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='web', env=[], env_exports=['WEB_URL']))" -> "('test', 'dmake-test/test-web', None)"
-	"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='web2', env=[], env_exports=['WEB2_URL']))" -> "('build_docker', 'dmake-test/test-web2', None)"
-	"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='web2', env=[], env_exports=['WEB2_URL']))" -> "('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))"
-	"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='web2', env=[], env_exports=['WEB2_URL']))" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
-	"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='web2', env=[], env_exports=['WEB2_URL']))" -> "('test', 'dmake-test/test-web2', None)"
+	"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='test-nginx', env=[], env_exports=['NGINX_URL']))" -> "('build_docker', 'dmake-test/test-external-dependency-nginx', None)"
+	"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='test-nginx', env=[], env_exports=['NGINX_URL']))" -> "('test', 'dmake-test/test-external-dependency-nginx', None)"
+	"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='test-nginx2', env=[], env_exports=[]))" -> "('build_docker', 'dmake-test/test-external-dependency-nginx', None)"
+	"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='test-nginx2', env=[], env_exports=[]))" -> "('test', 'dmake-test/test-external-dependency-nginx', None)"
+	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='test-web', env=[], env_exports=['WEB_URL']))" -> "('build_docker', 'dmake-test/test-web', None)"
+	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='test-web', env=[], env_exports=['WEB_URL']))" -> "('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))"
+	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='test-web', env=[], env_exports=['WEB_URL']))" -> "('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='test-worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))"
+	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='test-web', env=[], env_exports=['WEB_URL']))" -> "('run_link', 'links/dmake-test/test-rabbitmq', None)"
+	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='test-web', env=[], env_exports=['WEB_URL']))" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
+	"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='test-web', env=[], env_exports=['WEB_URL']))" -> "('test', 'dmake-test/test-web', None)"
+	"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='test-web2', env=[], env_exports=['WEB2_URL']))" -> "('build_docker', 'dmake-test/test-web2', None)"
+	"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='test-web2', env=[], env_exports=['WEB2_URL']))" -> "('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='test-worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))"
+	"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='test-web2', env=[], env_exports=['WEB2_URL']))" -> "('run_link', 'links/dmake-test/test-rabbitmq', None)"
+	"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='test-web2', env=[], env_exports=['WEB2_URL']))" -> "('test', 'dmake-test/test-web2', None)"
 	"('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1604', None)"
-	"('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
+	"('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))" -> "('run_link', 'links/dmake-test/test-rabbitmq', None)"
 	"('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
 	"('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
 	"('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))" -> "('test', 'dmake-test/test-worker_ubuntu-1604', None)"
-	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1804', None)"
-	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
-	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
-	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
-	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('test', 'dmake-test/test-worker_ubuntu-1804', None)"
+	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='test-worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1804', None)"
+	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='test-worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('run_link', 'links/dmake-test/test-rabbitmq', None)"
+	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='test-worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
+	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='test-worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
+	"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='test-worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" -> "('test', 'dmake-test/test-worker_ubuntu-1804', None)"
 	subgraph "group run" {
 		rank=same
-		"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx', env=[], env_exports=['NGINX_URL']))" [label="run
+		"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='test-nginx', env=[], env_exports=['NGINX_URL']))" [label="run
 dmake-test/test-external-dependency-nginx
-test-external-dependency-nginx (nginx)
+test-external-dependency-nginx (test-nginx)
 height=2"]
-		"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx2', env=[], env_exports=[]))" [label="run
+		"('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='test-nginx2', env=[], env_exports=[]))" [label="run
 dmake-test/test-external-dependency-nginx
-test-external-dependency-nginx (nginx2)
+test-external-dependency-nginx (test-nginx2)
 height=2"]
-		"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='web', env=[], env_exports=['WEB_URL']))" [label="run
+		"('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='test-web', env=[], env_exports=['WEB_URL']))" [label="run
 dmake-test/test-web
-test-web (web)
+test-web (test-web)
 height=5"]
-		"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='web2', env=[], env_exports=['WEB2_URL']))" [label="run
+		"('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='test-web2', env=[], env_exports=['WEB2_URL']))" [label="run
 dmake-test/test-web2
-test-web2 (web2)
+test-web2 (test-web2)
 height=4"]
 		"('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))" [label="run
 dmake-test/test-worker:ubuntu-1604
 test-worker:ubuntu-1604 -- env: ['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'] -- env_exports: []
 height=3"]
-		"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" [label="run
+		"('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='test-worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))" [label="run
 dmake-test/test-worker:ubuntu-1804
-test-worker:ubuntu-1804 (worker-ubuntu-1804) -- env: ['TEST_SHARED_VOLUME'] -- env_exports: []
+test-worker:ubuntu-1804 (test-worker-ubuntu-1804) -- env: ['TEST_SHARED_VOLUME'] -- env_exports: []
 height=3"]
 	}
-	"('run_link', 'links/dmake-test/rabbitmq', None)" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
+	"('run_link', 'links/dmake-test/test-rabbitmq', None)" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
 	subgraph "group run_link" {
 		rank=same
-		"('run_link', 'links/dmake-test/rabbitmq', None)" [label="run_link
-links/dmake-test/rabbitmq
+		"('run_link', 'links/dmake-test/test-rabbitmq', None)" [label="run_link
+links/dmake-test/test-rabbitmq
 None
 height=1"]
 	}
@@ -163,24 +163,24 @@ None
 height=0"]
 	}
 	"('test', 'dmake-test/test-e2e', None)" -> "('build_docker', 'dmake-test/test-e2e', None)"
-	"('test', 'dmake-test/test-e2e', None)" -> "('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx', env=[], env_exports=['NGINX_URL']))"
-	"('test', 'dmake-test/test-e2e', None)" -> "('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='nginx2', env=[], env_exports=[]))"
-	"('test', 'dmake-test/test-e2e', None)" -> "('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='web', env=[], env_exports=['WEB_URL']))"
-	"('test', 'dmake-test/test-e2e', None)" -> "('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='web2', env=[], env_exports=['WEB2_URL']))"
+	"('test', 'dmake-test/test-e2e', None)" -> "('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='test-nginx', env=[], env_exports=['NGINX_URL']))"
+	"('test', 'dmake-test/test-e2e', None)" -> "('run', 'dmake-test/test-external-dependency-nginx', NeededServiceSerializer(service_name='test-external-dependency-nginx', link_name='test-nginx2', env=[], env_exports=[]))"
+	"('test', 'dmake-test/test-e2e', None)" -> "('run', 'dmake-test/test-web', NeededServiceSerializer(service_name='test-web', link_name='test-web', env=[], env_exports=['WEB_URL']))"
+	"('test', 'dmake-test/test-e2e', None)" -> "('run', 'dmake-test/test-web2', NeededServiceSerializer(service_name='test-web2', link_name='test-web2', env=[], env_exports=['WEB2_URL']))"
 	"('test', 'dmake-test/test-external-dependency-nginx', None)" -> "('build_docker', 'dmake-test/test-external-dependency-nginx', None)"
 	"('test', 'dmake-test/test-web', None)" -> "('build_docker', 'dmake-test/test-web', None)"
 	"('test', 'dmake-test/test-web', None)" -> "('run', 'dmake-test/test-worker_ubuntu-1604', NeededServiceSerializer(service_name='test-worker_ubuntu-1604', link_name=None, env=['ENV_OVERRIDE_TEST3', 'ENV_OVERRIDE_TEST5', 'TEST_ENV_OVERRIDE', 'TEST_SHARED_VOLUME'], env_exports=[]))"
-	"('test', 'dmake-test/test-web', None)" -> "('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))"
-	"('test', 'dmake-test/test-web', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
+	"('test', 'dmake-test/test-web', None)" -> "('run', 'dmake-test/test-worker_ubuntu-1804', NeededServiceSerializer(service_name='test-worker_ubuntu-1804', link_name='test-worker-ubuntu-1804', env=['TEST_SHARED_VOLUME'], env_exports=[]))"
+	"('test', 'dmake-test/test-web', None)" -> "('run_link', 'links/dmake-test/test-rabbitmq', None)"
 	"('test', 'dmake-test/test-web', None)" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
 	"('test', 'dmake-test/test-web2', None)" -> "('build_docker', 'dmake-test/test-web2', None)"
-	"('test', 'dmake-test/test-web2', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
+	"('test', 'dmake-test/test-web2', None)" -> "('run_link', 'links/dmake-test/test-rabbitmq', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1604', None)"
-	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
+	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('run_link', 'links/dmake-test/test-rabbitmq', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1604', None)" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('build_docker', 'dmake-test/test-worker_ubuntu-1804', None)"
-	"('test', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
+	"('test', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('run_link', 'links/dmake-test/test-rabbitmq', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
 	"('test', 'dmake-test/test-worker_ubuntu-1804', None)" -> "('shared_volume', 'shared_volume_web_and_workers__shared_volume', None)"
 	subgraph "group test" {

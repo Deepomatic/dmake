@@ -21,19 +21,19 @@ services:
   - service_name: test-e2e
     needed_services:
      - service_name: test-web
-       link_name: web
+       link_name: test-web
        env_exports:
-         WEB_URL: http://web:8000
+         WEB_URL: http://test-web:8000
      - service_name: test-web2
-       link_name: web2
+       link_name: test-web2
        env_exports:
-         WEB2_URL: http://web2:8000
+         WEB2_URL: http://test-web2:8000
      - service_name: test-external-dependency-nginx
-       link_name: nginx
+       link_name: test-nginx
        env_exports:
-         NGINX_URL: http://nginx/
+         NGINX_URL: http://test-nginx/
      - service_name: test-external-dependency-nginx
-       link_name: nginx2
+       link_name: test-nginx2
     config:
       docker_image:
         build:

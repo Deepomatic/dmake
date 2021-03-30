@@ -15,11 +15,11 @@ dmake-test/test-web2
 None
 height=1"]
 	}
-	"('run_link', 'links/dmake-test/rabbitmq', None)" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
+	"('run_link', 'links/dmake-test/test-rabbitmq', None)" -> "('shared_volume', 'shared_rabbitmq_var_lib__shared_volume', None)"
 	subgraph "group run_link" {
 		rank=same
-		"('run_link', 'links/dmake-test/rabbitmq', None)" [label="run_link
-links/dmake-test/rabbitmq
+		"('run_link', 'links/dmake-test/test-rabbitmq', None)" [label="run_link
+links/dmake-test/test-rabbitmq
 None
 height=1"]
 	}
@@ -31,7 +31,7 @@ None
 height=0"]
 	}
 	"('test', 'dmake-test/test-web2', None)" -> "('build_docker', 'dmake-test/test-web2', None)"
-	"('test', 'dmake-test/test-web2', None)" -> "('run_link', 'links/dmake-test/rabbitmq', None)"
+	"('test', 'dmake-test/test-web2', None)" -> "('run_link', 'links/dmake-test/test-rabbitmq', None)"
 	subgraph "group test" {
 		rank=same
 		"('test', 'dmake-test/test-web2', None)" [label="test
