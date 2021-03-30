@@ -27,7 +27,7 @@ env:
         AMQP_URL: amqp://1.2.3.4/prod
 
 docker_links:
-  - image_name: rabbitmq:3.7
+  - image_name: rabbitmq:3.8
     link_name: test-rabbitmq
     probe_ports:
       - 5672/tcp

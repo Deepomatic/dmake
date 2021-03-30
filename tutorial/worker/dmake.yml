@@ -15,7 +15,7 @@ docker:
       - deploy/dependencies.sh
 
 docker_links:
-  - image_name: rabbitmq:3.7
+  - image_name: rabbitmq:3.8
     link_name: rabbitmq
     probe_ports:
       - 5672/tcp
