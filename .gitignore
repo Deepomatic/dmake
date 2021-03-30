@@ -7,8 +7,15 @@
 **/.cache/
 **/.pytest_cache/
 **/.mypy_cache/
+
+.dmake
 DMakefile
 
 /jenkins/jenkins_home
 /jenkins/jenkins_home.zip
 /config.sh
+
+.coverage
+cover/
+coverage.xml
+junit.xml
