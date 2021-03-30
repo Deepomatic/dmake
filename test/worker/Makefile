@@ -14,4 +14,4 @@ install: all
 	cp -f ./bin/worker $(prefix)/bin/
 	cp -f ./bin/worker_test $(prefix)/bin/
 	mkdir -p $(prefix)/deploy
-	cp -f ./deploy/{entrypoint.sh,start.sh,test-shared-volumes.sh} $(prefix)/deploy/
+	cp -f ./deploy/{start.sh,test-shared-volumes.sh} $(prefix)/deploy/

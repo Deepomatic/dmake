@@ -4,7 +4,7 @@ app_name: dmake-test
 env:
   default:
     variables:
-      AMQP_URL: amqp://test-rabbitmq/dev
+      AMQP_URL: amqp://user:password@test-rabbitmq/dev
       SHARED_VOLUME_ROOT: /shared_volume_root_value
       ENV_EVALUATION_TEST: foobar
       ENV_OVERRIDE_TEST: "1"
@@ -66,6 +66,7 @@ services:
           target: ${SHARED_VOLUME_ROOT}/shared_volume_with_workers
     tests:
       commands:
+        - test "${ENV_FROM_ENTRYPOINT}" = 'ok'
         - test "${ENV_EVALUATION_TEST}" = 'foobar' # test environment evaluation: should be evaluated in container
         - test "${ENV_OVERRIDE_TEST}" = '1' # test env override: should use the root `env` value
         - test -z "${ENV_OVERRIDE_TEST2+x}" # test env override 2: should not be set
@@ -126,5 +127,6 @@ services:
         max_seconds: 10
     tests:
       commands:
+        - test "${ENV_FROM_ENTRYPOINT}" = 'ok'
         - test "${ENV_OVERRIDE_TEST}" = '2'  # test env override: should use the `env_override` value override
         - test "${ENV_OVERRIDE_TEST2}" = '3' # test env override 2: should use the `env_override` value only definition

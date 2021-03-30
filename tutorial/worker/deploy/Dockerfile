@@ -18,4 +18,3 @@ WORKDIR /app/tutorial/worker
 COPY --from=builder /usr/local/worker .
 
 CMD ["deploy/start.sh"]
-ENTRYPOINT ["/app/tutorial/worker/deploy/entrypoint.sh"]
