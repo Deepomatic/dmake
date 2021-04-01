@@ -1214,9 +1214,18 @@ def make(options, parse_files_only=False):
         # Do not clean for the 'run' command
         do_clean = common.command not in ['build_docker', 'run']
         if result != 0 and common.command in ['shell', 'test']:
-            r = input("An error was detected. DMake will stop. The script directory is : %s.\nDo you want to stop all the running containers? [Y/n]  " % common.tmp_dir)
-            if r.lower() != 'y' and r != "":
-                do_clean = False
+            common.logger.error("""
+PAUSE: An error was detected.
+- check DMake logs above, notably the last step: '- Running <command> @ <service>'
+- you can check the containers status and logs with: 'docker ps -a -f name={name_prefix}'
+- the DMake temporary files are in : {tmp_dir}
+- you can re-run your command with the DMAKE_DEBUG=1 environment variable to see what DMakes really does
+""".format(name_prefix=common.name_prefix, tmp_dir=common.tmp_dir))
+            input("Once you have finished, press <ENTER> to let DMake stop and cleanup the containers and temporary files it created.")
         if do_clean:
             os.system('dmake_clean')
+            if result != 0:
+                common.logger.info("Cleanup finished!")
+        elif common.command == 'run':
+            common.logger.info("Containers started, you can stop them later with 'dmake stop'.")
         sys.exit(result)
