@@ -49,7 +49,7 @@ subparsers.required = True
 parser_test    = subparsers.add_parser('test', help="Launch tests for the whole repo or, if specified, an app or one of its services.")
 parser_build   = subparsers.add_parser('build', help="Launch the build for the whole repo or, if specified, an app or one of its services.")
 parser_run     = subparsers.add_parser('run', help="Launch the application or only one of its services.")
-parser_stop    = subparsers.add_parser('stop', help="Stop the containers lauched with 'dmake run'.")
+parser_stop    = subparsers.add_parser('stop', help="Stop the containers started by dmake for the current repository and branch. Usually by 'dmake run', but can also be useful to cleanup aborted executions of dmake.")
 parser_shell   = subparsers.add_parser('shell', help="Run a shell session withing a docker container with the environment set up for a given service.")
 parser_deploy  = subparsers.add_parser('deploy', help="Deploy specified apps and services.")
 parser_release = subparsers.add_parser('release', help="Create a release of the app on Github.")

@@ -30,7 +30,9 @@ Commands:
     build               Launch the build for the whole repo or, if specified,
                         an app or one of its services.
     run                 Launch the application or only one of its services.
-    stop                Stop the containers lauched with 'dmake run'.
+    stop                Stop the containers started by dmake for the current
+                        repository and branch. Usually by 'dmake run', but can
+                        also be useful to cleanup aborted executions of dmake.
     shell               Run a shell session withing a docker container with
                         the environment set up for a given service.
     deploy              Deploy specified apps and services.
