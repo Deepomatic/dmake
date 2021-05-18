@@ -6,3 +6,5 @@ PyGithub==1.51
 semver==2.10.1
 graphviz==0.14
 argcomplete==1.11.1
+
+pyyaml  # for docs/ generation
