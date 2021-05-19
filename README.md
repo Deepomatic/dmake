@@ -23,7 +23,7 @@ cd dmake
 ./install.sh
 ```
 
-After following the instructions, check that **DMake** is found by running:
+After following the instructions, check that **DMake** is found by running in a new shell:
 
 ```sh
 dmake --help
