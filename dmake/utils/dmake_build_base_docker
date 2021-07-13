@@ -1,12 +1,12 @@
 #!/bin/bash
 #
 # Usage:
-# dmake_build_base_docker TMP_DIR \
+# dmake_build_base_docker PROJECT_DIR
+#                         BUILD_DIR \
 #                         ROOT_IMAGE_NAME \
 #                         ROOT_IMAGE_DIGEST \
 #                         DOCKER_IMAGE_NAME \
 #                         DOCKER_IMAGE_TAG \
-#                         DOCKER_IMAGE_TAG_V1 \
 #                         DMAKE_DIGEST \
 #                         PUSH_IMAGE
 #
@@ -29,12 +29,12 @@ fi
 
 set -e
 
-TMP_DIR=$1; shift
+PROJECT_DIR=$1; shift
+BUILD_DIR=$1; shift
 ROOT_IMAGE_NAME=$1; shift
 ROOT_IMAGE_DIGEST=$1; shift
 DOCKER_IMAGE_NAME=$1; shift
 DOCKER_IMAGE_TAG=$1; shift
-DOCKER_IMAGE_TAG_V1=$1; shift
 DMAKE_DIGEST=$1; shift
 PUSH_IMAGE=$1; shift
 
@@ -43,23 +43,7 @@ function docker_get_image_id() {
   docker image ls "$1" --format '{{.ID}}'
 }
 
-function docker_get_image_id_from_v1() {
-  local BASE_IMAGE=$1
-  local BASE_IMAGE_V1=$2
-  local BASE_IMAGE_V1_ID=$(docker_get_image_id $BASE_IMAGE_V1)
-  if [ -n "${BASE_IMAGE_V1_ID}" ]; then
-    # found version 1: tag it as version 2: they have the same sources: they are equivalent
-    log "Migrating docker base image from version 1 to version 2 (${BASE_IMAGE_V1_ID}: ${BASE_IMAGE_V1} => ${BASE_IMAGE})"
-    docker tag ${BASE_IMAGE_V1_ID} ${BASE_IMAGE}
-    local BASE_IMAGE_ID=BASE_IMAGE_V1_ID
-    # push it if asked to
-    docker_maybe_push_image
-  fi
-  echo ${BASE_IMAGE_V1_ID}
-}
-
 BASE_IMAGE="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
-BASE_IMAGE_V1="${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG_V1}"
 ROOT_IMAGE_NAME="${ROOT_IMAGE_NAME%:*}"  # strip tag if exists: we use the digest instead
 
 if [[ "${DOCKER_IMAGE_NAME}" =~ .+/.+ ]]; then
@@ -102,20 +86,11 @@ if [ "${DMAKE_FORCE_BASE_IMAGE_BUILD:-false}" = "false" ]; then
   log "Checking cache for docker base image (${BASE_IMAGE})"
   # Check if base image exists locally
   BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
-  if [ -z "${BASE_IMAGE_ID}" ]; then
-    # not found; backward compatibility: check if version 1 exists locally
-    BASE_IMAGE_ID=$(docker_get_image_id_from_v1 ${BASE_IMAGE} ${BASE_IMAGE_V1})
-  fi
 
   # then check remotely
   if [[ -z "${BASE_IMAGE_ID}" && ${REMOTE_IMAGE} == 1 ]]; then
     docker pull $BASE_IMAGE || :
     BASE_IMAGE_ID=$(docker_get_image_id $BASE_IMAGE)
-    if [ -z "${BASE_IMAGE_ID}" ]; then
-      # not found; backward compatibility: check if version 1 exists remotely
-      docker pull $BASE_IMAGE_V1 || :
-      BASE_IMAGE_ID=$(docker_get_image_id_from_v1 ${BASE_IMAGE} ${BASE_IMAGE_V1})
-    fi
   fi
 else
   log "Docker base image build forced by \$DMAKE_FORCE_BASE_IMAGE_BUILD=${DMAKE_FORCE_BASE_IMAGE_BUILD} for docker base image (${BASE_IMAGE})"
@@ -133,29 +108,7 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
         SSH_AUTH_SOCK_VOLUME="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK"
     fi
 
-    DOCKER_RUN_ARGS=( run
-                      --runtime=runc
-                      -u 0
-                      --cidfile ${TMP_DIR}/cid.txt $SSH_AUTH_SOCK_VOLUME
-                      -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK
-                      -v ${TMP_DIR}:/base_volume
-                      ${OTHER_OPTS}
-                      ${ROOT_IMAGE_NAME}@${ROOT_IMAGE_DIGEST}
-                      /bin/bash /base_volume/make_base.sh
-                    )
-
-    log "Executing docker ${DOCKER_RUN_ARGS[@]}"
-
-    rm -f ${TMP_DIR}/cid.txt
-    docker "${DOCKER_RUN_ARGS[@]}"
-
-    CID=`cat ${TMP_DIR}/cid.txt`
-    if [ ! -z "${DMAKE_TMP_DIR}" ]; then
-        echo ${CID} >> ${DMAKE_TMP_DIR}/containers_to_remove.txt
-    fi
-
-    # We commit the container into the base image
-    docker commit --change='CMD ["/bin/bash"]' ${CID} ${BASE_IMAGE}
+    docker image build -f "${BUILD_DIR}/Dockerfile" "${PROJECT_DIR}" --tag ${BASE_IMAGE}
 
     # Then push if asked to
     docker_maybe_push_image
