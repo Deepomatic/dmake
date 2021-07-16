@@ -614,7 +614,7 @@ def generate_command_pipeline(file, cmds):
                     write_line("withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: env.DMAKE_JENKINS_HTTP_CREDENTIALS, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {")
                     indent_level += 1
                     write_line('try {')
-                    write_line("""  sh("git push --force '%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s' refs/tags/%s")""" % (prefix, host, kwargs['tag']))
+                    write_line("""  sh('git push --force "%s://${GIT_USERNAME}:${GIT_PASSWORD}@%s" refs/tags/%s')""" % (prefix, host, kwargs['tag']))
                     write_line('} catch(error) {')
                     write_line("""  sh('echo "%s"')""" % tag_push_error_msg.replace("'", "\\'"))
                     write_line('}')
