@@ -117,8 +117,12 @@ node {
       }
       if (params.DMAKE_COMMAND == 'test') {
         echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
-        sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
-        // skip execution
+        withEnv([" KUBECONFIG=${MINIKUBE_HOME}/kubeconfig", "DMAKE_TEST_K8S_NAMESPACE=dmake-test"]) {
+          sh "kubectl create namespace ${env.DMAKE_TEST_K8S_NAMESPACE} --save-config --dry-run=client -o yaml | kubectl apply -f -"
+          sh "kubectl create namespace ${env.DMAKE_TEST_K8S_NAMESPACE}-2 --save-config --dry-run=client -o yaml | kubectl apply -f -"
+          sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
+          // skip execution: just plan
+        }
         echo "Kubernetes deploy dry-run finished in success!"
       }
       echo "Now really running dmake"
