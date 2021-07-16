@@ -13,7 +13,7 @@ import uuid
 
 # Set logger
 logger = logging.getLogger("dmake")
-logger.setLevel(logging.INFO) #TODO configurable
+logger.setLevel(os.environ.get('DMAKE_LOGLEVEL', 'INFO').upper())
 logger.addHandler(logging.StreamHandler())
 
 ###############################################################################
