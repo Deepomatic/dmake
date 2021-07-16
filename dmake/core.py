@@ -1009,10 +1009,8 @@ def make(options, parse_files_only=False):
 
         ordered_build_files = [('Building Base', base),
                                ('Building App', build),
-                               ('Running App', test)]
-
-        if not common.is_pr:
-            ordered_build_files.append(('Deploying', list(deploy)))
+                               ('Running App', test),
+                               ('Deploying', deploy)]
 
     common.logger.info("Here is the plan:")
     # Generate the list of command to run

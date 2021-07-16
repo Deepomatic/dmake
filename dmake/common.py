@@ -498,11 +498,6 @@ def init(_options, early_exit=False):
     if 'branch' in options and options.branch:
         branch = options.branch
 
-    # Modify command if (is_pr && !is_local)
-    # TODO remove later: has beend moved to Jenkinsfile instead
-    if is_pr and not is_local and command == "deploy":
-        command = "test"
-
     # Find git info
     repo = ''
     repo_url = None
