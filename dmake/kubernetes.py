@@ -75,7 +75,7 @@ def dump_all_str_and_add_metadata(data_str_or_list_of_str, labels=None, annotati
 
 def generate_from_create(args, name, from_file_args):
     program = 'kubectl'
-    args = ['create'] + args + ['--dry-run=true', '--output=yaml', name] + from_file_args
+    args = ['create'] + args + ['--dry-run=client', '--output=yaml', name] + from_file_args
     cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
     manifest = common.run_shell_command(cmd, raise_on_return_code=True)
     return manifest

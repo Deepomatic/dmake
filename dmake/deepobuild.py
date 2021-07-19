@@ -831,7 +831,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
                 k8s_utils.dump_all_str_and_add_metadata(user_manifest_data_str, dmake_generated_labels, dmake_generated_annotations, f)
             # verify the manifest file
             program = 'kubectl'
-            args = ['--context=%s' % context, 'apply', '--dry-run=true', '--validate=true', '--filename=%s' % user_manifest_path]
+            args = ['--context=%s' % context, '--namespace=%s' % namespace, 'apply', '--dry-run=server', '--validate=true', '--filename=%s' % user_manifest_path]
             cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
             try:
                 common.run_shell_command(cmd, raise_on_return_code=True)

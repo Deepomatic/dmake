@@ -51,7 +51,7 @@ echo_title Apply ${SERVICE} to kubernetes cluster ${CONTEXT}:
 # --record=false allows to specify `kubernetes.io/change-cause` annotation from the manifest files
 APPLY_BASE_ARGS=( "${BASE_ARGS[@]}" apply --record=false --output=yaml )
 if [[ "${DMAKE_K8S_DRY_RUN}" == "1" ]]; then
-  APPLY_BASE_ARGS+=( --dry-run )
+  APPLY_BASE_ARGS+=( --dry-run=server )
 fi
 
 # first, non-pruned resources

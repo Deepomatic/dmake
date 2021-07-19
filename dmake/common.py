@@ -13,7 +13,7 @@ import uuid
 
 # Set logger
 logger = logging.getLogger("dmake")
-logger.setLevel(logging.INFO) #TODO configurable
+logger.setLevel(os.environ.get('DMAKE_LOGLEVEL', 'INFO').upper())
 logger.addHandler(logging.StreamHandler())
 
 ###############################################################################
@@ -285,7 +285,7 @@ def find_repo_root(path=os.getcwd()):
 
 def git_get_upstream_branch_remote(branch):
     try:
-        upstream_branch = run_shell_command('git rev-parse --abbrev-ref --symbolic-full-name {}@{{upstream}} --'.format(branch), raise_on_return_code=True)
+        upstream_branch = run_shell_command('git rev-parse --abbrev-ref --symbolic-full-name {}@{{upstream}}'.format(branch), raise_on_return_code=True)
     except ShellError:
         upstream_branch = None
     if not upstream_branch:
@@ -497,11 +497,6 @@ def init(_options, early_exit=False):
 
     if 'branch' in options and options.branch:
         branch = options.branch
-
-    # Modify command if (is_pr && !is_local)
-    # TODO remove later: has beend moved to Jenkinsfile instead
-    if is_pr and not is_local and command == "deploy":
-        command = "test"
 
     # Find git info
     repo = ''
