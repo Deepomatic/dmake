@@ -228,8 +228,9 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         import requests.exceptions
         import dmake.docker_registry as docker_registry
 
+        dmake_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         project_dir = os.path.join(common.root_dir, path_dir)
-        build_dir = os.path.join(project_dir, '.build')
+        build_dir = os.path.join(project_dir, '.dmake')
 
         # Make the build directory
         common.run_shell_command('rm -rf %s; mkdir -p %s' % (build_dir, build_dir))
@@ -255,15 +256,17 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         # Init the hash with a version string to prevent collision in case of future change
         full_hash.update(b'v3')
 
+        
+
         # Create the Dockerfile
         dockerfile = os.path.join(build_dir, 'Dockerfile')
         with open(dockerfile, 'w') as f:
             f.write('FROM %s@%s\n' % (self.root_image, root_image_digest))
-            f.write('WORKDIR base')
+            f.write('WORKDIR base\n')
 
             # Init image
             if not self.raw_root_image:
-                template_dir = "docker-base"
+                template_dir = os.path.join(dmake_dir, 'dmake', 'templates', 'docker-base')
 
                 # Copy templates
                 file = os.path.join(template_dir, 'make_base.sh')
