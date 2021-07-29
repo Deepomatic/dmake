@@ -5,7 +5,6 @@ import json
 import uuid
 import importlib
 import re
-import hashlib
 from string import Template
 from dmake.serializer import ValidationError, FieldSerializer, YAML2PipelineSerializer, SerializerType
 import dmake.common as common
@@ -228,12 +227,80 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         import requests.exceptions
         import dmake.docker_registry as docker_registry
 
-        dmake_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        project_dir = os.path.join(common.root_dir, path_dir)
-        build_dir = os.path.join(project_dir, '.dmake')
+        # Make the temporary directory
+        tmp_dir = common.make_tmp_dir('base_image_{name}'.format(name=common.sanitize_name(self.name)))
 
-        # Make the build directory
-        common.run_shell_command('rm -rf %s; mkdir -p %s' % (build_dir, build_dir))
+        # Copy file and compute their md5
+        files_to_copy = []
+        for file in self.copy_files + self.install_scripts:
+            files_to_copy.append(file)
+        if not self.raw_root_image:
+            if self.python_requirements:
+                files_to_copy.append(self.python_requirements)
+            if self.python3_requirements:
+                files_to_copy.append(self.python3_requirements)
+
+        # Copy file and keep their md5
+        md5s = {}
+        for file in files_to_copy:
+            md5s[file] = common.run_shell_command('dmake_copy %s %s' % (os.path.join(path_dir, file), os.path.join(tmp_dir, 'user', file)))
+
+        # Set RUN command
+        run_cmd = "cd user"
+        for file in self.install_scripts:
+            run_cmd += " && ./%s" % file
+
+        if not self.raw_root_image:
+            # Install pip if needed
+            if self.python_requirements:
+                run_cmd += " && bash ../install_pip.sh && pip install --process-dependency-links -r " + self.python_requirements
+            if self.python3_requirements:
+                run_cmd += " && bash ../install_pip3.sh && pip3 install --process-dependency-links -r " + self.python3_requirements
+
+        # Save the command in a bash file
+        file = 'run_cmd.sh'
+        with open(os.path.join(tmp_dir, file), 'w') as f:
+            f.write(run_cmd)
+        md5s[file] = common.run_shell_command('dmake_md5 %s' % os.path.join(tmp_dir, file))
+
+        # Local environment for templates
+        local_env = []
+        local_env.append("export ROOT_IMAGE=%s" % self.root_image)
+        local_env = ' && '.join(local_env)
+        if len(local_env) > 0:
+            local_env += ' && '
+
+        # Copy templates
+        if self.raw_root_image:
+            template_dir = "docker-base-raw-root-image"
+            template_files = ["make_base.sh"]
+        else:
+            template_dir = "docker-base"
+            template_files = ["make_base.sh", "config.logrotate", "load_credentials.sh"]
+            if self.python_requirements:
+                template_files.append("install_pip.sh")
+            if self.python3_requirements:
+                template_files.append("install_pip3.sh")
+
+        for template_file in template_files:
+            md5s[template_file] = common.run_shell_command('%s dmake_copy_template %s %s' % (local_env, os.path.join(template_dir, template_file), os.path.join(tmp_dir, template_file)))
+
+        # Compute md5 `dmake_digest`
+        #  Version 2
+        dmake_digest = common.run_shell_command('dmake_md5 %s 2' % (tmp_dir))
+
+        #  Version 1 too for backward compatibility: if version 2 is not found we first check version 1 and tag it as version 2 (it's OK because they are built from the same source: they are equivalent)
+        md5_file = os.path.join(tmp_dir, 'md5s')
+        with open(md5_file, 'w') as f:
+            # sorted for stability
+            for md5 in sorted(md5s.items()):
+                f.write('%s %s\n' % md5)
+        dmake_digest_v1 = common.run_shell_command('dmake_md5 %s' % (md5_file))
+
+        if not self.raw_root_image:
+            # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
+            if common.key_file is not None:
+                common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
 
         # Get root_image digest
         try:
@@ -251,107 +318,43 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 common.logger.info('Failed to find {} locally with the following error:'.format(self.root_image))
                 raise e
 
-        # We compute the hash of the files in the order as they are provided
-        full_hash = hashlib.md5()
-        # Init the hash with a version string to prevent collision in case of future change
-        full_hash.update(b'v3')
 
-        
+        # Embedding the Dockerfile is not a big problem but changes in this file would break the local docker cache, which is not ideal
+        # since it's a pure utility file
+        dockerignore = os.path.join(tmp_dir, '.dockerignore')
+        with open(dockerignore, 'w') as f:
+            f.write('Dockerfile\n')
 
         # Create the Dockerfile
-        dockerfile = os.path.join(build_dir, 'Dockerfile')
+        # Note that by using a more fine-grained COPY and RUN we could better leverage local docker cache
+        # But to nicely leverage this we would have to edit the base install scripts, which would break the global cache
+        dockerfile = os.path.join(tmp_dir, 'Dockerfile')
         with open(dockerfile, 'w') as f:
             f.write('FROM %s@%s\n' % (self.root_image, root_image_digest))
-            f.write('WORKDIR base\n')
-
-            # Init image
-            if not self.raw_root_image:
-                template_dir = os.path.join(dmake_dir, 'dmake', 'templates', 'docker-base')
-
-                # Copy templates
-                file = os.path.join(template_dir, 'make_base.sh')
-                f.write('COPY %s ./\n' % file)
-                full_hash.update(file.encode())
-                full_hash.update(open(file, 'rb').read()) # TODO: proceed with a buffer to prevent full RAM loading
-
-                file = os.path.join(template_dir, 'config.logrotate')
-                f.write('COPY %s ./\n' % file)
-                full_hash.update(file.encode())
-                full_hash.update(open(file, 'rb').read()) # TODO: proceed with a buffer to prevent full RAM loading
-
-                file = os.path.join(template_dir, 'load_credentials.sh')
-                f.write('COPY %s ./\n' % file)
-                full_hash.update(file.encode())
-                full_hash.update(open(file, 'rb').read()) # TODO: proceed with a buffer to prevent full RAM loading
-
-                f.write('RUN bash make_base.sh\n')
-                f.write('RUN bash load_credentials.sh\n')
-
-                if self.python_requirements:
-                    file = os.path.join(template_dir, 'install_pip.sh')
-                    f.write('COPY %s ./\n' % file)
-                    full_hash.update(file.encode())
-                    full_hash.update(open(file, 'rb').read()) # TODO: proceed with a buffer to prevent full RAM loading
-
-                    f.write('RUN bash install_pip.sh\n')
-                    f.write('RUN pip install --process-dependency-links -r ' + self.python_requirements)
-
-                    f.write('COPY %s %s\n' % (self.python_requirements, os.path.relpath(self.python_requirements, build_dir)))
-                    full_hash.update(self.python_requirements.encode())
-                    full_hash.update(open(self.python_requirements, 'rb').read()) # TODO: proceed with a buffer to prevent full RAM loading
-
-                    f.write('RUN pip install --process-dependency-links -r ' + self.python_requirements)
-                if self.python3_requirements:
-                    file = os.path.join(template_dir, 'install_pip3.sh')
-                    f.write('COPY %s ./\n' % file)
-                    full_hash.update(file.encode())
-                    full_hash.update(open(file, 'rb').read()) # TODO: proceed with a buffer to prevent full RAM loading
-
-                    f.write('RUN bash install_pip3.sh\n')
-
-                    f.write('COPY %s %s\n' % (self.python3_requirements, os.path.relpath(self.python3_requirements, build_dir)))
-                    full_hash.update(self.python_requirements.encode())
-                    full_hash.update(open(self.python3_requirements, 'rb').read()) # TODO: proceed with a buffer to prevent full RAM loading
-
-                    f.write('RUN pip3 install --process-dependency-links -r ' + self.python3_requirements)
-
-            # Copy user files
-            for file in self.copy_files:
-                f.write('COPY %s %s\n' % (file, os.path.relpath(file, build_dir)))
-                full_hash.update(file.encode())
-                full_hash.update(open(file, 'rb').read()) # TODO: proceed with a buffer to prevent full RAM loading
-
-            # Copy user scripts
-            for file in self.install_scripts:
-                f.write('COPY %s %s\n' % (file, os.path.relpath(file, build_dir)))
-                full_hash.update(file.encode())
-                full_hash.update(open(file, 'rb').read()) # TODO: proceed with a buffer to prevent full RAM loading
-
-            # Execute user scripts
-            for file in self.install_scripts:
-                f.write('RUN bash %s\n' % os.path.relpath(file, build_dir))
+            f.write('COPY . /base_volume\n')
+            f.write('RUN /bin/bash /base_volume/make_base.sh\n')
+            f.write('RUN rm -rf /base_volume && mkdir /base_volume\n')
+            f.write('FROM scratch\n')
+            f.write('COPY --from=0 / /\n')
+            f.write('CMD ["/bin/bash"]\n')
 
             # TODO: pass secrets
 
-        # We add the whole dockerfile to the hash as order and script name matters
-        full_hash.update(open(dockerfile, 'rb').read())
-
-        dmake_digest = full_hash.hexdigest()
-        
         # Generate base image tag
         self.tag = self._get_base_image_tag(root_image_digest, dmake_digest)
+        tag_v1 = self._get_base_image_tag(root_image_digest, dmake_digest_v1, version=1)
 
         # Never push locally-built base_image from local machines
         push_image = "0" if common.is_local else "1"
 
         # Append Docker Base build command
         program = 'dmake_build_base_docker'
-        args = [project_dir,
-                build_dir,
+        args = [tmp_dir,
                 self.root_image,
                 root_image_digest,
                 self.name,
                 self.tag,
+                tag_v1,
                 dmake_digest,
                 push_image]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
