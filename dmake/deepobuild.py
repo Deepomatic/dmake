@@ -206,6 +206,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
     python_requirements  = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "")
     python3_requirements = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "requirements.txt")
     copy_files           = FieldSerializer("array", child = FieldSerializer("path", child_path_only = True), default = [], help_text = "Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.", example = ["some/relative/file/to/copy"])
+    build_secrets        = FieldSerializer("dict", child = FieldSerializer("string"), default = {}, example = {'githubtoken': '/home/me/git/env/user-credentials/github_package_token.txt'}, help_text = "Secrets to mount on /run/secrets/secret_name during build time.")
 
     def __init__(self, *args, **kwargs):
         self.serializer_version = kwargs.pop('version', 2)
@@ -325,6 +326,24 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         with open(dockerignore, 'w') as f:
             f.write('Dockerfile\n')
 
+        dockerfile_secrets_mounts = ''
+        build_secrets_args = ''
+        for secret_name, secret_path in self.build_secrets.items():
+            # TODO: env substitution for path
+
+            if not re.match(r'^[a-z0-9]{1,63}$', secret_name):
+                raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': name must match ^[a-z0-9]{1,63}$" % (secret_name, secret_path))
+
+            if not os.path.isabs(secret_path):
+                raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': not an absolute path" % (secret_name, secret_path))
+
+            if not os.path.isfile(secret_path):
+                raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': file not found" % (secret_name, secret_path))
+
+            # FIXME: docker build fails if there is a space or a comma in the secret_path
+            dockerfile_secrets_mounts += ' --mount=type=secret,id={} '.format(secret_name)
+            build_secrets_args += ' --secret id={},src={} '.format(secret_name, secret_path)
+
         # Create the Dockerfile
         # Note that by using a more fine-grained COPY and RUN we could better leverage local docker cache
         # But to nicely leverage this we would have to edit the base install scripts, which would break the global cache
@@ -332,13 +351,13 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         with open(dockerfile, 'w') as f:
             f.write('FROM %s@%s\n' % (self.root_image, root_image_digest))
             f.write('COPY . /base_volume\n')
-            f.write('RUN /bin/bash /base_volume/make_base.sh\n')
+            f.write('RUN {} /bin/bash /base_volume/make_base.sh\n'.format(dockerfile_secrets_mounts))
+            # We empty the /base_volume to make final images as close as possible to the previous format
+            # Ideally we would like to change the make_base script but it would break the global cache
             f.write('RUN rm -rf /base_volume && mkdir /base_volume\n')
-            f.write('FROM scratch\n')
-            f.write('COPY --from=0 / /\n')
             f.write('CMD ["/bin/bash"]\n')
 
-            # TODO: pass secrets
+
 
         # Generate base image tag
         self.tag = self._get_base_image_tag(root_image_digest, dmake_digest)
@@ -356,7 +375,8 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 self.tag,
                 tag_v1,
                 dmake_digest,
-                push_image]
+                push_image,
+                build_secrets_args]
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
