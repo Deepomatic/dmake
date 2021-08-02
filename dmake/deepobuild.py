@@ -144,7 +144,7 @@ class SharedVolumeSerializer(YAML2PipelineSerializer):
 
 
 class SharedVolumeMountSerializer(YAML2PipelineSerializer):
-    source = FieldSerializer("string", example = "datasets", help_text = "The shared volume name (declared in .")
+    source = FieldSerializer("string", example = "datasets", help_text = "The shared volume name (declared in root volumes).")
     target = FieldSerializer("string", example = "/datasets", help_text = "The path in the container where the volume is mounted")
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
