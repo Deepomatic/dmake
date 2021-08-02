@@ -1061,7 +1061,7 @@ class DataVolumeSerializer(YAML2PipelineSerializer):
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer(deprecated="Use 'services:needed_links' instead", data_type="array", child = "string", migration='0001_docker_links_names_to_needed_links', default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
-    data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
+    data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The data volumes to mount. Used for test and shell.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     timeout            = FieldSerializer(["number", SerializerType("string", deprecated=True)], optional = True, example = "600", help_text = "The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks).")
     junit_report       = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if isinstance(x, str) else x, example = "test-reports/nosetests.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a XUnit test report.")
@@ -1252,7 +1252,7 @@ class ServicesSerializer(YAML2PipelineSerializer):
     sources         = FieldSerializer("array", child = FieldSerializer(["file", "dir"]), optional = True, help_text = "If specified, this service will be considered as updated only when the content of those directories or files have changed.", example = 'path/to/app')
     dev             = DevConfigSerializer(help_text = "Development runtime configuration.")
     config          = DeployConfigSerializer(help_text = "Deployment configuration.")
-    tests           = TestSerializer(optional = True, help_text = "Unit tests list.")
+    tests           = TestSerializer(optional = True, help_text = "Unit tests configuration. Some parts of the configuration are also used in dmake shell.")
     deploy          = DeploySerializer(optional = True, help_text = "Deploy stage")
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
