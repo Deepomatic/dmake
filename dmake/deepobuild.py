@@ -329,7 +329,8 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         dockerfile_secrets_mounts = ''
         build_secrets_args = ''
         for secret_name, secret_path in self.build_secrets.items():
-            # TODO: env substitution for path
+            # TODO: grab additionnal env from configuration
+            secret_path = common.eval_str_in_env(secret_path)
 
             if not re.match(r'^[a-z0-9]{1,63}$', secret_name):
                 raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': name must match ^[a-z0-9]{1,63}$" % (secret_name, secret_path))
