@@ -22,7 +22,7 @@ function log() {
   echo "$@" >&3
 }
 
-if [ $# -lt 9 ]; then
+if [ $# -lt 8 ]; then
     dmake_fail "$0: Wrong arguments"
     log "exit 1"
     exit 1
@@ -39,7 +39,6 @@ DOCKER_IMAGE_TAG_V1=$1; shift
 DMAKE_DIGEST=$1; shift
 PUSH_IMAGE=$1; shift
 BUILD_EXTRA_ARGS=("$@"); # We copy the whole array so we have an explicit variable name
-
 
 function docker_get_image_id() {
   docker image ls "$1" --format '{{.ID}}'
@@ -128,7 +127,11 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
     log "Docker base image not found in cache, building it (${BASE_IMAGE})"
 
     cd ${TMP_DIR}
-    DOCKER_BUILDKIT=1 docker image build "${BUILD_EXTRA_ARGS}" . --tag "${BASE_IMAGE}"
+    if [ ${#BUILD_EXTRA_ARGS[@]} -eq 0 ]; then
+      DOCKER_BUILDKIT=1 docker image build . --tag "${BASE_IMAGE}"
+    else
+      DOCKER_BUILDKIT=1 docker image build "${BUILD_EXTRA_ARGS}" . --tag "${BASE_IMAGE}"
+    fi
 
     # Then push if asked to
     docker_maybe_push_image
