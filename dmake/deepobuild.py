@@ -327,7 +327,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             f.write('Dockerfile\n')
 
         dockerfile_secrets_mounts = ''
-        build_secrets_args = ''
+        build_secrets_args = []
         for secret_name, secret_path in self.build_secrets.items():
             # TODO: grab additionnal env from configuration
             secret_path = common.eval_str_in_env(secret_path)
@@ -339,11 +339,11 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': not an absolute path" % (secret_name, secret_path))
 
             if not os.path.isfile(secret_path):
-                raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': file not found" % (secret_name, secret_path))
+                raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': file not found" % (secret_name, common.wrap_cmd(secret_path)))
 
             # FIXME: docker build fails if there is a space or a comma in the secret_path
             dockerfile_secrets_mounts += ' --mount=type=secret,id={} '.format(secret_name)
-            build_secrets_args += ' --secret id={},src={} '.format(secret_name, secret_path)
+            build_secrets_args.append('--secret=id={},"src={}"'.format(secret_name, secret_path))
 
         # Create the Dockerfile
         # Note that by using a more fine-grained COPY and RUN we could better leverage local docker cache
@@ -376,8 +376,8 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 self.tag,
                 tag_v1,
                 dmake_digest,
-                push_image,
-                build_secrets_args]
+                push_image]
+        args.extend(build_secrets_args)
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 

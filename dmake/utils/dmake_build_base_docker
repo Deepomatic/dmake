@@ -9,7 +9,7 @@
 #                         DOCKER_IMAGE_TAG_V1 \
 #                         DMAKE_DIGEST \
 #                         PUSH_IMAGE \
-#                         BUILD_EXTRA_ARGS
+#                         BUILD_EXTRA_ARGS...
 #
 # Result:
 # Will build and cache the base docker images with libs.
@@ -22,7 +22,7 @@ function log() {
   echo "$@" >&3
 }
 
-if [ $# -ne 9 ]; then
+if [ $# -lt 9 ]; then
     dmake_fail "$0: Wrong arguments"
     log "exit 1"
     exit 1
@@ -38,7 +38,7 @@ DOCKER_IMAGE_TAG=$1; shift
 DOCKER_IMAGE_TAG_V1=$1; shift
 DMAKE_DIGEST=$1; shift
 PUSH_IMAGE=$1; shift
-BUILD_EXTRA_ARGS=$1; shift
+BUILD_EXTRA_ARGS=("$@"); # We copy the whole array so we have an explicit variable name
 
 
 function docker_get_image_id() {
@@ -128,7 +128,7 @@ if [ -z "${BASE_IMAGE_ID}" ]; then
     log "Docker base image not found in cache, building it (${BASE_IMAGE})"
 
     cd ${TMP_DIR}
-    DOCKER_BUILDKIT=1 docker image build ${BUILD_EXTRA_ARGS} . --tag ${BASE_IMAGE}
+    DOCKER_BUILDKIT=1 docker image build "${BUILD_EXTRA_ARGS}" . --tag "${BASE_IMAGE}"
 
     # Then push if asked to
     docker_maybe_push_image
