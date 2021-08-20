@@ -325,6 +325,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         dockerignore = os.path.join(tmp_dir, '.dockerignore')
         with open(dockerignore, 'w') as f:
             f.write('Dockerfile\n')
+            f.write('.dockerignore\n')
 
         dockerfile_secrets_mounts = ''
         build_secrets_args = []
