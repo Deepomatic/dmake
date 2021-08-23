@@ -18,7 +18,7 @@ cd /tmp
 wget -O lib.tar.gz https://github.com/alanxz/rabbitmq-c/archive/v0.8.0.tar.gz
 tar -zxvf lib.tar.gz
 rm lib.tar.gz
-d=`ls -d rabbitmq-c-*`
+d=$(ls -d rabbitmq-c-*)
 cd $d
 apt-get --no-install-recommends -y install libssl-dev
 cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr .
@@ -30,7 +30,7 @@ rm -rf $d
 wget -O lib.tar.gz https://github.com/alanxz/SimpleAmqpClient/archive/v2.4.0.tar.gz
 tar -zxvf lib.tar.gz
 rm lib.tar.gz
-d=`ls -d SimpleAmqpClient-*`
+d=$(ls -d SimpleAmqpClient-*)
 cd $d
 #sed -i -e "s/#define BROKER_HEARTBEAT 0/#define BROKER_HEARTBEAT 60/" src/ChannelImpl.cpp
 cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr .

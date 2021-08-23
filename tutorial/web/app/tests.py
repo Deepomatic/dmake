@@ -1,7 +1,9 @@
-from django.test import TestCase
-from django.test import Client
 import json
 import math
+
+from django.test import Client
+from django.test import TestCase
+
 
 class FactorialTest(TestCase):
     def test_slash(self):

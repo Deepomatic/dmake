@@ -9,5 +9,5 @@ set -e
 SHARED_VOLUME_PATH=$1
 
 echo "Check worker shared volume"
-cat ${SHARED_VOLUME_PATH}/hello-from-worker.*
+cat "${SHARED_VOLUME_PATH}"/hello-from-worker.*
 test $(ls -1 ${SHARED_VOLUME_PATH}/hello-from-worker.* | wc -l) -eq 2
