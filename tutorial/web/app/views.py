@@ -68,7 +68,7 @@ def call_worker(request):
 
     # Decode C integer into python
     if data is None:
-        raise Exception('Timeout: the worker response took to much time')
+        raise Exception('Timeout: the worker response took too much time')
     if len(data.body) != 8:
         raise Exception('Bad AMQP message')
     data = struct.unpack("Q", data.body)[0]

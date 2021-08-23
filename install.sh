@@ -160,5 +160,5 @@ echo "Installing shell completion"
 eval "${LINE}"
 dmake completion > "${DMAKE_CONFIG_DIR}/completion.bash.inc"
 
-echo "You should be good to go !"
+echo "You should be good to go!"
 echo "IMPORTANT: restart your shell session before testing the 'dmake' command !"

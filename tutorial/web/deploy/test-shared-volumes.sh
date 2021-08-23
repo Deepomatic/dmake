@@ -2,7 +2,7 @@
 
 # Expect:
 # - ${SHARED_VOLUME_PATH}, shared with worker containers
-# - 2 worker variants containters started before us, by dependency
+# - 2 worker variants containers started before us, by dependency
 
 set -e
 
