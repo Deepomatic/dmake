@@ -206,7 +206,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
     python_requirements  = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "")
     python3_requirements = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "requirements.txt")
     copy_files           = FieldSerializer("array", child = FieldSerializer("path", child_path_only = True), default = [], help_text = "Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.", example = ["some/relative/file/to/copy"])
-    mount_secrets        = FieldSerializer("dict", child = FieldSerializer("string"), default = {}, example = {'githubtoken': '/home/me/git/env/user-credentials/github_package_token.txt'}, help_text = "Secrets to mount on /run/secrets/secret_name during build time.")
+    mount_secrets        = FieldSerializer("dict", child = FieldSerializer("string"), default = {}, example = {'githubtoken': '${HOME}/secrets/github_package_token.txt'}, help_text = "Secrets files to mount on '/run/secrets/<secret_id>' during base image build (uses docker buildkit https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/syntax.md#run---mounttypesecret).")
 
     def __init__(self, *args, **kwargs):
         self.serializer_version = kwargs.pop('version', 2)
@@ -324,22 +324,22 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
 
         dockerfile_secrets_mounts = ''
         mount_secrets_args = []
-        for secret_name, secret_path in self.mount_secrets.items():
+        for secret_id, secret_path in self.mount_secrets.items():
             # TODO: grab additionnal env from configuration
             secret_path = common.eval_str_in_env(secret_path)
 
-            if not re.match(r'^[a-z0-9]{1,63}$', secret_name):
-                raise DMakeException("Invalid 'mount_secrets': key '%s', path '%s': name must match ^[a-z0-9]{1,63}$" % (secret_name, secret_path))
+            if not re.match(r'^[a-z0-9]{1,63}$', secret_id):
+                raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': id must match ^[a-z0-9]{1,63}$" % (secret_id, secret_path))
 
             if not os.path.isabs(secret_path):
-                raise DMakeException("Invalid 'mount_secrets': key '%s', path '%s': not an absolute path" % (secret_name, secret_path))
+                raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': not an absolute path" % (secret_id, secret_path))
 
             if not os.path.isfile(secret_path):
-                raise DMakeException("Invalid 'mount_secrets': key '%s', path '%s': file not found" % (secret_name, common.wrap_cmd(secret_path)))
+                raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': file not found" % (secret_id, secret_path))
 
-            dockerfile_secrets_mounts += ' --mount=type=secret,id={} '.format(secret_name)
+            dockerfile_secrets_mounts += ' --mount=type=secret,id={} '.format(secret_id)
             # We have to double quote the src={} since the secret parameter takes CSV format and commas in path would break the parsing
-            mount_secrets_args.append('--secret=id={},"src={}"'.format(secret_name, secret_path))
+            mount_secrets_args.append('--secret=id={},"src={}"'.format(secret_id, secret_path))
 
         # Create the Dockerfile
         # Note that by using a more fine-grained COPY and RUN we could better leverage local docker cache
