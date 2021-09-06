@@ -328,23 +328,23 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             f.write('.dockerignore\n')
 
         dockerfile_secrets_mounts = ''
-        build_secrets_args = []
-        for secret_name, secret_path in self.build_secrets.items():
+        mount_secrets_args = []
+        for secret_name, secret_path in self.mount_secrets.items():
             # TODO: grab additionnal env from configuration
             secret_path = common.eval_str_in_env(secret_path)
 
             if not re.match(r'^[a-z0-9]{1,63}$', secret_name):
-                raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': name must match ^[a-z0-9]{1,63}$" % (secret_name, secret_path))
+                raise DMakeException("Invalid 'mount_secrets': key '%s', path '%s': name must match ^[a-z0-9]{1,63}$" % (secret_name, secret_path))
 
             if not os.path.isabs(secret_path):
-                raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': not an absolute path" % (secret_name, secret_path))
+                raise DMakeException("Invalid 'mount_secrets': key '%s', path '%s': not an absolute path" % (secret_name, secret_path))
 
             if not os.path.isfile(secret_path):
-                raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': file not found" % (secret_name, common.wrap_cmd(secret_path)))
+                raise DMakeException("Invalid 'mount_secrets': key '%s', path '%s': file not found" % (secret_name, common.wrap_cmd(secret_path)))
 
             dockerfile_secrets_mounts += ' --mount=type=secret,id={} '.format(secret_name)
             # We have to double quote the src={} since the secret parameter takes CSV format and commas in path would break the parsing
-            build_secrets_args.append('--secret=id={},"src={}"'.format(secret_name, secret_path))
+            mount_secrets_args.append('--secret=id={},"src={}"'.format(secret_name, secret_path))
 
         # Create the Dockerfile
         # Note that by using a more fine-grained COPY and RUN we could better leverage local docker cache
@@ -378,7 +378,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 tag_v1,
                 dmake_digest,
                 push_image]
-        args.extend(build_secrets_args)
+        args.extend(mount_secrets_args)
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
