@@ -15,7 +15,6 @@
 # Will build and cache the base docker images with libs.
 
 test "${DMAKE_DEBUG}" = "1" && set -x
-test "${DMAKE_DEBUG}" = "1" && DOCKER_BUILD_DEBUG=1
 
 # allow logging from functions that return values by output
 exec 3>&1
@@ -127,12 +126,7 @@ fi
 if [ -z "${BASE_IMAGE_ID}" ]; then
     log "Docker base image not found in cache, building it (${BASE_IMAGE})"
 
-    # test if buildkit for debug
-    if [ "${DOCKER_BUILD_DEBUG}" = "1" ] && docker image build --help | grep -q -- --progress; then
-      BUILD_EXTRA_ARGS+=("--progress=plain")
-    fi
-
-    DOCKER_BUILDKIT=1 docker ${DOCKER_BUILD_DEBUG:+--debug} image build "${BUILD_EXTRA_ARGS[@]}" --tag "${BASE_IMAGE}" "${TMP_DIR}"
+    DOCKER_BUILDKIT=1 DMAKE_BUILD_DOCKER_SKIP_IMAGE_CLEANUP=1 dmake_build_docker "${TMP_DIR}" "${BASE_IMAGE}" "${BUILD_EXTRA_ARGS[@]}"
 
     # Then push if asked to
     docker_maybe_push_image

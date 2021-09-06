@@ -33,4 +33,7 @@ if [ "${DOCKER_BUILD_DEBUG}" = "1" ] && docker image build --help | grep -q -- -
 fi
 
 docker ${DOCKER_BUILD_DEBUG:+--debug} image build "${BUILD_EXTRA_ARGS[@]}" "$@" --tag ${IMAGE_NAME} ${CONTEXT_DIR}
-echo ${IMAGE_NAME} >> ${DMAKE_TMP_DIR}/images_to_remove.txt
+
+if [[ "${DMAKE_BUILD_DOCKER_SKIP_IMAGE_CLEANUP}" != 1 ]]; then
+  echo ${IMAGE_NAME} >> ${DMAKE_TMP_DIR}/images_to_remove.txt
+fi
