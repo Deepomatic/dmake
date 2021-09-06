@@ -12,7 +12,7 @@ Table of content:
 
 In order to run **DMake**, you will need:
 - Python 3.5+
-- Docker 1.12 or newer; docker 19.03+ with buildkit enabled is **strongly** recommended (see https://docs.docker.com/develop/develop-images/build_enhancements/#to-enable-buildkit-builds, edit `/etc/docker/daemon.json`)
+- Docker 18.09 or newer; buildkit is required but doesn't have to be enabled by default even though it is **strongly** recommended (see https://docs.docker.com/develop/develop-images/build_enhancements/#to-enable-buildkit-builds and edit `/etc/docker/daemon.json`)
 - Git 1.8.5 or newer (centos 7 default version 1.8.3 is not compatible)
 - Kubectl 1.18+ when deploying on kubernetes
 

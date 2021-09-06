@@ -34,7 +34,7 @@
                 - **python_requirements** *(file path, default = ``)*: Path to python requirements.txt.
                 - **python3_requirements** *(file path, default = ``)*: Path to python requirements.txt.
                 - **copy_files** *(array\<file or directory path\>, default = `[]`)*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
-                - **mount_secrets** *(free style object, default = `{}`)*: Secrets files to mount on '/run/secrets/<secret_id>' during base image build (uses docker buildkit https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/syntax.md#run---mounttypesecret).
+                - **mount_secrets** *(free style object, default = `{}`)*: Secrets files to mount on '/run/secrets/<secret_id>' during base image build (uses docker buildkit https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/syntax.md#run---mounttypesecret). Double quotes are not supported in the path.
             - an array of objects with the following fields:
                 - **name** *(string)*: Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.
                 - **variant** *(string)*: When multiple base_image are defined, this names the base_image variant.
@@ -45,7 +45,7 @@
                 - **python_requirements** *(file path, default = ``)*: Path to python requirements.txt.
                 - **python3_requirements** *(file path, default = ``)*: Path to python requirements.txt.
                 - **copy_files** *(array\<file or directory path\>, default = `[]`)*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
-                - **mount_secrets** *(free style object, default = `{}`)*: Secrets files to mount on '/run/secrets/<secret_id>' during base image build (uses docker buildkit https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/syntax.md#run---mounttypesecret).
+                - **mount_secrets** *(free style object, default = `{}`)*: Secrets files to mount on '/run/secrets/<secret_id>' during base image build (uses docker buildkit https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/syntax.md#run---mounttypesecret). Double quotes are not supported in the path.
         - **mount_point** *(string, default = `/app`)*: Mount point of the app in the built docker image. Needs to be an absolute path.
         - **command** *(string, default = `bash`)*: Only used when running 'dmake shell': command passed to `docker run`.
 - **docker_links** *(array\<object\>, default = `[]`)*: List of link to create, they are shared across the whole application, so potentially across multiple dmake files.
@@ -143,7 +143,7 @@
         - **docker_links_names** *(array\<string\>, default = `[]`)*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
         - **data_volumes** *(array\<object\>, default = `[]`)*: The data volumes to mount. Used for test and shell.
             - **container_volume** *(string)*: Path of the volume mounted in the container.
-            - **source** *(string)*: Only host path and s3 URLs are supported for now.
+            - **source** *(string)*: Host path and s3 URLs are supported.
             - **read_only** *(boolean, default = `False`)*: Flag to set the volume as read-only.
         - **commands** *(array\<string\>)*: The commands to run for integration tests.
         - **timeout** *(mixed)*: The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks). It can be one of the followings:
