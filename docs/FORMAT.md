@@ -53,7 +53,7 @@
     - **link_name** *(string)*: Link name.
     - **volumes** *(array\<object\>, default = `[]`)*: Either shared volumes to mount. Or: for the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.
         - an object with the following fields:
-            - **source** *(string)*: The shared volume name (declared in root volumes).
+            - **source** *(string)*: The shared volume name (declared in root `volumes`).
             - **target** *(string)*: The path in the container where the volume is mounted.
         - an object with the following fields:
             - **container_volume** *(string)*: Path of the volume mounted in the container.
@@ -128,7 +128,7 @@
             - **host_port** *(int)*: Port on the host. If not set, a random port will be used.
         - **volumes** *(array\<object\>, default = `[]`)*: Volumes to mount.
             - an object with the following fields:
-                - **source** *(string)*: The shared volume name (declared in root volumes).
+                - **source** *(string)*: The shared volume name (declared in root `volumes`).
                 - **target** *(string)*: The path in the container where the volume is mounted.
             - an object with the following fields:
                 - **container_volume** *(string)*: Path of the volume mounted in the container.
