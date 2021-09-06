@@ -337,6 +337,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         # Create the Dockerfile
         # Note that by using a more fine-grained COPY and RUN we could better leverage local docker cache
         # But to nicely leverage this we would have to edit the base install scripts, which would break the global cache
+        # TODO later: break base image digest, simplify or even remove the make_base.sh script (notably now wrong comments; ssh support...)
         dockerfile = os.path.join(tmp_dir, 'Dockerfile')
         with open(dockerfile, 'w') as f:
             f.write('FROM %s@%s\n' % (self.root_image, root_image_digest))
