@@ -40,6 +40,7 @@ DMAKE_DIGEST=$1; shift
 PUSH_IMAGE=$1; shift
 BUILD_EXTRA_ARGS=("$@") # We copy the whole array so we have an explicit variable name
 
+
 function docker_get_image_id() {
   docker image ls "$1" --format '{{.ID}}'
 }

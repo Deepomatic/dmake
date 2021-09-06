@@ -26,6 +26,7 @@ CONTEXT_DIR=$1; shift
 IMAGE_NAME=$1; shift
 BUILD_EXTRA_ARGS=("$@")
 
+
 # test if buildkit for debug
 if [ "${DOCKER_BUILD_DEBUG}" = "1" ] && docker image build --help | grep -q -- --progress; then
   BUILD_EXTRA_ARGS+=("--progress=plain")
