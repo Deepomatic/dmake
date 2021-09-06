@@ -399,7 +399,7 @@ def dump_debug_dot_graph(dependencies, nodes_height):
 
 def init(_options, early_exit=False):
     global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_group_by, dot_graph_pretty, dot_graph_filename, dot_graph_format
-    global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
+    global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir
     global branch, target, is_pr, pr_id, build_id, commit_id, name_prefix, image_tag_prefix, force_full_deploy
     global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global no_gpu, need_gpu

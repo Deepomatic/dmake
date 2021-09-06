@@ -298,11 +298,6 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 f.write('%s %s\n' % md5)
         dmake_digest_v1 = common.run_shell_command('dmake_md5 %s' % (md5_file))
 
-        if not self.raw_root_image:
-            # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
-            if common.key_file is not None:
-                common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
-
         # Get root_image digest
         try:
             root_image_digest = docker_registry.get_image_digest(self.root_image)
