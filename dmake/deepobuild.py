@@ -314,14 +314,6 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 common.logger.info('Failed to find {} locally with the following error:'.format(self.root_image))
                 raise e
 
-
-        # Embedding the Dockerfile is not a big problem but changes in this file would break the local docker cache, which is not ideal
-        # since it's a pure utility file
-        dockerignore = os.path.join(tmp_dir, '.dockerignore')
-        with open(dockerignore, 'w') as f:
-            f.write('Dockerfile\n')
-            f.write('.dockerignore\n')
-
         dockerfile_secrets_mounts = ''
         mount_secrets_args = []
         for secret_id, secret_path in self.mount_secrets.items():
@@ -341,6 +333,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             # We have to double quote the src={} since the secret parameter takes CSV format and commas in path would break the parsing
             mount_secrets_args.append('--secret=id={},"src={}"'.format(secret_id, secret_path))
 
+
         # Create the Dockerfile
         # Note that by using a more fine-grained COPY and RUN we could better leverage local docker cache
         # But to nicely leverage this we would have to edit the base install scripts, which would break the global cache
@@ -349,11 +342,16 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             f.write('FROM %s@%s\n' % (self.root_image, root_image_digest))
             f.write('COPY . /base_volume\n')
             f.write('RUN {} /bin/bash /base_volume/make_base.sh\n'.format(dockerfile_secrets_mounts))
-            # We empty the /base_volume to make final images as close as possible to the previous format
+            # We empty the /base_volume to make final images as close as possible to the previous way to build base images (docker run -v <tmp_dir>:/base_volume, docker commit)
             # Ideally we would like to change the make_base script but it would break the global cache
             f.write('RUN rm -rf /base_volume && mkdir /base_volume\n')
             f.write('CMD ["/bin/bash"]\n')
 
+        # Make `docker build` ignore extra files that are not directly impacting the build context
+        dockerignore = os.path.join(tmp_dir, '.dockerignore')
+        with open(dockerignore, 'w') as f:
+            f.write('Dockerfile\n')
+            f.write('.dockerignore\n')
 
 
         # Generate base image tag
