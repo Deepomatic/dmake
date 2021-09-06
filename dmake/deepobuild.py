@@ -206,7 +206,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
     python_requirements  = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "")
     python3_requirements = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "requirements.txt")
     copy_files           = FieldSerializer("array", child = FieldSerializer("path", child_path_only = True), default = [], help_text = "Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.", example = ["some/relative/file/to/copy"])
-    build_secrets        = FieldSerializer("dict", child = FieldSerializer("string"), default = {}, example = {'githubtoken': '/home/me/git/env/user-credentials/github_package_token.txt'}, help_text = "Secrets to mount on /run/secrets/secret_name during build time.")
+    mount_secrets        = FieldSerializer("dict", child = FieldSerializer("string"), default = {}, example = {'githubtoken': '/home/me/git/env/user-credentials/github_package_token.txt'}, help_text = "Secrets to mount on /run/secrets/secret_name during build time.")
 
     def __init__(self, *args, **kwargs):
         self.serializer_version = kwargs.pop('version', 2)
@@ -342,8 +342,8 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             if not os.path.isfile(secret_path):
                 raise DMakeException("Invalid 'build_secrets': key '%s', path '%s': file not found" % (secret_name, common.wrap_cmd(secret_path)))
 
-            # FIXME: docker build fails if there is a space or a comma in the secret_path
             dockerfile_secrets_mounts += ' --mount=type=secret,id={} '.format(secret_name)
+            # We have to double quote the src={} since the secret parameter takes CSV format and commas in path would break the parsing
             build_secrets_args.append('--secret=id={},"src={}"'.format(secret_name, secret_path))
 
         # Create the Dockerfile
