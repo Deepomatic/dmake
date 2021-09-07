@@ -329,7 +329,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             if not os.path.isfile(secret_path):
                 raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': file not found" % (secret_id, secret_path))
 
-            dockerfile_secrets_mounts += ' --mount=type=secret,id={} '.format(secret_id)
+            dockerfile_secrets_mounts += ' --mount=type=secret,required=true,id={} '.format(secret_id)
             # We have to double quote the src={} since the secret parameter takes CSV format and commas in path would break the parsing
             mount_secrets_args.append('--secret=id={},"src={}"'.format(secret_id, secret_path))
 
