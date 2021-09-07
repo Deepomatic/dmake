@@ -340,6 +340,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         # TODO later: break base image digest, simplify or even remove the make_base.sh script (notably now wrong comments; ssh support...)
         dockerfile = os.path.join(tmp_dir, 'Dockerfile')
         with open(dockerfile, 'w') as f:
+            f.write('# syntax=docker/dockerfile:1.3\n')
             f.write('FROM {}@{}\n'.format(self.root_image, root_image_digest))
             f.write('COPY . /base_volume\n')
             f.write('RUN {} /bin/bash /base_volume/make_base.sh\n'.format(dockerfile_secrets_mounts))
