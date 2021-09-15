@@ -15,6 +15,7 @@ docker:
       - deploy/requirements.txt
     install_scripts:
       - deploy/dependencies.sh
+      - deploy/test_secret.sh
     mount_secrets:
       secretvalue: $TMP_FILE_PATH
 
@@ -46,7 +47,6 @@ services:
           --with-xunit --xunit-file nosetests.xml
           --nologcapture
           --with-id
-        - /bin/bash -c 'v=$(cat /run/secret/secretvalue); if [ "$v" == "this_is_a_secret_path" ]; then exit 0; else exit 1; fi;'
       junit_report: nosetests.xml
       html_report:
         directory: cover
