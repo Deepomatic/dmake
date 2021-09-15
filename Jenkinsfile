@@ -125,7 +125,7 @@ node {
           returnStdout: true
         ).trim()
         sh "echo ${params.TMP_FILE_VALUE} > ${TMP_FILE_PATH}"
-        env.TMP_FILE_PATH = TMP_FILE_PATH
+        params.CUSTOM_ENVIRONMENT += " TMP_FILE_PATH=${TMP_FILE_PATH}"
       }
       if (params.DMAKE_COMMAND == 'test') {
         echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
