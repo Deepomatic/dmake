@@ -36,6 +36,9 @@ properties([
         booleanParam(name: 'ABORT_OLD_BUILDS_ON_PR',
                      defaultValue: true,
                      description: 'Abort old builds when job is for a PR.'),
+        string(name: 'TMP_FILE_VALUE',
+               defaultValue: 'this_is_a_secret_path',
+               description: 'Will create a tmp file containing this value is not empty. It\'s path will be set in env TMP_FILE_PATH'),
     ]),
     pipelineTriggers([])
 ])
@@ -103,6 +106,7 @@ node {
   stage('Python 3.x') {
     sh "virtualenv -p python3 workspace/.venv3"
     sh ". workspace/.venv3/bin/activate && pip3 install -r requirements.dev.txt"
+
     sh "rm workspace/.venv3/bin/python" // remove python to detect illegitime usage of python (which is often python2)
     dir('workspace') {
       if (self_test) {
@@ -126,10 +130,21 @@ node {
         echo "Kubernetes deploy dry-run finished in success!"
       }
       echo "Now really running dmake"
+      if (params.TMP_FILE_VALUE != '') {
+        TMP_FILE_PATH = sh (
+          script: 'mktemp',
+          returnStdout: true
+        ).trim()
+        sh "echo ${params.TMP_FILE_VALUE} > ${TMP_FILE_PATH}"
+        
+      }
       sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
         load 'DMakefile'
+      }
+      if (params.TMP_FILE_VALUE != '') {
+        sh "rm ${TMP_FILE_PATH}"
       }
     }
   }
