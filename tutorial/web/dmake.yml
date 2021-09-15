@@ -16,7 +16,7 @@ docker:
     install_scripts:
       - deploy/dependencies.sh
     mount_secrets:
-      - secret_value: $TMP_FILE_PATH
+      secret_value: $TMP_FILE_PATH
 
 services:
   - service_name: web
