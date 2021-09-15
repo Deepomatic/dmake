@@ -122,7 +122,7 @@ node {
       TMP_FILE_PATH_ENV = ''
       if (params.TMP_FILE_VALUE != '') {
         TMP_FILE_PATH = sh (
-          script: 'mktemp tmpXXXXXX',
+          script: 'mktemp',
           returnStdout: true
         ).trim()
         sh "echo ${params.TMP_FILE_VALUE} > ${TMP_FILE_PATH}"

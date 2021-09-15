@@ -320,8 +320,8 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             # TODO: grab additionnal env from configuration
             secret_path = common.eval_str_in_env(secret_path)
 
-            if not re.match(r'^[a-zA-Z0-9]{1,63}$', secret_id):
-                raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': id must match ^[a-zA-Z0-9]{1,63}$" % (secret_id, secret_path))
+            if not re.match(r'^[a-z0-9]{1,63}$', secret_id):
+                raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': id must match ^[a-z0-9]{1,63}$" % (secret_id, secret_path))
 
             if not os.path.isabs(secret_path):
                 raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': not an absolute path" % (secret_id, secret_path))
