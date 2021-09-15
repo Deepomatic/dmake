@@ -139,7 +139,7 @@ node {
         echo "Kubernetes deploy dry-run finished in success!"
       }
       echo "Now really running dmake"
-      sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
+      sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} ${TMP_FILE_PATH_ENV} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
         load 'DMakefile'

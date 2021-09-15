@@ -36,9 +36,7 @@ services:
           - -sSf
           - http://localhost:8000/
           - -o
-          - /dev/null
-        period_seconds: 1
-        max_seconds: 10
+          - /dev/nullTMP_FILE_PATH
     tests:
       commands:
         - >-
@@ -48,6 +46,7 @@ services:
           --with-xunit --xunit-file nosetests.xml
           --nologcapture
           --with-id
+        - /bin/bash -c 'v=$(cat /run/secret/secretvalue); if [ "$v" == "this_is_a_secret_path" ]; then exit 0; else exit 1; fi;'
       junit_report: nosetests.xml
       html_report:
         directory: cover
