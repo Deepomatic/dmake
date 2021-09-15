@@ -119,20 +119,21 @@ node {
           publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: false, keepAll: true, reportDir: 'cover', reportFiles: 'index.html', reportName: 'dmake HTML coverage report'])
         }
       }
+      TMP_FILE_PATH_ENV = ''
       if (params.TMP_FILE_VALUE != '') {
         TMP_FILE_PATH = sh (
-          script: 'mktemp',
+          script: 'mktemp tmpXXXXXX',
           returnStdout: true
         ).trim()
         sh "echo ${params.TMP_FILE_VALUE} > ${TMP_FILE_PATH}"
-        params.CUSTOM_ENVIRONMENT += " TMP_FILE_PATH=${TMP_FILE_PATH}"
+        TMP_FILE_PATH_ENV = " TMP_FILE_PATH=${TMP_FILE_PATH}"
       }
       if (params.DMAKE_COMMAND == 'test') {
         echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
         withEnv([" KUBECONFIG=${MINIKUBE_HOME}/kubeconfig", "DMAKE_TEST_K8S_NAMESPACE=dmake-test"]) {
           sh "kubectl create namespace ${env.DMAKE_TEST_K8S_NAMESPACE} --save-config --dry-run=client -o yaml | kubectl apply -f -"
           sh "kubectl create namespace ${env.DMAKE_TEST_K8S_NAMESPACE}-2 --save-config --dry-run=client -o yaml | kubectl apply -f -"
-          sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
+          sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} ${TMP_FILE_PATH_ENV} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
           // skip execution: just plan
         }
         echo "Kubernetes deploy dry-run finished in success!"
