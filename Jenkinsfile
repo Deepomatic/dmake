@@ -119,6 +119,14 @@ node {
           publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: false, keepAll: true, reportDir: 'cover', reportFiles: 'index.html', reportName: 'dmake HTML coverage report'])
         }
       }
+      if (params.TMP_FILE_VALUE != '') {
+        TMP_FILE_PATH = sh (
+          script: 'mktemp',
+          returnStdout: true
+        ).trim()
+        sh "echo ${params.TMP_FILE_VALUE} > ${TMP_FILE_PATH}"
+        env.TMP_FILE_PATH = TMP_FILE_PATH
+      }
       if (params.DMAKE_COMMAND == 'test') {
         echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
         withEnv([" KUBECONFIG=${MINIKUBE_HOME}/kubeconfig", "DMAKE_TEST_K8S_NAMESPACE=dmake-test"]) {
@@ -130,14 +138,6 @@ node {
         echo "Kubernetes deploy dry-run finished in success!"
       }
       echo "Now really running dmake"
-      if (params.TMP_FILE_VALUE != '') {
-        TMP_FILE_PATH = sh (
-          script: 'mktemp',
-          returnStdout: true
-        ).trim()
-        sh "echo ${params.TMP_FILE_VALUE} > ${TMP_FILE_PATH}"
-        
-      }
       sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
