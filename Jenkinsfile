@@ -36,9 +36,6 @@ properties([
         booleanParam(name: 'ABORT_OLD_BUILDS_ON_PR',
                      defaultValue: true,
                      description: 'Abort old builds when job is for a PR.'),
-        string(name: 'TMP_FILE_VALUE',
-               defaultValue: 'this_is_a_secret_path',
-               description: 'Will create a tmp file containing this value is not empty. It\'s path will be set in env TMP_FILE_PATH'),
     ]),
     pipelineTriggers([])
 ])
@@ -106,7 +103,6 @@ node {
   stage('Python 3.x') {
     sh "virtualenv -p python3 workspace/.venv3"
     sh ". workspace/.venv3/bin/activate && pip3 install -r requirements.dev.txt"
-
     sh "rm workspace/.venv3/bin/python" // remove python to detect illegitime usage of python (which is often python2)
     dir('workspace') {
       if (self_test) {
@@ -119,33 +115,26 @@ node {
           publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: false, keepAll: true, reportDir: 'cover', reportFiles: 'index.html', reportName: 'dmake HTML coverage report'])
         }
       }
-      TMP_FILE_PATH_ENV = ''
-      if (params.TMP_FILE_VALUE != '') {
-        TMP_FILE_PATH = sh (
-          script: 'mktemp',
-          returnStdout: true
-        ).trim()
-        sh "echo ${params.TMP_FILE_VALUE} > ${TMP_FILE_PATH}"
-        TMP_FILE_PATH_ENV = " TMP_FILE_PATH=${TMP_FILE_PATH}"
-      }
+      SECRET_FILE_PATH = sh (
+        script: 'mktemp',
+        returnStdout: true
+      ).trim()
+      sh "echo this_is_a_secret_value > ${SECRET_FILE_PATH}"
       if (params.DMAKE_COMMAND == 'test') {
         echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
         withEnv([" KUBECONFIG=${MINIKUBE_HOME}/kubeconfig", "DMAKE_TEST_K8S_NAMESPACE=dmake-test"]) {
           sh "kubectl create namespace ${env.DMAKE_TEST_K8S_NAMESPACE} --save-config --dry-run=client -o yaml | kubectl apply -f -"
           sh "kubectl create namespace ${env.DMAKE_TEST_K8S_NAMESPACE}-2 --save-config --dry-run=client -o yaml | kubectl apply -f -"
-          sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} ${TMP_FILE_PATH_ENV} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
+          sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} SECRET_FILE_PATH=${SECRET_FILE_PATH} DMAKE_SKIP_TESTS=1 dmake deploy ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}' --branch ${params.DEPLOY_BRANCH_TO_TEST}"
           // skip execution: just plan
         }
         echo "Kubernetes deploy dry-run finished in success!"
       }
       echo "Now really running dmake"
-      sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} ${TMP_FILE_PATH_ENV} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
+      sh ". .venv3/bin/activate && ${params.CUSTOM_ENVIRONMENT} SECRET_FILE_PATH=${SECRET_FILE_PATH} dmake ${params.DMAKE_COMMAND} ${dmake_with_dependencies} '${params.DMAKE_APP_TO_TEST}'"
       sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
                   env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS : '').tokenize(',')) {
         load 'DMakefile'
-      }
-      if (params.TMP_FILE_VALUE != '') {
-        sh "rm ${TMP_FILE_PATH}"
       }
     }
   }

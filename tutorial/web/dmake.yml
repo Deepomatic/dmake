@@ -17,7 +17,7 @@ docker:
       - deploy/dependencies.sh
       - deploy/test_secret.sh
     mount_secrets:
-      secretvalue: $TMP_FILE_PATH
+      test_secret: $SECRET_FILE_PATH
 
 services:
   - service_name: web
@@ -37,7 +37,9 @@ services:
           - -sSf
           - http://localhost:8000/
           - -o
-          - /dev/nullTMP_FILE_PATH
+          - /dev/null
+        period_seconds: 1
+        max_seconds: 10
     tests:
       commands:
         - >-
