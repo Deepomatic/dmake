@@ -26,7 +26,10 @@ docker:
   base_image:
     name: dmake-test-web-base
     install_scripts:
+      - deploy/base-test-mount-secret.sh
       - deploy/dependencies.sh
+    mount_secrets:
+      test_secret: $PWD/test/test_secret  # this is not the canonical usage, it will break when running dmake from a subdirectory, but it works without extra setup for jenkins and developers: good for a test
     python_requirements: requirements.txt  # deprecated
 
 services:
@@ -66,6 +69,7 @@ services:
           target: ${SHARED_VOLUME_ROOT}/shared_volume_with_workers
     tests:
       commands:
+        - test ! -f /run/secrets/test_secret # base image secret should not be available in service image
         - test "${ENV_FROM_ENTRYPOINT}" = 'ok'
         - test "${ENV_EVALUATION_TEST}" = 'foobar' # test environment evaluation: should be evaluated in container
         - test "${ENV_OVERRIDE_TEST}" = '1' # test env override: should use the root `env` value

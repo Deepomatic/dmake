@@ -15,9 +15,6 @@ docker:
       - deploy/requirements.txt
     install_scripts:
       - deploy/dependencies.sh
-      - deploy/test_secret.sh
-    mount_secrets:
-      test_secret: $SECRET_FILE_PATH
 
 services:
   - service_name: web
