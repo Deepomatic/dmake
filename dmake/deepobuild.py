@@ -318,7 +318,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         mount_secrets_args = []
         for secret_id, secret_path in self.mount_secrets.items():
             # TODO: grab additionnal env from configuration
-            secret_path = common.eval_str_in_env(secret_path)
+            secret_path = common.eval_str_in_env(secret_path, strict=True)
 
             if not re.match(r'^[-_a-z0-9]{1,63}$', secret_id):
                 raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': id must match ^[-_a-z0-9]{1,63}$" % (secret_id, secret_path))
