@@ -46,7 +46,8 @@ else
     COLUMN="1"
 fi
 
-# TODO: This is a hack to preverse v2 hashes when dropping ssh agent in base image (templates/docker-base/make_base.sh)
+# hack to preverse v2 digest when dropping ssh agent support in docker-base/make_base.sh
+# TODO: remove digest hack on next real digest change
 HASH_TRANSLATION="sed s/2e976322a977fbc5dcf07614ae6ec718/d01fa55e7b07301fb8cb62dad5cfeec7/"
 
 if [ -f ${TARGET} ]; then
