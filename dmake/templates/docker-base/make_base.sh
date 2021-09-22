@@ -11,14 +11,6 @@ rm -rf /base
 cp -r $ROOT /base
 cd /base
 
-# Make sure SSH Agent socket is here if needed
-if [ ! -z "$SSH_AUTH_SOCK" ] && [ ! -S "$SSH_AUTH_SOCK" ]; then
-    echo "Could not find the SSH Agent socket. This may happen when you run docker under MacOS or Windows. You need to configure docker such that this file can be shared: $SSH_AUTH_SOCK."
-    echo "For MacOs, see https://docs.docker.com/docker-for-mac/osxfs/#/namespaces"
-    echo "For Windows, see https://docs.docker.com/docker-for-windows/#shared-drives"
-    exit 1
-fi
-
 # Setup packet manager
 dpkg --configure -a
 apt-get update || apt-get update --fix-missing
