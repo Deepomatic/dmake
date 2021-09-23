@@ -35,9 +35,5 @@ if [ -d user ]; then
 fi
 
 ## Do some cleaning
-if [ -f /etc/ssh/ssh_config ]; then
-    head -n 4 /etc/ssh/ssh_config > /tmp/ssh_config
-    mv /tmp/ssh_config /etc/ssh/ssh_config
-fi
 rm -rf /tmp/* || :
 rm -rf /var/lib/apt/lists/* || :

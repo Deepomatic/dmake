@@ -48,7 +48,7 @@ fi
 
 # hack to preverse v2 digest when dropping ssh agent support in docker-base/make_base.sh
 # TODO: remove digest hack on next real digest change
-HASH_TRANSLATION="sed s/5b263c12db47550402cf6ee16b68dcdf/d01fa55e7b07301fb8cb62dad5cfeec7/"
+HASH_TRANSLATION="sed s/9b21fb10ba3bf7b1d736b444be3c2cf0/d01fa55e7b07301fb8cb62dad5cfeec7/"
 
 if [ -f ${TARGET} ]; then
     # For files, directly get the md5
