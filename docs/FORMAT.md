@@ -34,6 +34,7 @@
                 - **python_requirements** *(file path, default = ``)*: Path to python requirements.txt.
                 - **python3_requirements** *(file path, default = ``)*: Path to python requirements.txt.
                 - **copy_files** *(array\<file or directory path\>, default = `[]`)*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
+                - **mount_secrets** *(free style object, default = `{}`)*: Secrets files to mount on '/run/secrets/<secret_id>' during base image build (uses docker buildkit https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/syntax.md#run---mounttypesecret). Double quotes are not supported in the path.
             - an array of objects with the following fields:
                 - **name** *(string)*: Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.
                 - **variant** *(string)*: When multiple base_image are defined, this names the base_image variant.
@@ -44,6 +45,7 @@
                 - **python_requirements** *(file path, default = ``)*: Path to python requirements.txt.
                 - **python3_requirements** *(file path, default = ``)*: Path to python requirements.txt.
                 - **copy_files** *(array\<file or directory path\>, default = `[]`)*: Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.
+                - **mount_secrets** *(free style object, default = `{}`)*: Secrets files to mount on '/run/secrets/<secret_id>' during base image build (uses docker buildkit https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/syntax.md#run---mounttypesecret). Double quotes are not supported in the path.
         - **mount_point** *(string, default = `/app`)*: Mount point of the app in the built docker image. Needs to be an absolute path.
         - **command** *(string, default = `bash`)*: Only used when running 'dmake shell': command passed to `docker run`.
 - **docker_links** *(array\<object\>, default = `[]`)*: List of link to create, they are shared across the whole application, so potentially across multiple dmake files.
@@ -51,7 +53,7 @@
     - **link_name** *(string)*: Link name.
     - **volumes** *(array\<object\>, default = `[]`)*: Either shared volumes to mount. Or: for the 'shell' command only. The list of volumes to mount on the link. It must be in the form ./host/path:/absolute/container/path. Host path is relative to the dmake file.
         - an object with the following fields:
-            - **source** *(string)*: The shared volume name (declared in .
+            - **source** *(string)*: The shared volume name (declared in root `volumes`).
             - **target** *(string)*: The path in the container where the volume is mounted.
         - an object with the following fields:
             - **container_volume** *(string)*: Path of the volume mounted in the container.
@@ -126,7 +128,7 @@
             - **host_port** *(int)*: Port on the host. If not set, a random port will be used.
         - **volumes** *(array\<object\>, default = `[]`)*: Volumes to mount.
             - an object with the following fields:
-                - **source** *(string)*: The shared volume name (declared in .
+                - **source** *(string)*: The shared volume name (declared in root `volumes`).
                 - **target** *(string)*: The path in the container where the volume is mounted.
             - an object with the following fields:
                 - **container_volume** *(string)*: Path of the volume mounted in the container.
@@ -137,11 +139,11 @@
             - **period_seconds** *(int, default = `5`)*: The delay between two first probes.
             - **max_seconds** *(int, default = `0`)*: The maximum delay after failure.
         - **devices** *(array\<string\>, default = `[]`)*: Device to expose from the host to the container. Support variable substitution in host part, to have a generic dmake.yml with host-specific values configured externally, per machine.
-    - **tests** *(object, optional)*: Unit tests list. It must be an object with the following fields:
+    - **tests** *(object, optional)*: Unit tests configuration. Some parts of the configuration are also used in dmake shell. It must be an object with the following fields:
         - **docker_links_names** *(array\<string\>, default = `[]`)*: The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.
-        - **data_volumes** *(array\<object\>, default = `[]`)*: The read only data volumes to mount. Only S3 is supported for now.
+        - **data_volumes** *(array\<object\>, default = `[]`)*: The data volumes to mount. Used for test and shell.
             - **container_volume** *(string)*: Path of the volume mounted in the container.
-            - **source** *(string)*: Only host path and s3 URLs are supported for now.
+            - **source** *(string)*: Host path and s3 URLs are supported.
             - **read_only** *(boolean, default = `False`)*: Flag to set the volume as read-only.
         - **commands** *(array\<string\>)*: The commands to run for integration tests.
         - **timeout** *(mixed)*: The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks). It can be one of the followings:

@@ -144,7 +144,7 @@ class SharedVolumeSerializer(YAML2PipelineSerializer):
 
 
 class SharedVolumeMountSerializer(YAML2PipelineSerializer):
-    source = FieldSerializer("string", example = "datasets", help_text = "The shared volume name (declared in .")
+    source = FieldSerializer("string", example = "datasets", help_text = "The shared volume name (declared in root `volumes`).")
     target = FieldSerializer("string", example = "/datasets", help_text = "The path in the container where the volume is mounted")
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
@@ -206,6 +206,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
     python_requirements  = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "")
     python3_requirements = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "requirements.txt")
     copy_files           = FieldSerializer("array", child = FieldSerializer("path", child_path_only = True), default = [], help_text = "Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.", example = ["some/relative/file/to/copy"])
+    mount_secrets        = FieldSerializer("dict", child = FieldSerializer("string"), default = {}, example = {'githubtoken': '${HOME}/secrets/github_package_token.txt'}, help_text = "Secrets files to mount on '/run/secrets/<secret_id>' during base image build (uses docker buildkit https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/syntax.md#run---mounttypesecret). Double quotes are not supported in the path.")
 
     def __init__(self, *args, **kwargs):
         self.serializer_version = kwargs.pop('version', 2)
@@ -297,11 +298,6 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 f.write('%s %s\n' % md5)
         dmake_digest_v1 = common.run_shell_command('dmake_md5 %s' % (md5_file))
 
-        if not self.raw_root_image:
-            # FIXME: copy key while #493 is not closed: https://github.com/docker/for-mac/issues/483
-            if common.key_file is not None:
-                common.run_shell_command('cp %s %s' % (common.key_file, os.path.join(tmp_dir, 'key')))
-
         # Get root_image digest
         try:
             root_image_digest = docker_registry.get_image_digest(self.root_image)
@@ -317,6 +313,48 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
             except Exception as e:
                 common.logger.info('Failed to find {} locally with the following error:'.format(self.root_image))
                 raise e
+
+        dockerfile_secrets_mounts = ''
+        mount_secrets_args = []
+        for secret_id, secret_path in self.mount_secrets.items():
+            # TODO: grab additionnal env from configuration
+            secret_path = common.eval_str_in_env(secret_path, strict=True)
+
+            if not re.match(r'^[-_a-z0-9]{1,63}$', secret_id):
+                raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': id must match ^[-_a-z0-9]{1,63}$" % (secret_id, secret_path))
+
+            if not os.path.isabs(secret_path):
+                raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': not an absolute path" % (secret_id, secret_path))
+
+            if not os.path.isfile(secret_path):
+                raise ValidationError("Invalid 'mount_secrets': id '%s', path '%s': file not found" % (secret_id, secret_path))
+
+            dockerfile_secrets_mounts += ' --mount=type=secret,required=true,id={} '.format(secret_id)
+            # We have to double quote the src={} since the secret parameter takes CSV format and commas in path would break the parsing
+            mount_secrets_args.append('--secret=id={},"src={}"'.format(secret_id, secret_path))
+
+
+        # Create the Dockerfile
+        # Note that by using a more fine-grained COPY and RUN we could better leverage local docker cache
+        # But to nicely leverage this we would have to edit the base install scripts, which would break the global cache
+        # TODO later: break base image digest, simplify or even remove the make_base.sh script (notably now wrong comments; ssh support...)
+        dockerfile = os.path.join(tmp_dir, 'Dockerfile')
+        with open(dockerfile, 'w') as f:
+            f.write('# syntax=docker/dockerfile:1.3\n')
+            f.write('FROM {}@{}\n'.format(self.root_image, root_image_digest))
+            f.write('COPY . /base_volume\n')
+            f.write('RUN {} /bin/bash /base_volume/make_base.sh\n'.format(dockerfile_secrets_mounts))
+            # We empty the /base_volume to make final images as close as possible to the previous way to build base images (docker run -v <tmp_dir>:/base_volume, docker commit)
+            # Ideally we would like to change the make_base script but it would break the global cache
+            f.write('RUN rm -rf /base_volume && mkdir /base_volume\n')
+            f.write('CMD ["/bin/bash"]\n')
+
+        # Make `docker build` ignore extra files that are not directly impacting the build context
+        dockerignore = os.path.join(tmp_dir, '.dockerignore')
+        with open(dockerignore, 'w') as f:
+            f.write('Dockerfile\n')
+            f.write('.dockerignore\n')
+
 
         # Generate base image tag
         self.tag = self._get_base_image_tag(root_image_digest, dmake_digest)
@@ -335,6 +373,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
                 tag_v1,
                 dmake_digest,
                 push_image]
+        args.extend(mount_secrets_args)
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
@@ -978,7 +1017,7 @@ class DeploySerializer(YAML2PipelineSerializer):
 
 class DataVolumeSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
-    source            = FieldSerializer("string", example = "s3://my-bucket/some/folder", help_text = "Only host path and s3 URLs are supported for now.")
+    source            = FieldSerializer("string", example = "s3://my-bucket/some/folder", help_text = "Host path and s3 URLs are supported.")
     read_only         = FieldSerializer("bool",   default = False,  help_text = "Flag to set the volume as read-only")
 
     def get_mount_opt(self, service_name, dmake_file_path, env=None):
@@ -1018,7 +1057,7 @@ class DataVolumeSerializer(YAML2PipelineSerializer):
 
 class TestSerializer(YAML2PipelineSerializer):
     docker_links_names = FieldSerializer(deprecated="Use 'services:needed_links' instead", data_type="array", child = "string", migration='0001_docker_links_names_to_needed_links', default = [], example = ['mongo'], help_text = "The docker links names to bind to for this test. Must be declared at the root level of some dmake file of the app.")
-    data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The read only data volumes to mount. Only S3 is supported for now.")
+    data_volumes       = FieldSerializer("array", child = DataVolumeSerializer(), default = [], help_text = "The data volumes to mount. Used for test and shell.")
     commands           = FieldSerializer("array", child = "string", example = ["python manage.py test"], help_text = "The commands to run for integration tests.")
     timeout            = FieldSerializer(["number", SerializerType("string", deprecated=True)], optional = True, example = "600", help_text = "The timeout (in seconds) to apply to the tests execution (excluding dependencies, setup, and potential resources locks).")
     junit_report       = FieldSerializer(["string", "array"], child = "string", default = [], post_validation = lambda x: [x] if isinstance(x, str) else x, example = "test-reports/nosetests.xml", help_text = "Filepath or array of file paths of xml xunit test reports. Publish a XUnit test report.")
@@ -1209,7 +1248,7 @@ class ServicesSerializer(YAML2PipelineSerializer):
     sources         = FieldSerializer("array", child = FieldSerializer(["file", "dir"]), optional = True, help_text = "If specified, this service will be considered as updated only when the content of those directories or files have changed.", example = 'path/to/app')
     dev             = DevConfigSerializer(help_text = "Development runtime configuration.")
     config          = DeployConfigSerializer(help_text = "Deployment configuration.")
-    tests           = TestSerializer(optional = True, help_text = "Unit tests list.")
+    tests           = TestSerializer(optional = True, help_text = "Unit tests configuration. Some parts of the configuration are also used in dmake shell.")
     deploy          = DeploySerializer(optional = True, help_text = "Deploy stage")
 
     def _validate_(self, file, needed_migrations, data, field_name=''):

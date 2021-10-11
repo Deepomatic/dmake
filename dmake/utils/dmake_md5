@@ -46,18 +46,22 @@ else
     COLUMN="1"
 fi
 
+# hack to preverse v2 digest when dropping ssh agent support in docker-base/make_base.sh
+# TODO: remove digest hack on next real digest change
+HASH_TRANSLATION="sed s/9b21fb10ba3bf7b1d736b444be3c2cf0/d01fa55e7b07301fb8cb62dad5cfeec7/"
+
 if [ -f ${TARGET} ]; then
     # For files, directly get the md5
-    $CMD ${TARGET} | cut -d ' ' -f $COLUMN
+    $CMD ${TARGET} | $HASH_TRANSLATION | cut -d ' ' -f $COLUMN
 elif [ ${VERSION} -eq 1 ]; then
     # For a directory, it hashes the list of MD5s
-    echo $(dmake_find $1 -type f -print0 | xargs -0 $CMD | cut -d ' ' -f $COLUMN | $CMD)
+    echo $(dmake_find $1 -type f -print0 | xargs -0 $CMD | $HASH_TRANSLATION | cut -d ' ' -f $COLUMN | $CMD)
 elif [ ${VERSION} -eq 2 ]; then
     # For a directory, it hashes the set of MD5s+filepath (ordered for stability)
     pushd ${TARGET} >& /dev/null
     # 1 - we remove the `.git` file that may occur in submodules as it may point to the parent git dir using absolute path which is not stable across machines
     # 2 - we use the final `cut`function because the outputs `md5sum` (Linux) outputs a `-` when run on stdin, whereas `md5` (MacOS) does not
-    find . -type f ! -name .git -print0 | xargs -0 $CMD | md5sum_normalize_output | LC_ALL=C sort | $CMD | cut -d ' ' -f 1
+    find . -type f ! -name .git -print0 | xargs -0 $CMD | $HASH_TRANSLATION | md5sum_normalize_output | LC_ALL=C sort | $CMD | cut -d ' ' -f 1
     popd >& /dev/null
 else
     dmake_fail "$0: Invalid version: ${VERSION}"

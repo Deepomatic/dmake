@@ -399,7 +399,7 @@ def dump_debug_dot_graph(dependencies, nodes_height):
 
 def init(_options, early_exit=False):
     global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_group_by, dot_graph_pretty, dot_graph_filename, dot_graph_format
-    global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir, key_file
+    global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir
     global branch, target, is_pr, pr_id, build_id, commit_id, name_prefix, image_tag_prefix, force_full_deploy
     global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global no_gpu, need_gpu
@@ -575,19 +575,3 @@ def init(_options, early_exit=False):
     logger.info("COMMIT_ID : %s" % commit_id[:7])
     logger.info("NAME_PREFIX : %s" % name_prefix)
     logger.info("===============")
-
-    # Check the SSH Key for cloning private repositories is correctly set up
-    key_file = os.getenv('DMAKE_SSH_KEY', None)
-    if key_file == '':
-        key_file = None
-    if key_file is not None:
-        if os.path.isfile(key_file):
-            if os.getenv('SSH_AUTH_SOCK', None) is None:
-                lines = run_shell_command("eval `ssh-agent -s` && echo $SSH_AUTH_SOCK && echo $SSH_AGENT_PID").split('\n')
-                os.environ['SSH_AUTH_SOCK'] = lines[-2]
-                run_shell_command('echo %s >> %s/processes_to_kill.txt' % (lines[-1], tmp_dir))
-            logger.info("Adding SSH key %s to SSH Agent" % key_file)
-            run_shell_command("ssh-add %s" % key_file, ignore_error = True)
-        else:
-            logger.warning("WARNING: DMAKE_SSH_KEY does not point to a valid file. You won't be able to clone private repositories.")
-            key_file = None

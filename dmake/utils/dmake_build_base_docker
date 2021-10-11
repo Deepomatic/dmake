@@ -8,7 +8,8 @@
 #                         DOCKER_IMAGE_TAG \
 #                         DOCKER_IMAGE_TAG_V1 \
 #                         DMAKE_DIGEST \
-#                         PUSH_IMAGE
+#                         PUSH_IMAGE \
+#                         BUILD_EXTRA_ARGS...
 #
 # Result:
 # Will build and cache the base docker images with libs.
@@ -21,7 +22,7 @@ function log() {
   echo "$@" >&3
 }
 
-if [ $# -ne 8 ]; then
+if [ $# -lt 8 ]; then
     dmake_fail "$0: Wrong arguments"
     log "exit 1"
     exit 1
@@ -37,6 +38,7 @@ DOCKER_IMAGE_TAG=$1; shift
 DOCKER_IMAGE_TAG_V1=$1; shift
 DMAKE_DIGEST=$1; shift
 PUSH_IMAGE=$1; shift
+BUILD_EXTRA_ARGS=("$@") # We copy the whole array so we have an explicit variable name
 
 
 function docker_get_image_id() {
@@ -125,37 +127,7 @@ fi
 if [ -z "${BASE_IMAGE_ID}" ]; then
     log "Docker base image not found in cache, building it (${BASE_IMAGE})"
 
-    if [ `uname` = "Darwin" ] && [ ! -z "${DMAKE_SSH_KEY}" ]; then
-        OTHER_OPTS="-v ${DMAKE_SSH_KEY}:/key"
-    fi
-
-    if [ ! -z "$SSH_AUTH_SOCK" ]; then
-        SSH_AUTH_SOCK_VOLUME="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK"
-    fi
-
-    DOCKER_RUN_ARGS=( run
-                      --runtime=runc
-                      -u 0
-                      --cidfile ${TMP_DIR}/cid.txt $SSH_AUTH_SOCK_VOLUME
-                      -e SSH_AUTH_SOCK=$SSH_AUTH_SOCK
-                      -v ${TMP_DIR}:/base_volume
-                      ${OTHER_OPTS}
-                      ${ROOT_IMAGE_NAME}@${ROOT_IMAGE_DIGEST}
-                      /bin/bash /base_volume/make_base.sh
-                    )
-
-    log "Executing docker ${DOCKER_RUN_ARGS[@]}"
-
-    rm -f ${TMP_DIR}/cid.txt
-    docker "${DOCKER_RUN_ARGS[@]}"
-
-    CID=`cat ${TMP_DIR}/cid.txt`
-    if [ ! -z "${DMAKE_TMP_DIR}" ]; then
-        echo ${CID} >> ${DMAKE_TMP_DIR}/containers_to_remove.txt
-    fi
-
-    # We commit the container into the base image
-    docker commit --change='CMD ["/bin/bash"]' ${CID} ${BASE_IMAGE}
+    DOCKER_BUILDKIT=1 DMAKE_BUILD_DOCKER_SKIP_IMAGE_CLEANUP=1 dmake_build_docker "${TMP_DIR}" "${BASE_IMAGE}" "${BUILD_EXTRA_ARGS[@]}"
 
     # Then push if asked to
     docker_maybe_push_image
