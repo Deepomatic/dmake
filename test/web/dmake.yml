@@ -22,30 +22,31 @@ volumes:
 docker:
   root_image:
     name: ubuntu
-    tag: "16.04"
+    tag: "20.04"
   base_image:
     name: dmake-test-web-base
+    copy_files:
+      - deploy/base/build/requirements.txt
     install_scripts:
       - deploy/base-test-mount-secret.sh
-      - deploy/dependencies.sh
+      - deploy/base/build/install.sh
     mount_secrets:
       test_secret: $PWD/test/test_secret  # this is not the canonical usage, it will break when running dmake from a subdirectory, but it works without extra setup for jenkins and developers: good for a test
-    python_requirements: requirements.txt  # deprecated
 
 services:
   - service_name: test-web
     needed_links:
       - test-rabbitmq
     needed_services:
-      - service_name: test-worker:ubuntu-1604
+      - service_name: test-worker:ubuntu-1804
         env:
           TEST_SHARED_VOLUME: "1"
           TEST_ENV_OVERRIDE: "1"
           ENV_OVERRIDE_TEST3: from_needed_service_env
           ENV_OVERRIDE_TEST5: from_needed_service_env
         use_host_ports: false
-      - service_name: test-worker:ubuntu-1804
-        link_name: test-worker-ubuntu-1804
+      - service_name: test-worker:ubuntu-2004
+        link_name: test-worker-ubuntu-2004
         env:
           TEST_SHARED_VOLUME: "1"
     config:
@@ -77,7 +78,7 @@ services:
         - touch 'tag' # test shared environment for multiple commands test
         - test -f "tag"  # test command escaping
         - deploy/test-shared-volumes.sh /shared_volume_root_value/shared_volume_with_workers
-        - deploy/test-needed-service-link.sh test-worker-ubuntu-1804
+        - deploy/test-needed-service-link.sh test-worker-ubuntu-2004
         - >-
           ./manage.py test
           --verbosity=2 --noinput
@@ -102,8 +103,8 @@ services:
 
   - service_name: test-web2
     needed_services:
-      - service_name: test-worker:ubuntu-1804
-        link_name: test-worker-ubuntu-1804
+      - service_name: test-worker:ubuntu-2004
+        link_name: test-worker-ubuntu-2004
         env:
           TEST_SHARED_VOLUME: "1"
         needed_for:

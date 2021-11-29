@@ -5,14 +5,14 @@ docker:
   base_image:
     - &base
       name: dmake-test-worker-base
-      variant: ubuntu-1604
-      root_image: ubuntu:16.04
+      variant: ubuntu-1804
+      root_image: ubuntu:18.04
       raw_root_image: true
       install_scripts:
         - deploy/dependencies.sh
     - <<: *base
-      variant: ubuntu-1804
-      root_image: ubuntu:18.04
+      variant: ubuntu-2004
+      root_image: ubuntu:20.04
 
 env:
   default:
@@ -27,7 +27,7 @@ env:
         AMQP_URL: amqp://user:password@test-rabbitmq/dev
 
 docker_links:
-  - image_name: rabbitmq:3.8
+  - image_name: rabbitmq:3.9
     link_name: test-rabbitmq
     probe_ports:
       - 5672/tcp
@@ -41,7 +41,7 @@ docker_links:
 services:
   - service_name: test-worker2
     config:
-      docker_image: ubuntu:18.04
+      docker_image: ubuntu:20.04
     tests:
       commands:
         - echo 'OK'
@@ -54,8 +54,8 @@ services:
       docker_image:
         name: dmake-test-worker
         base_image_variant:
-          - ubuntu-1604
           - ubuntu-1804
+          - ubuntu-2004
         source_directories_additional_contexts:
           - ../web
         build:

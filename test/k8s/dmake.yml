@@ -10,7 +10,7 @@ env:
 docker:
   root_image:
     name: ubuntu
-    tag: "18.04"
+    tag: "20.04"
 
 services:
   - service_name: test-k8s

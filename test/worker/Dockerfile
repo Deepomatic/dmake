@@ -17,6 +17,6 @@ FROM ${BASE_IMAGE} as runtime
 WORKDIR /app/test/worker
 
 COPY --from=builder /usr/local/worker .
-COPY --from=builder /web/requirements.txt /web-requirements.txt
+COPY --from=builder /web/test_access_from_another_build_context.txt /
 
 CMD ["deploy/start.sh"]

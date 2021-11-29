@@ -1,0 +1,8 @@
+# open ranges, hopefully without breaking change, pip-compile then freezes everyting for stability
+amqp
+Django
+kombu
+vine
+nose
+django-nose
+coverage

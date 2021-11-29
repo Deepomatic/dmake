@@ -9,13 +9,13 @@ env:
 docker:
   base_image:
     name: dmake-tutorial-worker-base
-    root_image: ubuntu:16.04
+    root_image: ubuntu:20.04
     raw_root_image: true
     install_scripts:
       - deploy/dependencies.sh
 
 docker_links:
-  - image_name: rabbitmq:3.8
+  - image_name: rabbitmq:3.9
     link_name: rabbitmq
     probe_ports:
       - 5672/tcp

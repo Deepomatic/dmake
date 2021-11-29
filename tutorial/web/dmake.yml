@@ -9,12 +9,12 @@ env:
 docker:
   base_image:
     name: dmake-tutorial-web-base
-    root_image: ubuntu:16.04
+    root_image: ubuntu:20.04
     raw_root_image: true
     copy_files:
-      - deploy/requirements.txt
+      - deploy/base/build/requirements.txt
     install_scripts:
-      - deploy/dependencies.sh
+      - deploy/base/build/install.sh
 
 services:
   - service_name: web
