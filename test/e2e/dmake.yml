@@ -38,7 +38,7 @@ services:
       docker_image:
         build:
           context: .
-          dockerfile: ./deploy/Dockerfile
+          dockerfile: ./deploy/base/build/Dockerfile
       ports:
         - container_port: True  # test bool type in ints deprecation warning D004
     tests:

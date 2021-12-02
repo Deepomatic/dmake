@@ -199,7 +199,7 @@ class VolumeMountSerializer(YAML2PipelineSerializer):
 class DockerBaseSerializer(YAML2PipelineSerializer):
     name                 = FieldSerializer("string", help_text = "Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.")
     variant              = FieldSerializer("string", optional = True, help_text = "When multiple base_image are defined, this names the base_image variant.", example = "tf")
-    root_image           = FieldSerializer("string", optional = True, help_text = "The source image to build on. Defaults to docker.root_image", example = "ubuntu:16.04")
+    root_image           = FieldSerializer("string", optional = True, help_text = "The source image to build on. Defaults to docker.root_image", example = "ubuntu:20.04")
     raw_root_image       = FieldSerializer("bool", default = False, help_text = "If true, don't install anything on the root_image before executing install_scripts")
     version              = FieldSerializer("string", help_text = "Deprecated, not used anymore, will be removed later.", default = 'latest')
     install_scripts      = FieldSerializer("array", default = [], child = FieldSerializer("file", executable = True, child_path_only = True), example = ["some/relative/script/to/run"])
@@ -401,7 +401,7 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
 
 class DockerRootImageSerializer(YAML2PipelineSerializer):
     name = FieldSerializer("string", help_text = "Root image name.", example = "library/ubuntu")
-    tag  = FieldSerializer("string", help_text = "Root image tag (you can use environment variables).", example = "16.04")
+    tag  = FieldSerializer("string", help_text = "Root image tag (you can use environment variables).", example = "20.04")
 
 class DockerSerializer(YAML2PipelineSerializer):
     root_image   = FieldSerializer([FieldSerializer("file", help_text = "to another dmake file, in which base the root_image will be this file's base_image."), DockerRootImageSerializer()], optional = True, help_text = "The default source image name to build on.")

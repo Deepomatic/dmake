@@ -94,14 +94,14 @@ Then comes the specification of the Docker environment in which your app will ru
 docker:
   base_image:
     name: dmake-tutorial-worker-base
-    root_image: ubuntu:16.04
+    root_image: ubuntu:20.04
     install_scripts:
-      - deploy/dependencies.sh
+      - deploy/base/build/install.sh
 ```
 
 The base image is a docker image that contains everything to build and run your service, except for the service code itself: it's the build and runtime dependencies.
 
-Here we declare that our base image starts from Ubuntu 16.04 (the `root_image`), we name it `dmake-tutorial-worker-base`, and list the scripts that will build the base image starting from the root image: `deploy/dependencies.sh`.
+Here we declare that our base image starts from Ubuntu 20.04 (the `root_image`), we name it `dmake-tutorial-worker-base`, and list the scripts that will build the base image starting from the root image: `deploy/base/build/install.sh`.
 
 This base image is cached so you don't have to rebuild it every time. Furthermore, it is globally cached: it can be pushed to the docker registry and all dmake users will try to pull it before building it. (This works by naming the base image tag with source-based hashes: we hash the root image and base image `install_scripts`: same sources will give same tag).
 
@@ -135,7 +135,7 @@ services:
       docker_image:
         build:
           context: .
-          dockerfile: deploy/Dockerfile
+          dockerfile: deploy/base/build/Dockerfile
     tests:
       commands:
         - ./bin/worker_test

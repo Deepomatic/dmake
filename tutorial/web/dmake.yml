@@ -24,7 +24,7 @@ services:
       - worker
     config:
       docker_image:
-        start_script: deploy/start.sh
+        start_script: deploy/web/run/start.sh
       ports:
         - container_port: 8000
           host_port: 8000

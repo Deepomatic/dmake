@@ -12,7 +12,7 @@ docker:
     root_image: ubuntu:20.04
     raw_root_image: true
     install_scripts:
-      - deploy/dependencies.sh
+      - deploy/base/build/install.sh
 
 docker_links:
   - image_name: rabbitmq:3.9
@@ -29,12 +29,12 @@ services:
     needed_links:
       - rabbitmq
     dev:
-      entrypoint: deploy/dev-entrypoint.sh
+      entrypoint: deploy/base/run/dev-entrypoint.sh
     config:
       docker_image:
         build:
           context: .
-          dockerfile: deploy/Dockerfile
+          dockerfile: deploy/base/build/Dockerfile
     tests:
       commands:
         - ./bin/worker_test

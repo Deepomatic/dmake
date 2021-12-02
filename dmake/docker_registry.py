@@ -106,7 +106,7 @@ def get_image_digest(image):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=['image-digest'], default='image-digest', nargs='?', help="Command on docker registry")
-    parser.add_argument("image", default='ubuntu:16.04', nargs='?', help="Docker image")
+    parser.add_argument("image", default='ubuntu:20.04', nargs='?', help="Docker image")
     args = parser.parse_args()
 
     if args.command == 'image-digest':

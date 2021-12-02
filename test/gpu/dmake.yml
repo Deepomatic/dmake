@@ -21,7 +21,7 @@ services:
       docker_image:
         build:
           context: .
-          dockerfile: ./deploy/Dockerfile
+          dockerfile: ./deploy/base/build/Dockerfile
     tests:
       commands:
         - ./deploy/test-nvidia-smi.sh

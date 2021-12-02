@@ -19,7 +19,7 @@ services:
         name: deepomatic/dmake-test-k8s
         build:
           context: .
-          dockerfile: ./deploy/Dockerfile
+          dockerfile: ./deploy/base/build/Dockerfile
     deploy:
       stages:
         - description: "Deploying on Kubernetes: mono manifest"

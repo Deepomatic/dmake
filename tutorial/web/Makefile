@@ -1,2 +1,2 @@
 run:
-	./deploy/start.sh
+	./deploy/web/run/start.sh

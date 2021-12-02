@@ -16,5 +16,5 @@ web/nosetests2.xml
 worker/dmake.yml
 worker/.dmake/
 worker/.dockerignore
-worker/deploy/Dockerfile
+worker/deploy/worker/build/Dockerfile
 worker/bin/

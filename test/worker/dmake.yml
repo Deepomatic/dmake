@@ -9,7 +9,7 @@ docker:
       root_image: ubuntu:18.04
       raw_root_image: true
       install_scripts:
-        - deploy/dependencies.sh
+        - deploy/base/build/install.sh
     - <<: *base
       variant: ubuntu-2004
       root_image: ubuntu:20.04
@@ -49,7 +49,7 @@ services:
     needed_links:
       - test-rabbitmq
     dev:
-      entrypoint: deploy/dev-entrypoint.sh
+      entrypoint: deploy/base/run/dev-entrypoint.sh
     config:
       docker_image:
         name: dmake-test-worker
@@ -60,7 +60,7 @@ services:
           - ../web
         build:
           context: ../  # limited to worker/ and web/, see ../.dockerignore
-          dockerfile: worker/Dockerfile
+          dockerfile: worker/deploy/worker/build/Dockerfile
           args:
             BUILD_HOSTNAME: ${HOSTNAME}
           labels:
@@ -87,6 +87,6 @@ services:
         - test "${ENV_OVERRIDE_TEST3}" = from_env_override
         - test "${ENV_OVERRIDE_TEST4}" = from_env_override
         - test -z "${ENV_OVERRIDE_TEST5+x}" # should not be set (defined in needed_service.env that should not apply to service test
-        - ./deploy/test-shared-volumes.sh
+        - ./deploy/worker/run/test-shared-volumes.sh
         - ./bin/worker_test
       timeout: 30
