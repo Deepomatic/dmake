@@ -1,6 +1,6 @@
 dmake.yml
 .dmake/
 .dockerignore
-deploy/base/build/Dockerfile
+deploy/Dockerfile
 
 bin/

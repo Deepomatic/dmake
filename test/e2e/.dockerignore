@@ -1,4 +1,4 @@
 .dockerignore
 dmake.yml
-deploy/base/build/Dockerfile
+deploy/Dockerfile
 artifacts/

@@ -7,6 +7,8 @@
 **/.#*
 
 # web/ ignores
+web/.cashe
+web/.cache
 web/cover/
 web/coverage.xml
 web/nosetests.xml

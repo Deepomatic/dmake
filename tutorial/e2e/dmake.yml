@@ -23,7 +23,7 @@ services:
       docker_image:
         build:
           context: .
-          dockerfile: ./deploy/base/build/Dockerfile
+          dockerfile: ./deploy/Dockerfile
     tests:
       commands:
         - echo running tutorial from ${NAME} with image tag prefix ${IMAGE_TAG_PREFIX}

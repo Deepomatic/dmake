@@ -51,7 +51,7 @@ services:
           TEST_SHARED_VOLUME: "1"
     config:
       docker_image:
-        entrypoint: deploy/base/run/entrypoint.sh
+        entrypoint: deploy/web/run/entrypoint.sh
         start_script: deploy/web/run/start.sh
       ports:
         - container_port: 8000
@@ -113,7 +113,7 @@ services:
       - test-rabbitmq
     config:
       docker_image:
-        entrypoint: deploy/base/run/entrypoint.sh
+        entrypoint: deploy/web/run/entrypoint.sh
         start_script: deploy/web/run/start.sh
       env_override:
         ENV_OVERRIDE_TEST: "2"

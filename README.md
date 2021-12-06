@@ -135,7 +135,7 @@ services:
       docker_image:
         build:
           context: .
-          dockerfile: deploy/base/build/Dockerfile
+          dockerfile: deploy/Dockerfile
     tests:
       commands:
         - ./bin/worker_test
