@@ -1,7 +1,6 @@
 pip-clear-requirements:
 	# => remove them before to update all dependencies
 	rm -f requirements.txt
-	rm -f requirements-dev.txt
 
 pip-freeze-update-all:
 	# pip-compile minimizes changes when output already exists (no upgrade as condition from requirements.in is already met)

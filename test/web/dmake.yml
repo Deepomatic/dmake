@@ -28,7 +28,7 @@ docker:
     copy_files:
       - deploy/base/build/requirements.txt
     install_scripts:
-      - deploy/base/run/base-test-mount-secret.sh
+      - deploy/base/test/mount-secret.sh
       - deploy/base/build/install.sh
     mount_secrets:
       test_secret: $PWD/test/test_secret  # this is not the canonical usage, it will break when running dmake from a subdirectory, but it works without extra setup for jenkins and developers: good for a test
@@ -77,8 +77,8 @@ services:
         - test -z "${ENV_OVERRIDE_TEST2+x}" # test env override 2: should not be set
         - touch 'tag' # test shared environment for multiple commands test
         - test -f "tag"  # test command escaping
-        - deploy/web/test/test-shared-volumes.sh /shared_volume_root_value/shared_volume_with_workers
-        - deploy/web/test/test-needed-service-link.sh test-worker-ubuntu-2004
+        - deploy/web/test/shared-volumes.sh /shared_volume_root_value/shared_volume_with_workers
+        - deploy/web/test/needed-service-link.sh test-worker-ubuntu-2004
         - >-
           ./manage.py test
           --verbosity=2 --noinput
