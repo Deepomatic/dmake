@@ -13,5 +13,6 @@ install: all
 	mkdir -p $(prefix)/bin
 	cp -f ./bin/worker $(prefix)/bin/
 	cp -f ./bin/worker_test $(prefix)/bin/
-	mkdir -p $(prefix)/deploy/worker/run
-	cp -f ./deploy/worker/run/{start.sh,test-shared-volumes.sh} $(prefix)/deploy/worker/run/
+	mkdir -p $(prefix)/deploy/worker/{run,test}
+	cp -f ./deploy/worker/run/start.sh $(prefix)/deploy/worker/run
+	cp -f ./deploy/worker/test/test-shared-volumes.sh $(prefix)/deploy/worker/test
