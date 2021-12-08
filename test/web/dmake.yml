@@ -37,6 +37,8 @@ services:
   - service_name: test-web
     needed_links:
       - test-rabbitmq
+    dev:
+      entrypoint: deploy/base/run/dev-entrypoint.sh
     needed_services:
       - service_name: test-worker:ubuntu-1804
         env:
@@ -102,6 +104,8 @@ services:
       cobertura_report: coverage.xml
 
   - service_name: test-web2
+    dev:
+      entrypoint: deploy/base/run/dev-entrypoint.sh
     needed_services:
       - service_name: test-worker:ubuntu-2004
         link_name: test-worker-ubuntu-2004

@@ -15,6 +15,19 @@ apt-get install --yes --no-install-recommends \
 locale-gen en_US.UTF-8
 export LANG=en_US.UTF-8
 
+# Bash completion for developers
+cat >> /etc/bash.bashrc <<EOF
+
+# enable bash completion in interactive shells
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+EOF
+
 # Install pip-tools, outside of requirements-dev.in as it somehow breaks its own hashing constraints
 pip3 install --no-cache-dir pip-tools==6.4.0
 

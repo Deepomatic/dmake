@@ -10,5 +10,4 @@ pip-freeze-update-minimal:
 	# you can also pass extra args to pip-compile, e.g.:
 	#   make pip-freeze-update-minimal ARGS='-P botocore>=1.20.60'
 	pip-compile --verbose --generate-hashes requirements.in -o requirements.txt $(ARGS)
-	pip-compile --verbose --generate-hashes requirements-dev.in -o requirements-dev.txt $(ARGS)
 	@>&2 echo 'WARNING: The modifications made to the requirements*.txt files will be applied at next dmake base image build. If you need them right now you can exit this shell and re-run dmake shell (or manually pip install (as root) these requirements*.txt files).'

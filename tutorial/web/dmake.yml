@@ -18,6 +18,8 @@ docker:
 
 services:
   - service_name: web
+    dev:
+      entrypoint: deploy/base/run/dev-entrypoint.sh
     needed_links:
       - rabbitmq
     needed_services:
