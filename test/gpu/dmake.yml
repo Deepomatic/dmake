@@ -5,7 +5,7 @@ env:
   default:
     variables:
       DMAKE_NO_GPU: ${DMAKE_NO_GPU}
-      DEVICE_PATH: /dev/kmsg  # should really be set in host environment, e.g. /dev/bus/usb/001/002; here it's just easier for CI tests to set it here, to something that always exists
+      DEVICE_PATH: /dev/urandom  # should really be set in host environment, e.g. /dev/bus/usb/001/002; here it's just easier for CI tests to set it here, to something that always exists
 
 docker:
   root_image:
@@ -24,6 +24,6 @@ services:
           dockerfile: ./deploy/Dockerfile
     tests:
       commands:
-        - ./deploy/test-nvidia-smi.sh
-        - echo "Testing device mount" && head -1 /dev/foo
+        - ./deploy/gpu/test/nvidia-smi.sh
+        - echo "Testing device mount" && head -c 32 /dev/foo > /dev/null
       timeout: "5"  # test string type deprecation warning D003

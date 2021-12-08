@@ -9,22 +9,24 @@ env:
 docker:
   base_image:
     name: dmake-tutorial-web-base
-    root_image: ubuntu:16.04
+    root_image: ubuntu:20.04
     raw_root_image: true
     copy_files:
-      - deploy/requirements.txt
+      - deploy/base/build/requirements.txt
     install_scripts:
-      - deploy/dependencies.sh
+      - deploy/base/build/install.sh
 
 services:
   - service_name: web
+    dev:
+      entrypoint: deploy/base/run/dev-entrypoint.sh
     needed_links:
       - rabbitmq
     needed_services:
       - worker
     config:
       docker_image:
-        start_script: deploy/start.sh
+        start_script: deploy/web/run/start.sh
       ports:
         - container_port: 8000
           host_port: 8000

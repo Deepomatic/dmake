@@ -3,7 +3,7 @@
 set -e
 
 echo "Verify build context: get file from web"
-cat /web-requirements.txt
+cat /test_access_from_another_build_context.txt
 
 if [ "${TEST_SHARED_VOLUME}" -eq 1 ]; then
   echo "Write file for volume test"

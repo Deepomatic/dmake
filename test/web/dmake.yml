@@ -22,36 +22,39 @@ volumes:
 docker:
   root_image:
     name: ubuntu
-    tag: "16.04"
+    tag: "20.04"
   base_image:
     name: dmake-test-web-base
+    copy_files:
+      - deploy/base/build/requirements.txt
     install_scripts:
-      - deploy/base-test-mount-secret.sh
-      - deploy/dependencies.sh
+      - deploy/base/test/mount-secret.sh
+      - deploy/base/build/install.sh
     mount_secrets:
       test_secret: $PWD/test/test_secret  # this is not the canonical usage, it will break when running dmake from a subdirectory, but it works without extra setup for jenkins and developers: good for a test
-    python_requirements: requirements.txt  # deprecated
 
 services:
   - service_name: test-web
     needed_links:
       - test-rabbitmq
+    dev:
+      entrypoint: deploy/base/run/dev-entrypoint.sh
     needed_services:
-      - service_name: test-worker:ubuntu-1604
+      - service_name: test-worker:ubuntu-1804
         env:
           TEST_SHARED_VOLUME: "1"
           TEST_ENV_OVERRIDE: "1"
           ENV_OVERRIDE_TEST3: from_needed_service_env
           ENV_OVERRIDE_TEST5: from_needed_service_env
         use_host_ports: false
-      - service_name: test-worker:ubuntu-1804
-        link_name: test-worker-ubuntu-1804
+      - service_name: test-worker:ubuntu-2004
+        link_name: test-worker-ubuntu-2004
         env:
           TEST_SHARED_VOLUME: "1"
     config:
       docker_image:
-        entrypoint: deploy/entrypoint.sh
-        start_script: deploy/start.sh
+        entrypoint: deploy/web/run/entrypoint.sh
+        start_script: deploy/web/run/start.sh
       ports:
         - container_port: 8000
           host_port: 9000
@@ -76,8 +79,8 @@ services:
         - test -z "${ENV_OVERRIDE_TEST2+x}" # test env override 2: should not be set
         - touch 'tag' # test shared environment for multiple commands test
         - test -f "tag"  # test command escaping
-        - deploy/test-shared-volumes.sh /shared_volume_root_value/shared_volume_with_workers
-        - deploy/test-needed-service-link.sh test-worker-ubuntu-1804
+        - deploy/web/test/shared-volumes.sh /shared_volume_root_value/shared_volume_with_workers
+        - deploy/web/test/needed-service-link.sh test-worker-ubuntu-2004
         - >-
           ./manage.py test
           --verbosity=2 --noinput
@@ -101,9 +104,11 @@ services:
       cobertura_report: coverage.xml
 
   - service_name: test-web2
+    dev:
+      entrypoint: deploy/base/run/dev-entrypoint.sh
     needed_services:
-      - service_name: test-worker:ubuntu-1804
-        link_name: test-worker-ubuntu-1804
+      - service_name: test-worker:ubuntu-2004
+        link_name: test-worker-ubuntu-2004
         env:
           TEST_SHARED_VOLUME: "1"
         needed_for:
@@ -112,8 +117,8 @@ services:
       - test-rabbitmq
     config:
       docker_image:
-        entrypoint: deploy/entrypoint.sh
-        start_script: deploy/start.sh
+        entrypoint: deploy/web/run/entrypoint.sh
+        start_script: deploy/web/run/start.sh
       env_override:
         ENV_OVERRIDE_TEST: "2"
         ENV_OVERRIDE_TEST2: "3"

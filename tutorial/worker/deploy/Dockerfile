@@ -17,4 +17,4 @@ WORKDIR /app/tutorial/worker
 
 COPY --from=builder /usr/local/worker .
 
-CMD ["deploy/start.sh"]
+CMD ["deploy/worker/run/start.sh"]
