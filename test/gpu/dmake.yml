@@ -10,7 +10,7 @@ env:
 docker:
   root_image:
     name: tensorflow/tensorflow
-    tag: 1.11.0-gpu
+    tag: 2.7.0-gpu
 
 services:
   - service_name: test-gpu
