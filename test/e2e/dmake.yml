@@ -17,7 +17,7 @@ docker:
 services:
   - service_name: test-external-dependency-nginx
     config:
-      docker_image: nginx:1.15-alpine
+      docker_image: nginx:1.20.2-alpine
   - service_name: test-e2e
     needed_services:
      - service_name: test-web
