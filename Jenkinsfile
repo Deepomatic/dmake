@@ -103,11 +103,10 @@ node {
   stage('Python 3.x') {
     sh "virtualenv -p python3 workspace/.venv3"
     sh ". workspace/.venv3/bin/activate && pip3 install -r requirements.dev.txt"
-    sh "rm workspace/.venv3/bin/python" // remove python to detect illegitime usage of python (which is often python2)
     dir('workspace') {
       if (self_test) {
         try {
-          sh ". .venv3/bin/activate && pytest -vv --color=yes --junit-xml=junit.xml --junit-prefix=python3 --cov=dmake/ --cov-report=xml:coverage.xml --cov-report html:cover/"
+          sh ". .venv3/bin/activate && pytest --numprocesses=4 -vv --color=yes --junit-xml=junit.xml --junit-prefix=python3 --cov=dmake/ --cov-report=xml:coverage.xml --cov-report html:cover/"
         } finally {
           junit keepLongStdio: true, testResults: 'junit.xml'
           step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])
