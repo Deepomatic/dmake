@@ -82,6 +82,7 @@ def entry_point(options):
     repo = owner.get_repo(app)
 
     # List releases
+    common.logger.info("Fetching the tags at github.com/{}/{} ...".format(owner.name, repo.name))
     github_tag_list = {}
     for tag in repo.get_tags():
         version = tag_to_version(tag.name)
@@ -103,7 +104,7 @@ def entry_point(options):
         questions = [
             inquirer.List(
                 'release_tag',
-                message="Here are only the latest tags per major-minor version. Which tag do you want to release on?",
+                message="Here are only the latest tags per major-minor version. Which tag do you want to release? (see also 'Others' at the end of the list)",
                 choices=choices,
             ),
         ]
@@ -112,7 +113,7 @@ def entry_point(options):
             questions = [
                 inquirer.List(
                     'release_tag',
-                    message="Here are all the tags. Which tag do you want to release on?",
+                    message="Here are all the tags. Which tag do you want to release?",
                     choices=[github_tag_list[key].name for key in sorted_release_versions],
                     carousel=True
                 ),
@@ -144,21 +145,21 @@ def entry_point(options):
 
         # Compute change log
         # TODO: use https://github.com/vaab/gitchangelog
-        common.run_shell_command2("git fetch --tags --quiet")
+        common.run_shell_command2("git fetch --tags")
         change_log_cmd = "git log {prev}...{target} --pretty=%s".format(prev=prev_github_tag.commit.sha,
                                                                         target=target_commit.sha)
         change_log = common.run_shell_command2(change_log_cmd)
 
         if change_log == "":
-            print("No changes found. Exiting...")
+            common.logger.info("No changes found. Exiting...")
             return
 
         # Add dashes to make a markdown list
         change_log = '\n'.join(['- ' + line for line in change_log.split('\n')])
 
     # Creates the release
-    repo.create_git_release(release_tag.name, release_tag.name, change_log, prerelease=prerelease,
-                            target_commitish=target_commit)
-    print("Done ! Check it at: https://github.com/{owner}/{repo}/releases/tag/{tag}".format(owner=owner.name,
-                                                                                            repo=repo.name,
-                                                                                            tag=release_tag.name))
+    github_release = repo.create_git_release(release_tag.name, release_tag.name, change_log,
+                                             draft=True,
+                                             prerelease=prerelease,
+                                             target_commitish=target_commit)
+    common.logger.info("Github release draft created for {prev_tag}...{tag}! Finish it at {url}".format(tag=release_tag.name, prev_tag=prev_github_tag.name, url=github_release.html_url))
