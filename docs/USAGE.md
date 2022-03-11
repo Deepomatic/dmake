@@ -36,7 +36,8 @@ Commands:
     shell               Run a shell session withing a docker container with
                         the environment set up for a given service.
     deploy              Deploy specified apps and services.
-    release             Create a release of the app on Github.
+    release             Create a Github release (with changelog) of the app
+                        based on a previously created git tag.
     graph               Generate a visual graph of the app services
                         dependencies (dot/graphviz format).
     generate-doc        Generate DMake documentation.

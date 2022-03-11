@@ -52,7 +52,7 @@ parser_run     = subparsers.add_parser('run', help="Launch the application or on
 parser_stop    = subparsers.add_parser('stop', help="Stop the containers started by dmake for the current repository and branch. Usually by 'dmake run', but can also be useful to cleanup aborted executions of dmake.")
 parser_shell   = subparsers.add_parser('shell', help="Run a shell session withing a docker container with the environment set up for a given service.")
 parser_deploy  = subparsers.add_parser('deploy', help="Deploy specified apps and services.")
-parser_release = subparsers.add_parser('release', help="Create a release of the app on Github.")
+parser_release = subparsers.add_parser('release', help="Create a Github release (with changelog) of the app based on a previously created git tag.")
 parser_graph   = subparsers.add_parser('graph', help="Generate a visual graph of the app services dependencies (dot/graphviz format).")
 parser_generate_doc = subparsers.add_parser('generate-doc', help="Generate DMake documentation.")
 
@@ -77,8 +77,8 @@ add_argument([parser_shell, parser_run, parser_deploy, parser_stop], "-b", "--br
 
 parser_run.add_argument("--docker-links-volumes-persistence", "--no-docker-links-volumes-persistence", required=False, default=False, dest='with_docker_links_volumes_persistence', action=common.FlagBooleanAction, help="Control persistence of docker-links volumes (default: non-persistent (for dmake run)).")
 
-parser_release.add_argument("app", help="Create the release for the given app.")
-parser_release.add_argument('-t', '--tag', nargs='?', help="The release tag from which the release will be created.")
+parser_release.add_argument("app", help="DMake app to release (must match the github project name under github owner)")
+parser_release.add_argument('-t', '--tag', nargs='?', help="The git tag from which the release will be created.")
 
 parser_generate_doc.add_argument("kind", choices=['usage', 'format', 'example'])
 
