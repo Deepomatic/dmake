@@ -400,7 +400,7 @@ def dump_debug_dot_graph(dependencies, nodes_height):
 def init(_options, early_exit=False):
     global generate_dot_graph, exit_after_generate_dot_graph, dot_graph_group_by, dot_graph_pretty, dot_graph_filename, dot_graph_format
     global root_dir, sub_dir, tmp_dir, config_dir, cache_dir, relative_cache_dir
-    global branch, target, is_pr, pr_id, build_id, commit_id, name_prefix, image_tag_prefix, force_full_deploy
+    global branch, real_git_branch, target, is_pr, pr_id, build_id, commit_id, name_prefix, image_tag_prefix, force_full_deploy
     global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global no_gpu, need_gpu
     global build_description
@@ -495,6 +495,7 @@ def init(_options, early_exit=False):
         is_pr = target is not None
     force_full_deploy = False
 
+    real_git_branch = branch
     if 'branch' in options and options.branch:
         branch = options.branch
 
@@ -571,7 +572,9 @@ def init(_options, early_exit=False):
     if is_pr:
         logger.info("PR : %s -> %s" % (branch, target))
     else:
-        logger.info("BRANCH : %s" % branch)
+        if branch != real_git_branch:
+            logger.info("ENVIRONMENT_BRANCH : %s" % branch)
+        logger.info("BRANCH : %s" % real_git_branch)
     logger.info("COMMIT_ID : %s" % commit_id[:7])
     logger.info("NAME_PREFIX : %s" % name_prefix)
     logger.info("===============")

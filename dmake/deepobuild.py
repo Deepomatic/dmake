@@ -803,8 +803,9 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
             'dmake.deepomatic.com/service': deploy_name,
             'dmake.deepomatic.com/app': app_name,
             'dmake.deepomatic.com/git-repository': common.repo,
-            'dmake.deepomatic.com/git-branch': common.branch,
+            'dmake.deepomatic.com/git-branch': common.real_git_branch,
             'dmake.deepomatic.com/git-revision': common.commit_id,
+            'dmake.deepomatic.com/dmake-environment-branch': common.branch,
         }
         ## injected on dmake-generated resources (configmap env, extra configmaps, extra secrets); *NOT* on user-provided resources, it could break things (labelSelectors), too risky
         extra_labels = {
