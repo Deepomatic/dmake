@@ -800,6 +800,7 @@ class KubernetesDeploySerializer(YAML2PipelineSerializer):
         ## injected on all resources
         dmake_generated_annotations = {
             'dmake.deepomatic.com/deploy-timestamp': common.session_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            'dmake.deepomatic.com/deploy-username': common.username,
             'dmake.deepomatic.com/service': deploy_name,
             'dmake.deepomatic.com/app': app_name,
             'dmake.deepomatic.com/git-repository': common.repo,

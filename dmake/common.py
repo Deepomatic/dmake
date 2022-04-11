@@ -404,7 +404,7 @@ def init(_options, early_exit=False):
     global remote, repo_url, repo, use_pipeline, is_local, skip_tests, is_release_branch
     global no_gpu, need_gpu
     global build_description
-    global command, options, uname
+    global command, options, uname, username
     global do_pull_config_dir
     global use_host_ports
     global session_id
@@ -459,6 +459,9 @@ def init(_options, early_exit=False):
 
     # Get uname
     uname = run_shell_command("uname")
+
+    # Get username
+    username = run_shell_command("id -un")
 
     # Make sure DMAKE_ON_BUILD_SERVER is correctly configured
     is_local = os.getenv('DMAKE_ON_BUILD_SERVER', 0) != "1"
