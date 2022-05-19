@@ -76,9 +76,9 @@ if [[ "${DMAKE_K8S_DRY_RUN}" == "1" ]]; then
   exit
 fi
 
-echo_title Rollout status for ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
+echo_title Wait rollout for ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
 
-DEPLOYMENTS=( $(kubectl "${BASE_ARGS[@]}" get deployment --selector=dmake.deepomatic.com/service=${SERVICE} --output=jsonpath={.items..metadata.name}) )
+DEPLOYMENTS=( $(kubectl "${BASE_ARGS[@]}" get deployment --selector=dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/wait!=false --output=jsonpath={.items..metadata.name}) )
 for DEPLOYMENT in ${DEPLOYMENTS[@]}; do
   ROLLOUT_STATUS_ARGS=( "${BASE_ARGS[@]}" rollout status --watch=true deployment/${DEPLOYMENT} )
   echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
