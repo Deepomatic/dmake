@@ -667,7 +667,7 @@ def generate_command_pipeline(file, cmds):
         write_line("try {")
         indent_level += 1
         write_line("step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: '%s/**/*.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])" % (cobertura_tests_results_dir))
-        write_line("publishCoverage adapters: [coberturaAdapter(mergeToOneReport: true, path: '%s/**/*.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')" % (cobertura_tests_results_dir))
+        write_line("publishCoverage adapters: [coberturaAdapter(mergeToOneReport: false, path: '%s/**/*.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')" % (cobertura_tests_results_dir))
         write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
         indent_level -= 1
         write_line("} catch (error) {")
