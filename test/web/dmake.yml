@@ -84,7 +84,7 @@ services:
         - >-
           ./manage.py test
           --verbosity=2 --noinput
-          --with-coverage --cover-package=. --cover-branches --cover-erase --cover-html --cover-html-dir cover --cover-xml --cover-xml-file coverage.xml
+          --with-coverage --cover-package=. --cover-branches --cover-erase --cover-html --cover-html-dir cover --cover-xml --cover-xml-file test-web-coverage.xml
           --with-xunit --xunit-file nosetests.xml
           --nologcapture
           --with-id
@@ -100,8 +100,8 @@ services:
         - nosetests2.xml
       html_report:
         directory: cover/
-        title: Web HTML coverage report
-      cobertura_report: coverage.xml
+        title: Test Web HTML coverage report
+      cobertura_report: test-web-coverage.xml
 
   - service_name: test-web2
     dev:
