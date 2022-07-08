@@ -25,5 +25,5 @@ services:
     tests:
       commands:
         - ./deploy/gpu/test/nvidia-smi.sh
-        - echo "Testing device mount" && head -c 32 /dev/foo > /dev/null
-      timeout: "5"  # test string type deprecation warning D003
+        - echo "Testing device mount" && head -c 1 /dev/foo > /dev/null
+      timeout: "30"  # test string type deprecation warning D003
