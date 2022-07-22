@@ -318,7 +318,8 @@ def pull_config_dir(root_dir):
         return
 
     logger.info("Pulling config from: %s" % root_dir)
-    os.system("cd %s && git pull origin master" % root_dir)
+    config_branch = os.getenv('DMAKE_CONFIG_BRANCH', 'master')
+    os.system("cd %s && git pull origin %s" % (root_dir, config_branch))
     pulled_config_dirs[root_dir] = True
 
 ###############################################################################
