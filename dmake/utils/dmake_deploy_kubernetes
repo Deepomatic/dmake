@@ -85,22 +85,25 @@ for DEPLOYMENT in ${DEPLOYMENTS[@]}; do
   ${KUBECTL[@]} "${ROLLOUT_STATUS_ARGS[@]}"
 done
 
-echo_title Wait rollout for ${SERVICE} Rollout on kubernetes cluster ${CONTEXT}:
+# if argo rollouts setup in cluster, wait for those too
+if kubectl "${BASE_ARGS[@]}" api-resources -o name | grep -q rollouts.argoproj.io; then
+  echo_title Wait rollout for ${SERVICE} Rollout on kubernetes cluster ${CONTEXT}:
 
-ROLLOUTS=( $(kubectl "${BASE_ARGS[@]}" get rollouts --selector=dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/wait!=false --output=jsonpath={.items..metadata.name}) )
-if [ -x "$(command -v kubectl-argo-rollouts)" ]; then
-  for ROLLOUT in ${ROLLOUTS[@]}; do
-    ROLLOUT_STATUS_ARGS=( argo rollouts "${BASE_ARGS[@]}" status --watch=true ${ROLLOUT} )
-    echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
-    ${KUBECTL[@]} "${ROLLOUT_STATUS_ARGS[@]}"
-  done
-else
-  echo "WARNING: missing 'kubectl-argo-rollouts' command, cannot properly wait on Argo Rollout. Will just 'get rollouts', not wait on completion..."
-  for ROLLOUT in ${ROLLOUTS[@]}; do
-    ROLLOUT_GET_ARGS=( "${BASE_ARGS[@]}" get rollout/${ROLLOUT} )
-    echo kubectl "${ROLLOUT_GET_ARGS[@]}"
-    ${KUBECTL[@]} "${ROLLOUT_GET_ARGS[@]}"
-  done
+  ROLLOUTS=( $(kubectl "${BASE_ARGS[@]}" get rollouts --selector=dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/wait!=false --output=jsonpath={.items..metadata.name}) )
+  if [ -x "$(command -v kubectl-argo-rollouts)" ]; then
+    for ROLLOUT in ${ROLLOUTS[@]}; do
+      ROLLOUT_STATUS_ARGS=( argo rollouts "${BASE_ARGS[@]}" status --watch=true ${ROLLOUT} )
+      echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
+      ${KUBECTL[@]} "${ROLLOUT_STATUS_ARGS[@]}"
+    done
+  else
+    echo "WARNING: missing 'kubectl-argo-rollouts' command, cannot properly wait on Argo Rollout. Will just 'get rollouts', not wait on completion..."
+    for ROLLOUT in ${ROLLOUTS[@]}; do
+      ROLLOUT_GET_ARGS=( "${BASE_ARGS[@]}" get rollout/${ROLLOUT} )
+      echo kubectl "${ROLLOUT_GET_ARGS[@]}"
+      ${KUBECTL[@]} "${ROLLOUT_GET_ARGS[@]}"
+    done
+  fi
 fi
 
 echo_title New state of ${SERVICE} on kubernetes cluster ${CONTEXT}:
