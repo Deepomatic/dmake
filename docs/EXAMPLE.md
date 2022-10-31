@@ -66,7 +66,7 @@ services:
         source_directories_additional_contexts:
           - ../web
         check_private: true
-        tag: Some string
+        tag: ${_BRANCH_SANITIZED_FOR_DOCKER}-${_BUILD_ID_OR_LATEST}${_VARIANT_SUFFIX}
         workdir: some/dir/example
         copy_directories:
           - some/dir/example

@@ -102,7 +102,7 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
     base_image_variant = FieldSerializer(["string", "array"], optional = True, child = "string", help_text = "Specify which `base_image` variants are used as `base_image` for this service. Array: multi-variant service. Default: first 'docker.base_image'.")
     source_directories_additional_contexts = FieldSerializer("array", child = "string", default = [], example = ['../web'], help_text = "NOT RECOMMENDED. Additional source directories contexts for changed services auto detection in case of build context going outside of the dmake.yml directory.")
     check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
-    tag              = FieldSerializer("string", optional = True, help_text = "Tag of the docker image to build. By default it will be '[{:variant}-]{:branch_name}-{:build_id}', sanitized and made unique with a hash suffix if needed")
+    tag              = FieldSerializer("string", default = "${_BRANCH_SANITIZED_FOR_DOCKER}-${_BUILD_ID_OR_LATEST}${_VARIANT_SUFFIX}", help_text = "Tag of the docker image to build (with extra environment variables available only for this field: prefixed by '_')")
 
     def get_source_directories_additional_contexts(self):
         return self.source_directories_additional_contexts
@@ -116,17 +116,14 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
         else:
             name = common.eval_str_in_env(self.name, env)
         # tag
-        if self.tag is None:
-            tag = common.image_tag_prefix
-            if latest:
-                tag += "-latest"
-            else:
-                if common.build_id is not None:
-                    tag += "-%s" % common.build_id
-        else:
-            tag = self.tag
-        if self.service.is_variant:
-            tag = "%s-%s" % (tag, self.service.variant)
+        tag_env = env.copy()
+        # special extra env vars for tags, prefixed with '_'
+        tag_env.update({
+            "_BRANCH_SANITIZED_FOR_DOCKER": common.image_tag_prefix,  # BRANCH sanitized & uniquified to fit in docker image tag
+            "_BUILD_ID_OR_LATEST": "latest" if latest else common.build_id,
+            "_VARIANT_SUFFIX": ("-" + self.service.variant) if self.service.is_variant else "",
+        })
+        tag = common.eval_str_in_env(self.tag, tag_env)
         # image name
         image_name = name + ":" + tag
         return image_name
