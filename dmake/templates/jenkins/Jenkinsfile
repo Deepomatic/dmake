@@ -83,6 +83,7 @@ try {
 
 properties([
     parameters([
+        separator(name: "BASIC", sectionHeader: "Basic DMake parameters"),
         string(name: 'DMAKE_APP',
                defaultValue: default_dmake_app,
                description: '(optional) Application to work on (deploy/test/...). You can also specify a service name if there is no ambiguity. Use * to force the deployment of all applications. Leave empty for default behaviour.'),
@@ -95,6 +96,8 @@ properties([
         booleanParam(name: 'DMAKE_SKIP_TESTS',
                      defaultValue: default_dmake_skip_tests,
                      description: 'Skip tests if checked'),
+
+        separator(name: "ADVANCED", sectionHeader: "Advanced DMake parameters"),
         booleanParam(name: 'DMAKE_DEBUG',
                      defaultValue: default_dmake_debug,
                      description: 'Enable dmake debug logs'),
