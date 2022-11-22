@@ -86,7 +86,7 @@ properties([
         separator(name: "BASIC", sectionHeader: "Basic DMake parameters"),
         string(name: 'DMAKE_APP',
                defaultValue: default_dmake_app,
-               description: '(optional) Application to work on (deploy/test/...). You can also specify a service name if there is no ambiguity. Use * to force the deployment of all applications. Leave empty for default behaviour.'),
+               description: 'DMake (application or) service to work on (deploy/test/...). Use \'*\' to force the deployment of all applications. Use \'+\' to rebuild only changed services (for PRs). Empty will fail early.'),
         booleanParam(name: 'DMAKE_WITH_DEPENDENCIES',
                      defaultValue: default_dmake_with_dependencies,
                      description: 'Also execute with service dependencies if checked'),
@@ -122,6 +122,11 @@ properties([
     ]),
     pipelineTriggers(default_pipeline_triggers)
 ])
+
+// validate parameters
+if (! params.DMAKE_APP) {
+    error "Missing DMAKE_APP parameter: need a DMake service name"
+}
 
 
 // Abort old builds for PRs and branches
