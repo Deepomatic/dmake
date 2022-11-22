@@ -81,6 +81,22 @@ try {
 }
 
 
+def is_pr = !!env.CHANGE_BRANCH  // For PRs Jenkins will give the source branch name
+
+
+// DMAKE_COMMAND choices
+dmake_command_choices = ['build', 'test', 'deploy']
+
+// pre-implement auto dmake_command for PR/non-PR for visual feedback on build form choices
+if (! default_dmake_command) {
+    default_dmake_command = is_pr ? 'test' : 'deploy'
+}
+
+// move default_dmake_command as first choice, so it's the default in the build form
+dmake_command_choices = dmake_command_choices.minus(default_dmake_command)
+dmake_command_choices.add(0, default_dmake_command)
+
+
 properties([
     parameters([
         separator(name: "BASIC", sectionHeader: "Basic DMake parameters"),
@@ -90,9 +106,9 @@ properties([
         booleanParam(name: 'DMAKE_WITH_DEPENDENCIES',
                      defaultValue: default_dmake_with_dependencies,
                      description: 'Also execute with service dependencies if checked'),
-        string(name: 'DMAKE_COMMAND',
-               defaultValue: default_dmake_command,
-               description: '(optional) dmake command to execute. Default: `test` for PR jobs, `deploy` otherwise'),
+        choice(name: 'DMAKE_COMMAND',
+               choices: dmake_command_choices,
+               description: 'DMake command to execute (defaults to `test` for PR jobs, `deploy` otherwise)'),
         booleanParam(name: 'DMAKE_SKIP_TESTS',
                      defaultValue: default_dmake_skip_tests,
                      description: 'Skip tests if checked'),
@@ -131,7 +147,6 @@ if (! params.DMAKE_APP) {
 
 // Abort old builds for PRs and branches
 // from https://issues.jenkins.io/browse/JENKINS-43353?focusedCommentId=395851&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-395851
-def is_pr = !!env.CHANGE_BRANCH  // For PRs Jenkins will give the source branch name
 if ((is_pr && params.ABORT_OLD_BUILDS_ON_PR) || (env.BRANCH_NAME in params.ABORT_OLD_BUILDS_ON_BRANCHES.split(','))) {
   def buildNumber = env.BUILD_NUMBER as int
   if (buildNumber > 1) milestone(buildNumber - 1)
@@ -157,18 +172,20 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
         env.DMAKE_PAUSE_ON_ERROR_BEFORE_CLEANUP=1
     }
 
+    // support post-params overrides, for dynamically setting params
     def dmake_command = params.DMAKE_COMMAND
     try {
         dmake_command = OVERRIDE_DMAKE_COMMAND
+        // also handle auto dmake_command for overrides
+        if (! dmake_command) {
+            dmake_command = is_pr ? 'test' : 'deploy'
+        }
     } catch (e) {}
-
-    if (! dmake_command) {
-        dmake_command = is_pr ? 'test' : 'deploy'
-    }
 
     dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '' : '--standalone'
 
 
+    // really: if PR and command >= test (but it's hard to test, and is currently equivalent to '== test')
     if (is_pr && dmake_command == 'test') {
         echo "First: kubernetes deploy dry-run (just plan deployment on target branch to validate kubernetes manifests templates)"
         sh "${params.CUSTOM_ENVIRONMENT} DMAKE_SKIP_TESTS=1 python3 \$(which dmake) deploy ${dmake_with_dependencies} '${params.DMAKE_APP}' --branch ${env.CHANGE_TARGET}"
