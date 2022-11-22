@@ -1,4 +1,11 @@
 // default parameters from dmake repo user
+//
+// WARNING:
+// setting DEFAULT_DMAKE_* from the caller Jenkinsfile will only fill the default values for the build form for the next execution ("build with parameters"); not the current one.
+// recommentations:
+// - only set DEFAUL_DMAKE_* when the value is static for the whole job (e.g. a branch/PR with the multibranch-pipeline-job)
+// - for dynamic values, use OVERRIDE_DMAKE_*: it applies *after* parameters parsing, overriding them
+
 try {
     default_dmake_app=DEFAULT_DMAKE_APP
 } catch (e) {
