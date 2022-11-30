@@ -182,7 +182,11 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
         }
     } catch (e) {}
 
-    dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '' : '--standalone'
+    dmake_with_dependencies = params.DMAKE_WITH_DEPENDENCIES ? '--dependencies' : '--standalone'
+    if (dmake_command == 'build') {
+        // no dependencies supported for 'dmake build'
+        dmake_with_dependencies = ''
+    }
 
 
     // really: if PR and command >= test (but it's hard to test, and is currently equivalent to '== test')
