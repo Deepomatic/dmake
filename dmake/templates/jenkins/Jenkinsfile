@@ -210,6 +210,6 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
         dmake_extra_args_str = "--branch=${env.BRANCH_NAME}-${_dmake_arg_deploy_region}"
     }
 
-    sh "${params.CUSTOM_ENVIRONMENT} python3 \$(which dmake) ${dmake_command} ${dmake_with_dependencies} '${params.DMAKE_APP}' ${dmake_extra_args_str}"
+    sh "${params.CUSTOM_ENVIRONMENT} ${params.DMAKE_SKIP_TESTS?"DMAKE_SKIP_TESTS=1":""} python3 \$(which dmake) ${dmake_command} ${dmake_with_dependencies} '${params.DMAKE_APP}' ${dmake_extra_args_str}"
     load 'DMakefile'
 }
