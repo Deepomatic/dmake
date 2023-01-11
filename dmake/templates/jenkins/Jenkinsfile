@@ -204,7 +204,7 @@ sshagent (credentials: (env.DMAKE_JENKINS_SSH_AGENT_CREDENTIALS ?
     try {
         _dmake_arg_deploy_region = dmake_arg_deploy_region
     } catch (e) {}
-    if (_dmake_arg_deploy_region) {
+    if (_dmake_arg_deploy_region && dmake_command != 'build') {
         assert !is_pr : '"dmake_arg_deploy_region" not (yet) supported for PR builds'
         echo "Executing for deploy region '${_dmake_arg_deploy_region}'"
         dmake_extra_args_str = "--branch=${env.BRANCH_NAME}-${_dmake_arg_deploy_region}"
