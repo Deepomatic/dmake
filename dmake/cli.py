@@ -73,7 +73,7 @@ parser_shell.add_argument("-c", '--command', help="Pass to `docker run` specifie
 add_argument([parser_shell, parser_run, parser_test, parser_deploy],
              "-d", "--dependencies", "--no-dependencies", "-s", "--standalone", required=False, default=True, dest='with_dependencies', action=common.DependenciesBooleanAction,
              help="These options control if dependencies are run/tested/deployed. By default, the service is run/tested/deployed alongside its dependencies (service and link dependencies), recursively.")
-add_argument([parser_shell, parser_run, parser_deploy, parser_stop], "-b", "--branch", required=False, default=None, help="Overwrite the git branch name used to select the dmake environment")
+add_argument([parser_shell, parser_run, parser_test, parser_deploy, parser_stop], "-b", "--branch", required=False, default=None, help="Overwrite the git branch name used to select the dmake environment")
 
 parser_run.add_argument("--docker-links-volumes-persistence", "--no-docker-links-volumes-persistence", required=False, default=False, dest='with_docker_links_volumes_persistence', action=common.FlagBooleanAction, help="Control persistence of docker-links volumes (default: non-persistent (for dmake run)).")
 
