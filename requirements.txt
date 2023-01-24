@@ -1,5 +1,5 @@
 ruamel.yaml==0.16.10
-kubernetes==11.0.0
+kubernetes==22.6.0
 requests-oauthlib==1.3.0
 inquirer==2.6.3
 PyGithub==1.51
