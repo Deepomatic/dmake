@@ -93,12 +93,19 @@ def get_image_digest(image):
 
     # https://docs.docker.com/registry/spec/api/#pulling-an-image
     manifest_path = '/v2/%s/%s/manifests/%s' % (namespace, name, tag)
-    headers = {'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}
+    accepted_content_types = [
+        'application/vnd.oci.image.index.v1+json',
+        'application/vnd.docker.distribution.manifest.v2+json'
+    ]
+    headers = {'Accept': ', '.join(accepted_content_types)}
     response = get(REGISTRY_URL, manifest_path, headers=headers)
 
     # https://docs.docker.com/registry/spec/api/#content-digests
-    if response.status_code != 200 or 'Docker-Content-Digest' not in response.headers:
-        raise DMakeException('Docker registry: Error getting image digest: %s%s %s %s' % (REGISTRY_URL, manifest_path, response.status_code, response.text))
+    if response.status_code != 200 \
+       or response.headers['content-type'] not in accepted_content_types \
+       or 'Docker-Content-Digest' not in response.headers:
+        raise DMakeException('Docker registry: Error getting image digest: %s%s %s %s %s' %
+                             (REGISTRY_URL, manifest_path, response.headers, response.status_code, response.text))
 
     return response.headers['Docker-Content-Digest']
 
