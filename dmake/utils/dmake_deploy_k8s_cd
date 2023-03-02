@@ -38,11 +38,10 @@ selectors = sys.argv[8]
 WAIT_POLL_INTERVAL = 1  # seconds
 PARALLEL_UPDATE_THREAD_POOL_SIZE = 10  # number of Deployments being updated in parallel
 
-os.system('kubectl get nodes')  # refresh auth token for kubectl, otherwise next line might fail
 kubernetes.config.load_kube_config(context=context)
 
 if os.getenv('DMAKE_DEBUG') == '1':
-    configuration = kubernetes.client.Configuration()
+    configuration = kubernetes.client.Configuration.get_default_copy()
     configuration.debug = True
     kubernetes.client.Configuration.set_default(configuration)
     logger.setLevel(logging.DEBUG)
