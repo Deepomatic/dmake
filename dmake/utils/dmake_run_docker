@@ -44,7 +44,7 @@ if [ ! -z "${TMP_DIR}" ]; then
     echo ${NAME} >> ${TMP_DIR}/containers_to_remove.txt
 fi
 
-DOCKER_RUN_ARGS=( )
+DOCKER_RUN_ARGS=( $DMAKE_DOCKER_RUN_EXTRA_ARGS )  # volontarily non-escaped env var to allow passing mutiple extra args via one env var (bash array vars cannot be passed via env vars); limitations: split on spaces will break any tentative of space escaping: space chars are not supported
 
 # support some GPU modes using nvidia docker v2
 if [[ "${DMAKE_DOCKER_RUN_WITH_GPU}" == 'yes' ]]; then
