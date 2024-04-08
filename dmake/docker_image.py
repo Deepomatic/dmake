@@ -103,18 +103,15 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
     source_directories_additional_contexts = FieldSerializer("array", child = "string", default = [], example = ['../web'], help_text = "NOT RECOMMENDED. Additional source directories contexts for changed services auto detection in case of build context going outside of the dmake.yml directory.")
     check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", default = "${_BRANCH_SANITIZED_FOR_DOCKER}-${_BUILD_ID_OR_LATEST}${_VARIANT_SUFFIX}", help_text = "Tag of the docker image to build (with extra environment variables available only for this field: prefixed by '_')")
+    aliases          = FieldSerializer(["array"], optional = True, child = "string", example = ["europe-west1-docker.pkg.dev/deepomatic-160015/docker-main/my-image"], help_text = "Add image name aliases, useful when wanting to push to multiple registries")
 
     def get_source_directories_additional_contexts(self):
         return self.source_directories_additional_contexts
 
-    def get_image_name(self, env=None, latest=False):
+    def _get_image_name(self, name, env=None, latest=False):
         if env is None:
             env = {}
-        # name
-        if self.name is None:
-            name = self.service.original_service_name.replace('/', '-')
-        else:
-            name = common.eval_str_in_env(self.name, env)
+
         # tag
         tag_env = env.copy()
         # special extra env vars for tags, prefixed with '_'
@@ -128,20 +125,39 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
         image_name = name + ":" + tag
         return image_name
 
+    def get_image_name(self, env=None, latest=False):
+        # name
+        if self.name is None:
+            name = self.service.original_service_name.replace('/', '-')
+        else:
+            name = common.eval_str_in_env(self.name, env)
+        return self._get_image_name(name, env=env, latest=latest)
+
+    def get_aliases_names(self, env=None, latest=False):
+        aliases = []
+        if self.aliases:
+            for alias in self.aliases:
+                # name
+                name = common.eval_str_in_env(alias, env)
+                aliases.append(self._get_image_name(name, env=env, latest=latest))
+        return aliases
+
     def get_base_image_variant(self):
         return self.base_image_variant
 
     def generate_push_docker(self, commands, service_name, env):
-        image_name = self.get_image_name(env=env)
-        # When deploying, we need to push the image. We make sure that the image has a user
-        if len(image_name.split('/')) == 1:
-            image_name_without_tag = image_name.split(':')[0]
-            raise DMakeException("Service '{}' declares a docker image without a user name in config::docker_image::name so I cannot deploy it. I suggest to change it to 'your_company/{}'".format(service_name, image_name_without_tag))
+        image_names = [self.get_image_name(env=env)]
+        image_names.extend(self.get_aliases_names(env=env))
+        for image_name in image_names:
+            # When deploying, we need to push the image. We make sure that the image has a user
+            if len(image_name.split('/')) == 1:
+                image_name_without_tag = image_name.split(':')[0]
+                raise DMakeException("Service '{}' declares a docker image without a user name in config::docker_image::name so I cannot deploy it. I suggest to change it to 'your_company/{}'".format(service_name, image_name_without_tag))
 
-        check_private_flag = "1" if self.check_private else "0"
-        append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
-        image_latest = self.get_image_name(env=env, latest=True)
-        append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
+            check_private_flag = "1" if self.check_private else "0"
+            append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
+            image_latest = self.get_image_name(env=env, latest=True)
+            append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
 
 ###############################################################################
 
@@ -225,13 +241,16 @@ class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
         result = super(ServiceDockerBuildSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         return result
 
-    def _serialize_(self, commands, path_dir, image_name, build_args):
+    def _serialize_(self, commands, path_dir, image_names, build_args):
         # variables substitution from dmake process environment
         common.eval_values_in_env(self.args, strict=True)
         common.eval_values_in_env(self.labels, strict=True)
 
         program = 'dmake_build_docker'
-        args = [self.context, image_name]
+        args = [self.context, image_names[0]]
+        if len(image_names) > 1:
+            for image_name in image_names[1:]:
+                args.append(f'--tag={image_name}')
         # dockerfile
         if self.dockerfile:
             # in docker-compose the `dockerfile` path is relative to the `context`, we do the same in dmake; but in `docker image build the `--file` path is relative to CWD, not to `context`.
@@ -259,13 +278,14 @@ class ServiceDockerV2Serializer(ServiceDockerCommonSerializer):
         return True
 
     def generate_build_docker(self, commands, path_dir, docker_base, build):
-        image_name = self.get_image_name()
+        image_names = [self.get_image_name()]
+        image_names.extend(self.get_aliases_names())
         base_image_name = docker_base.get_docker_base_image(self.base_image_variant)
         build_args = {
             'BASE_IMAGE': base_image_name,
             'WORKDIR': os.path.join(docker_base.mount_point, path_dir),
         }
-        self.build._serialize_(commands, path_dir, image_name, build_args)
+        self.build._serialize_(commands, path_dir, image_names, build_args)
 
 ###############################################################################
 
