@@ -103,7 +103,7 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
     source_directories_additional_contexts = FieldSerializer("array", child = "string", default = [], example = ['../web'], help_text = "NOT RECOMMENDED. Additional source directories contexts for changed services auto detection in case of build context going outside of the dmake.yml directory.")
     check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", default = "${_BRANCH_SANITIZED_FOR_DOCKER}-${_BUILD_ID_OR_LATEST}${_VARIANT_SUFFIX}", help_text = "Tag of the docker image to build (with extra environment variables available only for this field: prefixed by '_')")
-    aliases          = FieldSerializer(["array"], optional = True, child = "string", example = ["europe-west1-docker.pkg.dev/deepomatic-160015/docker-main/my-image"], help_text = "Add image name aliases, useful when wanting to push to multiple registries")
+    aliases          = FieldSerializer("array", child = "string", default = [], example = ["europe-west1-docker.pkg.dev/deepomatic-160015/docker-main/my-image"], help_text = "Add image name aliases, useful when wanting to push to multiple registries")
 
     def get_source_directories_additional_contexts(self):
         return self.source_directories_additional_contexts
