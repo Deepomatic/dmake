@@ -146,17 +146,23 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
         return self.base_image_variant
 
     def generate_push_docker(self, commands, service_name, env):
-        image_names = [self.get_image_name(env=env)]
-        image_names.extend(self.get_aliases_names(env=env))
-        for image_name in image_names:
-            # When deploying, we need to push the image. We make sure that the image has a user
-            if len(image_name.split('/')) == 1:
-                image_name_without_tag = image_name.split(':')[0]
-                raise DMakeException("Service '{}' declares a docker image without a user name in config::docker_image::name so I cannot deploy it. I suggest to change it to 'your_company/{}'".format(service_name, image_name_without_tag))
+        image_name = self.get_image_name(env=env)
+        # When deploying, we need to push the image. We make sure that the image has a user
+        if len(image_name.split('/')) == 1:
+            image_name_without_tag = image_name.split(':')[0]
+            raise DMakeException("Service '{}' declares a docker image without a user name in config::docker_image::name so I cannot deploy it. I suggest to change it to 'your_company/{}'".format(service_name, image_name_without_tag))
 
-            check_private_flag = "1" if self.check_private else "0"
+        check_private_flag = "1" if self.check_private else "0"
+        append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
+        image_latest = self._get_image_name(image_name, env=env, latest=True)
+        append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
+
+        image_aliases = self.get_aliases_names(env=env)
+        for image_name in image_aliases:
+            # We skip user check for aliases as it would be painful to handle all scenarios
+            check_private_flag = "0"  # We also skip private repository check as too complex
             append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
-            image_latest = self.get_image_name(env=env, latest=True)
+            image_latest = self._get_image_name(image_name, env=env, latest=True)
             append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
 
 ###############################################################################
