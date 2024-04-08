@@ -67,6 +67,8 @@ services:
           - ../web
         check_private: true
         tag: ${_BRANCH_SANITIZED_FOR_DOCKER}-${_BUILD_ID_OR_LATEST}${_VARIANT_SUFFIX}
+        aliases:
+          - europe-west1-docker.pkg.dev/deepomatic-160015/docker-main/my-image
         workdir: some/dir/example
         copy_directories:
           - some/dir/example
