@@ -133,14 +133,8 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
             name = common.eval_str_in_env(self.name, env)
         return self._get_image_name(name, env=env, latest=latest)
 
-    def get_aliases_names(self, env=None, latest=False):
-        aliases = []
-        if self.aliases:
-            for alias in self.aliases:
-                # name
-                name = common.eval_str_in_env(alias, env)
-                aliases.append(self._get_image_name(name, env=env, latest=latest))
-        return aliases
+    def _get_aliases(self, env=None):
+        return [common.eval_str_in_env(alias, env) for alias in self.aliases]
 
     def get_base_image_variant(self):
         return self.base_image_variant
@@ -154,16 +148,17 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
 
         check_private_flag = "1" if self.check_private else "0"
         append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
-        image_latest = self._get_image_name(image_name, env=env, latest=True)
+        image_latest = self.get_image_name(env=env, latest=True)
         append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
 
-        image_aliases = self.get_aliases_names(env=env)
-        for image_name in image_aliases:
+        aliases = self._get_aliases(env=env)
+        for alias in aliases:
+            alias_image_name = self._get_image_name(alias, env=env)
             # We skip user check for aliases as it would be painful to handle all scenarios
             check_private_flag = "0"  # We also skip private repository check as too complex
-            append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
-            image_latest = self._get_image_name(image_name, env=env, latest=True)
-            append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
+            append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, alias_image_name, alias_image_name, check_private_flag))
+            alias_image_latest = self._get_image_name(alias, env=env, latest=True)
+            append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, alias_image_latest, alias_image_latest, check_private_flag))
 
 ###############################################################################
 
@@ -247,16 +242,13 @@ class ServiceDockerBuildSerializer(YAML2PipelineSerializer):
         result = super(ServiceDockerBuildSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         return result
 
-    def _serialize_(self, commands, path_dir, image_names, build_args):
+    def _serialize_(self, commands, path_dir, image_name, build_args):
         # variables substitution from dmake process environment
         common.eval_values_in_env(self.args, strict=True)
         common.eval_values_in_env(self.labels, strict=True)
 
         program = 'dmake_build_docker'
-        args = [self.context, image_names[0]]
-        if len(image_names) > 1:
-            for image_name in image_names[1:]:
-                args.append(f'--tag={image_name}')
+        args = [self.context, image_name]
         # dockerfile
         if self.dockerfile:
             # in docker-compose the `dockerfile` path is relative to the `context`, we do the same in dmake; but in `docker image build the `--file` path is relative to CWD, not to `context`.
@@ -284,14 +276,13 @@ class ServiceDockerV2Serializer(ServiceDockerCommonSerializer):
         return True
 
     def generate_build_docker(self, commands, path_dir, docker_base, build):
-        image_names = [self.get_image_name()]
-        image_names.extend(self.get_aliases_names())
+        image_name = self.get_image_name()
         base_image_name = docker_base.get_docker_base_image(self.base_image_variant)
         build_args = {
             'BASE_IMAGE': base_image_name,
             'WORKDIR': os.path.join(docker_base.mount_point, path_dir),
         }
-        self.build._serialize_(commands, path_dir, image_names, build_args)
+        self.build._serialize_(commands, path_dir, image_name, build_args)
 
 ###############################################################################
 
