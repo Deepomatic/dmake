@@ -103,18 +103,15 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
     source_directories_additional_contexts = FieldSerializer("array", child = "string", default = [], example = ['../web'], help_text = "NOT RECOMMENDED. Additional source directories contexts for changed services auto detection in case of build context going outside of the dmake.yml directory.")
     check_private    = FieldSerializer("bool", default = True, help_text = "Check that the docker repository is private before pushing the image.")
     tag              = FieldSerializer("string", default = "${_BRANCH_SANITIZED_FOR_DOCKER}-${_BUILD_ID_OR_LATEST}${_VARIANT_SUFFIX}", help_text = "Tag of the docker image to build (with extra environment variables available only for this field: prefixed by '_')")
+    aliases          = FieldSerializer("array", child = "string", default = [], example = ["europe-west1-docker.pkg.dev/deepomatic-160015/docker-main/my-image"], help_text = "Add image name aliases, useful when wanting to push to multiple registries")
 
     def get_source_directories_additional_contexts(self):
         return self.source_directories_additional_contexts
 
-    def get_image_name(self, env=None, latest=False):
+    def _get_image_name(self, name, env=None, latest=False):
         if env is None:
             env = {}
-        # name
-        if self.name is None:
-            name = self.service.original_service_name.replace('/', '-')
-        else:
-            name = common.eval_str_in_env(self.name, env)
+
         # tag
         tag_env = env.copy()
         # special extra env vars for tags, prefixed with '_'
@@ -127,6 +124,17 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
         # image name
         image_name = name + ":" + tag
         return image_name
+
+    def get_image_name(self, env=None, latest=False):
+        # name
+        if self.name is None:
+            name = self.service.original_service_name.replace('/', '-')
+        else:
+            name = common.eval_str_in_env(self.name, env)
+        return self._get_image_name(name, env=env, latest=latest)
+
+    def _get_aliases(self, env=None):
+        return [common.eval_str_in_env(alias, env) for alias in self.aliases]
 
     def get_base_image_variant(self):
         return self.base_image_variant
@@ -142,6 +150,15 @@ class ServiceDockerCommonSerializer(YAML2PipelineSerializer, AbstractDockerImage
         append_command(commands, 'sh', shell='dmake_push_docker_image "%s" "%s"' % (image_name, check_private_flag))
         image_latest = self.get_image_name(env=env, latest=True)
         append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, image_latest, image_latest, check_private_flag))
+
+        aliases = self._get_aliases(env=env)
+        for alias in aliases:
+            alias_image_name = self._get_image_name(alias, env=env)
+            # We skip user check for aliases as it would be painful to handle all scenarios
+            check_private_flag = "0"  # We also skip private repository check as too complex
+            append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, alias_image_name, alias_image_name, check_private_flag))
+            alias_image_latest = self._get_image_name(alias, env=env, latest=True)
+            append_command(commands, 'sh', shell='docker tag %s %s && dmake_push_docker_image "%s" "%s"' % (image_name, alias_image_latest, alias_image_latest, check_private_flag))
 
 ###############################################################################
 

@@ -101,6 +101,7 @@
                 - **source_directories_additional_contexts** *(array\<string\>, default = `[]`)*: NOT RECOMMENDED. Additional source directories contexts for changed services auto detection in case of build context going outside of the dmake.yml directory.
                 - **check_private** *(boolean, default = `True`)*: Check that the docker repository is private before pushing the image.
                 - **tag** *(string, default = `${_BRANCH_SANITIZED_FOR_DOCKER}-${_BUILD_ID_OR_LATEST}${_VARIANT_SUFFIX}`)*: Tag of the docker image to build (with extra environment variables available only for this field: prefixed by '_').
+                - **aliases** *(array\<string\>, default = `[]`)*: Add image name aliases, useful when wanting to push to multiple registries.
                 - **workdir** *(directory path)*: Working directory of the produced docker file, must be an existing directory. By default it will be directory of the dmake file.
                 - **copy_directories** *(array\<directory path\>, default = `[]`)*: Directories to copy in the docker image.
                 - **install_script** *(file path)*: The install script (will be run in the docker). It has to be executable.
@@ -114,6 +115,7 @@
                 - **source_directories_additional_contexts** *(array\<string\>, default = `[]`)*: NOT RECOMMENDED. Additional source directories contexts for changed services auto detection in case of build context going outside of the dmake.yml directory.
                 - **check_private** *(boolean, default = `True`)*: Check that the docker repository is private before pushing the image.
                 - **tag** *(string, default = `${_BRANCH_SANITIZED_FOR_DOCKER}-${_BUILD_ID_OR_LATEST}${_VARIANT_SUFFIX}`)*: Tag of the docker image to build (with extra environment variables available only for this field: prefixed by '_').
+                - **aliases** *(array\<string\>, default = `[]`)*: Add image name aliases, useful when wanting to push to multiple registries.
                 - **build** *(object)*: Docker build options for service built using user-provided Dockerfile (ignore `.build.commands`), like in Docker Compose files.`. It must be an object with the following fields:
                     - **context** *(directory path)*: Docker build context directory.
                     - **dockerfile** *(string)*: Alternate Dockerfile, relative path to `context` directory.
