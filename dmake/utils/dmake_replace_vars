@@ -33,7 +33,7 @@ else:
 
 data=open(input_file).read()
 
-lvars = re.findall('\${([A-Za-z\-_]+)}', data)
+lvars = re.findall(r'\${([A-Za-z\-_]+)}', data)
 for var in lvars:
     if var in os.environ:
         value = os.environ[var]
