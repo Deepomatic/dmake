@@ -6,7 +6,7 @@ usage: dmake [-h] [--debug-graph] [--debug-graph-and-exit]
              {test,build,run,stop,shell,deploy,release,graph,generate-doc,completion}
              ...
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --debug-graph         Generate dmake steps DOT graph for debug purposes.
   --debug-graph-and-exit
