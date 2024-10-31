@@ -109,8 +109,7 @@ node {
           sh ". .venv3/bin/activate && pytest --numprocesses=4 -vv --color=yes --junit-xml=junit.xml --junit-prefix=python3 --cov=dmake/ --cov-report=xml:coverage.xml --cov-report html:cover/"
         } finally {
           junit keepLongStdio: true, testResults: 'junit.xml'
-          step([$class: 'CoberturaPublisher', autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', failUnhealthy: false, failUnstable: false, maxNumberOfBuilds: 0, onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false])
-          publishCoverage adapters: [coberturaAdapter(mergeToOneReport: true, path: 'coverage.xml')], calculateDiffForChangeRequests: true, sourceFileResolver: sourceFiles('NEVER_STORE')
+          recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'coverage.xml']], qualityGates: [[metric: 'LINE', baseline: 'PROJECT_DELTA', criticality: 'NOTE']], sourceCodeRetention: 'NEVER')
           publishHTML(target: [allowMissing: false, alwaysLinkToLastBuild: false, keepAll: true, reportDir: 'cover', reportFiles: 'index.html', reportName: 'dmake HTML coverage report'])
         }
       }
