@@ -78,11 +78,28 @@ fi
 
 echo_title Wait rollout for ${SERVICE} Deployment on kubernetes cluster ${CONTEXT}:
 
+# 0 and negative values don't seem very consistent depending on the type of wait command
+# - argo rollout status: 0 is forever
+# - rollout status deployment: 0 is never
+# - kubectl wait: 0 means check once, negative value means forever
+# IMPORTANT: don't use those values and prefer to set a real value (long one if wants forever) to get a consistent behavior
+# Timeout could eventually be encoded in the annotation instead of true/false
+TIMEOUT=${DMAKE_WAIT_TIMEOUT:-10m} # Default to one day
+
 DEPLOYMENTS=( $(kubectl "${BASE_ARGS[@]}" get deployment --selector=dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/wait!=false --output=jsonpath={.items..metadata.name}) )
 for DEPLOYMENT in ${DEPLOYMENTS[@]}; do
-  ROLLOUT_STATUS_ARGS=( "${BASE_ARGS[@]}" rollout status --watch=true deployment/${DEPLOYMENT} )
+  ROLLOUT_STATUS_ARGS=( "${BASE_ARGS[@]}" rollout status --watch=true --timeout ${TIMEOUT} deployment/${DEPLOYMENT} )
   echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
   ${KUBECTL[@]} "${ROLLOUT_STATUS_ARGS[@]}"
+done
+
+
+JOBS=( $(kubectl "${BASE_ARGS[@]}" get job --selector=dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/wait!=false --output=jsonpath={.items..metadata.name}) )
+echo $JOBS
+for JOB in ${JOBS[@]}; do
+  WAIT_FOR_ARGS=( "${BASE_ARGS[@]}" wait --for=condition=complete --timeout ${TIMEOUT} job/${JOB} )
+  echo kubectl "${WAIT_FOR_ARGS[@]}"
+  ${KUBECTL[@]} "${WAIT_FOR_ARGS[@]}"
 done
 
 # if argo rollouts setup in cluster, wait for those too
@@ -92,7 +109,7 @@ if kubectl "${BASE_ARGS[@]}" api-resources -o name | grep -q rollouts.argoproj.i
   ROLLOUTS=( $(kubectl "${BASE_ARGS[@]}" get rollouts --selector=dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/wait!=false --output=jsonpath={.items..metadata.name}) )
   if [ -x "$(command -v kubectl-argo-rollouts)" ]; then
     for ROLLOUT in ${ROLLOUTS[@]}; do
-      ROLLOUT_STATUS_ARGS=( argo rollouts "${BASE_ARGS[@]}" status --watch=true ${ROLLOUT} )
+      ROLLOUT_STATUS_ARGS=( argo rollouts "${BASE_ARGS[@]}" status --timeout ${TIMEOUT} --watch=true ${ROLLOUT} )
       echo kubectl "${ROLLOUT_STATUS_ARGS[@]}"
       ${KUBECTL[@]} "${ROLLOUT_STATUS_ARGS[@]}"
     done
