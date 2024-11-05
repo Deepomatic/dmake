@@ -84,7 +84,7 @@ echo_title Wait rollout for ${SERVICE} Deployment on kubernetes cluster ${CONTEX
 # - kubectl wait: 0 means check once, negative value means forever
 # IMPORTANT: don't use those values and prefer to set a real value (long one if wants forever) to get a consistent behavior
 # Timeout could eventually be encoded in the annotation instead of true/false
-TIMEOUT=${DMAKE_WAIT_TIMEOUT:-10m} # Default to one day
+TIMEOUT=${DMAKE_WAIT_TIMEOUT:-10m}
 
 DEPLOYMENTS=( $(kubectl "${BASE_ARGS[@]}" get deployment --selector=dmake.deepomatic.com/service=${SERVICE},dmake.deepomatic.com/wait!=false --output=jsonpath={.items..metadata.name}) )
 for DEPLOYMENT in ${DEPLOYMENTS[@]}; do
