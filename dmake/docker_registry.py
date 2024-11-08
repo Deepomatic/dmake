@@ -95,7 +95,8 @@ def get_image_digest(image):
     manifest_path = '/v2/%s/%s/manifests/%s' % (namespace, name, tag)
     accepted_content_types = [
         'application/vnd.oci.image.index.v1+json',
-        'application/vnd.docker.distribution.manifest.v2+json'
+        'application/vnd.docker.distribution.manifest.v2+json',
+        'application/vnd.docker.distribution.manifest.list.v2+json',
     ]
     headers = {'Accept': ', '.join(accepted_content_types)}
     response = get(REGISTRY_URL, manifest_path, headers=headers)
