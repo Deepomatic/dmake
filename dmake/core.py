@@ -503,7 +503,8 @@ def generate_command_pipeline(file, cmds):
     write_line('try {')
     indent_level += 1
 
-    cobertura_tests_results_dir = os.path.join(common.relative_cache_dir, 'cobertura_tests_results')
+    # We use one dedicated directory per build to avoid loading results from previous builds
+    cobertura_tests_results_dir = os.path.join(common.relative_cache_dir, 'cobertura_tests_results', str(common.build_id))
     emit_cobertura = False
 
     # checks to generate valid Jenkinsfiles
