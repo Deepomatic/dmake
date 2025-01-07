@@ -671,7 +671,7 @@ def generate_command_pipeline(file, cmds):
         write_line('''sh('rm -rf "%s"')''' % cobertura_tests_results_dir)
         indent_level -= 1
         write_line("} catch (error) {")
-        write_line("  dmake_echo 'Late cobertura_report test result collection failed, it may be because the test steps were not reached (earlier error: check logs/steps above/before), or because the cobertura_report is misconfigured (check the path config).'")
+        write_line("  dmake_echo 'Late cobertura_report test result collection failed, it may be because the test steps were not reached (earlier error: check logs/steps above/before), or because the cobertura_report is misconfigured (check the path config). Error message: ${error}'")
         write_line("}")
 
     write_line('sh("dmake_clean")')
