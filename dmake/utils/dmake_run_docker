@@ -58,7 +58,7 @@ DOCKER_RUN_ARGS+=( --name ${NAME} "$@" )
 
 # support telepresence
 if [[ "${DMAKE_TELEPRESENCE}" == '1' ]]; then
-  telepresence ${DMAKE_TELEPRESENCE_ARGS} --docker-run "${DOCKER_RUN_ARGS[@]}"
+  telepresence ${DMAKE_TELEPRESENCE_ARGS} docker-run "${DOCKER_RUN_ARGS[@]}"
 else
   docker run "${DOCKER_RUN_ARGS[@]}"
 fi
