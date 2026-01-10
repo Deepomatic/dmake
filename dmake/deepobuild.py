@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import os
 import copy
 import functools
@@ -177,6 +178,7 @@ class SharedVolumeMountSerializer(YAML2PipelineSerializer):
         options = '-v %s:%s' % (volume_id, target)
         return options
 
+
 class VolumeMountSerializer(YAML2PipelineSerializer):
     container_volume  = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume mounted in the container")
     host_volume       = FieldSerializer("string", example = "/mnt", help_text = "Path of the volume from the host")
@@ -196,13 +198,42 @@ class VolumeMountSerializer(YAML2PipelineSerializer):
         return result
 
 
-class DockerBaseSerializer(YAML2PipelineSerializer):
+class DockerBaseImageBaseSerializer(YAML2PipelineSerializer, ABC):
     name                 = FieldSerializer("string", help_text = "Base image name. If no docker user (namespace) is indicated, the image will be kept locally, otherwise it will be pushed.")
     variant              = FieldSerializer("string", optional = True, help_text = "When multiple base_image are defined, this names the base_image variant.", example = "tf")
     root_image           = FieldSerializer("string", optional = True, help_text = "The source image to build on. Defaults to docker.root_image", example = "ubuntu:20.04")
+
+    def __init__(self, *args, **kwargs):
+        super(DockerBaseImageBaseSerializer, self).__init__(*args, **kwargs)
+        self.tag = None
+
+    def get_name_variant(self):
+        name_variant = self.name
+        if self.variant is not None:
+            name_variant += ':' + self.variant
+        return name_variant
+
+    def get_service_name(self):
+        service = self.get_name_variant() + '::base'  # disambiguate with other services (app services, docker_link services, shared volume services)
+        return service
+
+    def get_docker_image(self):
+        assert self.tag is not None, "tag must be initialized first"
+        image = self.name + ":" + self.tag
+        return image
+
+    @staticmethod
+    def _get_base_image_tag(root_image_digest, dmake_digest, version=2):
+        dmake_digest_name = 'd2' if version == 2 else 'dd'
+        tag = 'base-rid-%s-%s-%s' % (root_image_digest.replace(':', '-'), dmake_digest_name, dmake_digest)
+        assert len(tag) <= 128, "docker tag limit"
+        return tag
+
+
+class DeprecatedDockerBaseImageSerializer(DockerBaseImageBaseSerializer):
     raw_root_image       = FieldSerializer("bool", default = False, help_text = "If true, don't install anything on the root_image before executing install_scripts")
     version              = FieldSerializer("string", help_text = "Deprecated, not used anymore, will be removed later.", default = 'latest')
-    install_scripts      = FieldSerializer("array", default = [], child = FieldSerializer("file", executable = True, child_path_only = True), example = ["some/relative/script/to/run"])
+    install_scripts      = FieldSerializer("array", deprecated="Use the new way of building base Docker images, see https://github.com/Deepomatic/dmake/pull/575", default = [], child = FieldSerializer("file", executable = True, child_path_only = True), example = ["some/relative/script/to/run"])
     python_requirements  = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "")
     python3_requirements = FieldSerializer("file", default = "", child_path_only = True, help_text = "Path to python requirements.txt.", example = "requirements.txt")
     copy_files           = FieldSerializer("array", child = FieldSerializer("path", child_path_only = True), default = [], help_text = "Files to copy. Will be copied before scripts are ran. Paths need to be sub-paths to the build file to preserve MD5 sum-checking (which is used to decide if we need to re-build docker base image). A file 'foo/bar' will be copied in '/base/user/foo/bar'.", example = ["some/relative/file/to/copy"])
@@ -214,10 +245,10 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         if self.serializer_version == 2:
             self.variant.optional = False
             self.root_image.optional = False
-        super(DockerBaseSerializer, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def _validate_(self, file, needed_migrations, data, field_name=''):
-        result = super(DockerBaseSerializer, self)._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
+        result = super()._validate_(file, needed_migrations=needed_migrations, data=data, field_name=field_name)
         if result and self.raw_root_image \
            and (self.python_requirements or self.python3_requirements):
             raise ValidationError("Invalid 'base_image': cannot set 'raw_root_image=true' with deprecated 'python_requirements' or 'python3_requirements'.")
@@ -377,27 +408,6 @@ class DockerBaseSerializer(YAML2PipelineSerializer):
         cmd = '%s %s' % (program, ' '.join(map(common.wrap_cmd, args)))
         append_command(commands, 'sh', shell = cmd)
 
-    @staticmethod
-    def _get_base_image_tag(root_image_digest, dmake_digest, version=2):
-        dmake_digest_name = 'd2' if version == 2 else 'dd'
-        tag = 'base-rid-%s-%s-%s' % (root_image_digest.replace(':', '-'), dmake_digest_name, dmake_digest)
-        assert len(tag) <= 128, "docker tag limit"
-        return tag
-
-    def get_name_variant(self):
-        name_variant = self.name
-        if self.variant is not None:
-            name_variant += ':' + self.variant
-        return name_variant
-
-    def get_service_name(self):
-        service = self.get_name_variant() + '::base'  # disambiguate with other services (app services, docker_link services, shared volume services)
-        return service
-
-    def get_docker_image(self):
-        assert self.tag is not None, "tag must be initialized first"
-        image = self.name + ":" + self.tag
-        return image
 
 class DockerRootImageSerializer(YAML2PipelineSerializer):
     name = FieldSerializer("string", help_text = "Root image name.", example = "library/ubuntu")
@@ -405,7 +415,11 @@ class DockerRootImageSerializer(YAML2PipelineSerializer):
 
 class DockerSerializer(YAML2PipelineSerializer):
     root_image   = FieldSerializer([FieldSerializer("file", help_text = "to another dmake file, in which base the root_image will be this file's base_image."), DockerRootImageSerializer()], optional = True, help_text = "The default source image name to build on.")
-    base_image   = FieldSerializer([DockerBaseSerializer(version = 1), "array"], child = DockerBaseSerializer(version = 2), default = [], help_text = "Base (development environment) imags.")
+    base_image   = FieldSerializer(
+        [
+            DeprecatedDockerBaseImageSerializer(version = 1),
+            FieldSerializer("array", child = DeprecatedDockerBaseImageSerializer(version = 2))
+        ], help_text = "Base (development environment) images.")
     mount_point  = FieldSerializer("string", default = "/app", help_text = "Mount point of the app in the built docker image. Needs to be an absolute path.")
     command      = FieldSerializer("string", default = "bash", help_text = "Only used when running 'dmake shell': command passed to `docker run`")
 
@@ -414,7 +428,7 @@ class DockerSerializer(YAML2PipelineSerializer):
 
         # make base_image an array
         base_image = self.base_image
-        self.__fields__['base_image'].value = [base_image] if isinstance(base_image, DockerBaseSerializer) else base_image
+        self.__fields__['base_image'].value = [base_image] if isinstance(base_image, DeprecatedDockerBaseImageSerializer) else base_image
 
         # check variant duplicates
         seen = set()
