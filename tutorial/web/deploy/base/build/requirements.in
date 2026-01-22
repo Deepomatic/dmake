@@ -1,5 +1,5 @@
 # open ranges, hopefully without breaking change, pip-compile then freezes everyting for stability
-django>=3.2.9,<3.3
+django>=3.2.9,<4.3
 kombu>=5.2.2,<6
 nose==1.3.7
 django-nose==1.4.7
